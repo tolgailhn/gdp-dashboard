@@ -17,6 +17,10 @@ anthropic>=0.18.0
 requests>=2.31.0
 Pillow>=10.0.0
 
+# Web Scraping (ucretsiz trend cekme)
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+
 # Zamanlama
 pytz>=2023.3
 python-dateutil>=2.8.2

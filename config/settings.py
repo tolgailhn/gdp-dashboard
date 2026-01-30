@@ -16,6 +16,27 @@ from pathlib import Path
 # Proje kök dizini
 BASE_DIR = Path(__file__).parent.parent
 
+
+def get_secret(key: str, default: str = "") -> str:
+    """
+    Hem environment variables hem de Streamlit secrets'dan değer al.
+    Streamlit Cloud için secrets.toml desteği.
+    """
+    # Önce environment variable'dan dene
+    value = os.getenv(key, "")
+    if value:
+        return value
+
+    # Sonra Streamlit secrets'dan dene
+    try:
+        import streamlit as st
+        if hasattr(st, 'secrets') and key in st.secrets:
+            return st.secrets[key]
+    except:
+        pass
+
+    return default
+
 # ============================================================================
 # TWITTER/X API AYARLARI
 # ============================================================================
@@ -24,12 +45,12 @@ BASE_DIR = Path(__file__).parent.parent
 class TwitterAPIConfig:
     """Twitter/X API yapılandırması"""
 
-    # API Anahtarları (environment variables'dan alınır)
-    api_key: str = field(default_factory=lambda: os.getenv("TWITTER_API_KEY", ""))
-    api_secret: str = field(default_factory=lambda: os.getenv("TWITTER_API_SECRET", ""))
-    access_token: str = field(default_factory=lambda: os.getenv("TWITTER_ACCESS_TOKEN", ""))
-    access_token_secret: str = field(default_factory=lambda: os.getenv("TWITTER_ACCESS_TOKEN_SECRET", ""))
-    bearer_token: str = field(default_factory=lambda: os.getenv("TWITTER_BEARER_TOKEN", ""))
+    # API Anahtarları (environment variables veya Streamlit secrets'dan alınır)
+    api_key: str = field(default_factory=lambda: get_secret("TWITTER_API_KEY"))
+    api_secret: str = field(default_factory=lambda: get_secret("TWITTER_API_SECRET"))
+    access_token: str = field(default_factory=lambda: get_secret("TWITTER_ACCESS_TOKEN"))
+    access_token_secret: str = field(default_factory=lambda: get_secret("TWITTER_ACCESS_TOKEN_SECRET"))
+    bearer_token: str = field(default_factory=lambda: get_secret("TWITTER_BEARER_TOKEN"))
 
     # API Versiyonu
     api_version: str = "2"  # v2 API kullanıyoruz
@@ -56,11 +77,11 @@ class AIConfig:
     """AI içerik oluşturma yapılandırması"""
 
     # OpenAI API (GPT)
-    openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
+    openai_api_key: str = field(default_factory=lambda: get_secret("OPENAI_API_KEY"))
     openai_model: str = "gpt-4-turbo-preview"
 
     # Anthropic API (Claude)
-    anthropic_api_key: str = field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY", ""))
+    anthropic_api_key: str = field(default_factory=lambda: get_secret("ANTHROPIC_API_KEY"))
     anthropic_model: str = "claude-3-opus-20240229"
 
     # Varsayılan AI sağlayıcı
@@ -88,10 +109,10 @@ class ImageConfig:
     """Görsel arama yapılandırması"""
 
     # Unsplash API
-    unsplash_access_key: str = field(default_factory=lambda: os.getenv("UNSPLASH_ACCESS_KEY", ""))
+    unsplash_access_key: str = field(default_factory=lambda: get_secret("UNSPLASH_ACCESS_KEY"))
 
     # Pexels API
-    pexels_api_key: str = field(default_factory=lambda: os.getenv("PEXELS_API_KEY", ""))
+    pexels_api_key: str = field(default_factory=lambda: get_secret("PEXELS_API_KEY"))
 
     # Görsel ayarları
     default_image_width: int = 1200

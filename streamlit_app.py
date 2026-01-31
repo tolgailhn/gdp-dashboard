@@ -27,6 +27,10 @@ from src.content.viral_strategies import (
 from src.content.viral_discovery import (
     viral_discovery, CONTENT_CATEGORIES, ViralTweet
 )
+from src.content.trending_discovery import (
+    trending_discovery, thread_generator, TRENDING_CATEGORIES,
+    TrendingTopic, ThreadContent
+)
 
 # Sayfa yapılandırması - MOBİL UYUMLU
 st.set_page_config(
@@ -142,7 +146,7 @@ def init_session():
         "trend_analysis": None,
         "trends_cache": None,
         "voice_profile": load_or_create_default(),  # @ilhntolga profili otomatik yüklenir
-        "page": "main",  # main, profile, tips, xpatla, discover
+        "page": "main",  # main, profile, tips, xpatla, discover, trending
         "viral_analysis": None,
         "daily_tip": xpatla_tips.get_daily_tip(),
         # Keşfet sayfası için
@@ -150,6 +154,11 @@ def init_session():
         "selected_category": None,
         "search_topic": "",
         "selected_viral_tweet": None,
+        # Trending sayfası için
+        "trending_topics": [],
+        "trending_category": "all",
+        "selected_trending_topic": None,
+        "generated_thread": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -298,7 +307,7 @@ def render_header():
 
 def render_navigation():
     """Üst navigasyon"""
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
 
     with col1:
         if st.button("🏠 Tweet", use_container_width=True):
@@ -306,21 +315,26 @@ def render_navigation():
             st.rerun()
 
     with col2:
+        if st.button("📡 Gündem", use_container_width=True):
+            st.session_state.page = "trending"
+            st.rerun()
+
+    with col3:
         if st.button("🔍 Keşfet", use_container_width=True):
             st.session_state.page = "discover"
             st.rerun()
 
-    with col3:
+    with col4:
         if st.button("🔥 XPatla", use_container_width=True):
             st.session_state.page = "xpatla"
             st.rerun()
 
-    with col4:
+    with col5:
         if st.button("👤 Profil", use_container_width=True):
             st.session_state.page = "profile"
             st.rerun()
 
-    with col5:
+    with col6:
         if st.button("💡 Tips", use_container_width=True):
             st.session_state.page = "tips"
             st.rerun()
@@ -487,6 +501,184 @@ def render_profile_page():
             <p><b>Örnek tweet sayısı:</b> {len(profile.sample_tweets)}</p>
         </div>
         """, unsafe_allow_html=True)
+
+
+def render_trending_page():
+    """Gündem - Reddit, HackerNews, Tech haberlerinden trending konular"""
+    st.markdown("## 📡 Şu An Ne Konuşuluyor?")
+    st.markdown("Reddit, HackerNews ve teknoloji haberlerinden anlık gündem")
+
+    # Kategori seçimi
+    st.markdown("### 📂 Kategori")
+    cat_cols = st.columns(5)
+
+    for i, (cat_key, cat_data) in enumerate(TRENDING_CATEGORIES.items()):
+        with cat_cols[i % 5]:
+            is_selected = st.session_state.trending_category == cat_key
+            btn_type = "primary" if is_selected else "secondary"
+
+            if st.button(cat_data["name"], key=f"trend_cat_{cat_key}", type=btn_type, use_container_width=True):
+                st.session_state.trending_category = cat_key
+                with st.spinner(f"🔄 {cat_data['name']} yükleniyor..."):
+                    st.session_state.trending_topics = trending_discovery.get_all_trending(cat_key)
+                st.rerun()
+
+    # Yükle butonu
+    if not st.session_state.trending_topics:
+        st.markdown("---")
+        if st.button("🔄 Gündem Yükle", type="primary", use_container_width=True):
+            with st.spinner("Reddit, HackerNews, Tech haberler taranıyor..."):
+                st.session_state.trending_topics = trending_discovery.get_all_trending(
+                    st.session_state.trending_category
+                )
+            st.rerun()
+
+        st.info("👆 Butona tıkla ve şu an internette en çok konuşulan konuları gör!")
+
+    # Trending konular listesi
+    if st.session_state.trending_topics:
+        st.markdown("---")
+        st.markdown(f"### 🔥 Trending Konular ({len(st.session_state.trending_topics)})")
+
+        # Yenile butonu
+        if st.button("🔄 Yenile"):
+            with st.spinner("Güncelleniyor..."):
+                st.session_state.trending_topics = trending_discovery.get_all_trending(
+                    st.session_state.trending_category
+                )
+            st.rerun()
+
+        for i, topic in enumerate(st.session_state.trending_topics):
+            with st.container():
+                # Kaynak ikonu
+                source_icons = {
+                    "reddit": "🔴",
+                    "hackernews": "🟠",
+                    "techcrunch": "💚",
+                    "wired": "🔵",
+                    "arstechnica": "🟣",
+                }
+                source_icon = source_icons.get(topic.source, "📰")
+
+                # Kategori rengi
+                cat_colors = {
+                    "ai": "#10B981",
+                    "tech": "#3B82F6",
+                    "crypto": "#F59E0B",
+                    "world": "#EF4444",
+                }
+                cat_color = cat_colors.get(topic.category, "#6B7280")
+
+                # Engagement göstergesi
+                engagement = f"⬆️ {topic.upvotes:,}" if topic.upvotes else ""
+                comments = f"💬 {topic.comments:,}" if topic.comments else ""
+                time_display = f"⏰ {topic.time_ago}" if topic.time_ago else ""
+
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+                    border-left: 4px solid {cat_color};
+                    padding: 15px;
+                    margin: 10px 0;
+                    border-radius: 0 12px 12px 0;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <span style="font-size: 0.75rem; color: #6B7280;">
+                            {source_icon} {topic.source.upper()} • {topic.category.upper()}
+                        </span>
+                        <span style="font-size: 0.75rem; color: #9CA3AF;">{time_display}</span>
+                    </div>
+                    <p style="font-size: 1rem; font-weight: 600; margin: 8px 0; color: #1F2937;">
+                        {topic.title[:150]}{'...' if len(topic.title) > 150 else ''}
+                    </p>
+                    <p style="font-size: 0.85rem; color: #6B7280; margin: 5px 0;">
+                        {topic.description[:120]}{'...' if len(topic.description) > 120 else ''}
+                    </p>
+                    <div style="font-size: 0.8rem; color: #10B981; margin-top: 8px;">
+                        {engagement} {comments}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    if st.button("🧵 Thread Yaz", key=f"thread_{i}", use_container_width=True):
+                        with st.spinner("Thread hazırlanıyor..."):
+                            # Detayları getir
+                            detailed_topic = trending_discovery.get_topic_details(topic)
+                            # Thread oluştur
+                            thread = thread_generator.generate_thread(
+                                detailed_topic,
+                                st.session_state.voice_profile.tone
+                            )
+                            st.session_state.generated_thread = thread
+                            st.session_state.selected_trending_topic = topic
+                        st.rerun()
+
+                with col2:
+                    if st.button("✨ Tweet Yaz", key=f"single_{i}", use_container_width=True):
+                        # Tek tweet oluştur
+                        thread = thread_generator.generate_thread(topic)
+                        single_tweet = thread_generator.format_as_single_tweet(thread)
+                        st.session_state.current_tweet = single_tweet
+                        st.session_state.page = "main"
+                        st.rerun()
+
+                with col3:
+                    if topic.url:
+                        st.markdown(f"[🔗 Kaynak]({topic.url})")
+
+                st.markdown("---")
+
+    # Oluşturulan thread
+    if st.session_state.generated_thread:
+        thread = st.session_state.generated_thread
+
+        st.markdown("### 🧵 Oluşturulan Thread")
+
+        # Thread'i göster
+        st.markdown("**Hook (İlk Tweet):**")
+        st.code(thread.hook, language=None)
+
+        st.markdown("**İçerik:**")
+        for i, tweet in enumerate(thread.body_tweets):
+            st.code(tweet, language=None)
+
+        st.markdown("**Son Tweet (CTA):**")
+        st.code(thread.conclusion, language=None)
+
+        st.markdown(f"**Hashtagler:** {' '.join(thread.hashtags)}")
+
+        # Aksiyonlar
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("📋 Tümünü Kopyala için Aç", type="primary", use_container_width=True):
+                # Tüm thread'i birleştir
+                full_thread = f"{thread.hook}\n\n"
+                full_thread += "\n\n".join(thread.body_tweets)
+                full_thread += f"\n\n{thread.conclusion}"
+                full_thread += f"\n\n{' '.join(thread.hashtags)}"
+
+                st.session_state.current_tweet = full_thread
+                st.session_state.page = "main"
+                st.rerun()
+
+        with col2:
+            if st.button("🔄 Yeniden Oluştur", use_container_width=True):
+                topic = st.session_state.selected_trending_topic
+                if topic:
+                    thread = thread_generator.generate_thread(topic)
+                    st.session_state.generated_thread = thread
+                    st.rerun()
+
+        # Temizle
+        if st.button("❌ Thread'i Kapat"):
+            st.session_state.generated_thread = None
+            st.session_state.selected_trending_topic = None
+            st.rerun()
 
 
 def render_discover_page():
@@ -1117,6 +1309,8 @@ def main():
         render_xpatla_page()
     elif st.session_state.page == "discover":
         render_discover_page()
+    elif st.session_state.page == "trending":
+        render_trending_page()
     else:
         render_main_page()
 

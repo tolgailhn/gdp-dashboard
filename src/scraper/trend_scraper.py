@@ -298,21 +298,121 @@ class FreeTrendScraper:
         """
         Bir konu hakkında bağlam bilgisi topla
         """
-        # Web araması ile bağlam topla
-        search_url = f"https://www.google.com/search?q={topic}+site:twitter.com+OR+site:x.com"
-
         context = {
             "topic": topic,
             "sample_tweets": [],
-            "related_terms": [],
+            "news": [],
             "summary": "",
+            "key_points": [],
+            "sentiment": "neutral",
         }
 
         # Tweet örnekleri
         tweets = self.search_topic_tweets(topic)
         context["sample_tweets"] = [t.to_dict() for t in tweets[:5]]
 
+        # Haber ara
+        news = self.search_news(topic)
+        context["news"] = news[:5]
+
+        # Özet oluştur
+        if news:
+            context["summary"] = f"{topic} hakkında güncel haberler mevcut."
+            context["key_points"] = [n.get("title", "")[:100] for n in news[:3]]
+
         return context
+
+    def search_news(self, topic: str) -> List[Dict]:
+        """
+        Konu hakkında güncel haberleri çek
+        """
+        news_list = []
+
+        # Google News RSS dene
+        try:
+            import urllib.parse
+            encoded_topic = urllib.parse.quote(topic)
+            url = f"https://news.google.com/rss/search?q={encoded_topic}&hl=tr&gl=TR&ceid=TR:tr"
+
+            response = self.session.get(url, timeout=10)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'xml')
+                items = soup.find_all('item')
+
+                for item in items[:10]:
+                    title = item.find('title')
+                    link = item.find('link')
+                    pub_date = item.find('pubDate')
+                    source = item.find('source')
+
+                    if title:
+                        news_list.append({
+                            "title": title.get_text(strip=True),
+                            "url": link.get_text(strip=True) if link else "",
+                            "date": pub_date.get_text(strip=True) if pub_date else "",
+                            "source": source.get_text(strip=True) if source else "",
+                        })
+
+                logger.info(f"'{topic}' için {len(news_list)} haber bulundu")
+
+        except Exception as e:
+            logger.error(f"Haber arama hatası: {e}")
+
+        return news_list
+
+    def analyze_trend(self, topic: str) -> Dict:
+        """
+        Bir trend hakkında kapsamlı analiz yap
+
+        Returns:
+            - Konu özeti
+            - Güncel haberler
+            - Örnek tweetler
+            - Anahtar noktalar
+            - Önerilen açılar (tweet için)
+        """
+        analysis = {
+            "topic": topic,
+            "news": [],
+            "sample_tweets": [],
+            "key_points": [],
+            "suggested_angles": [],
+            "hashtags": [],
+            "best_time_to_post": "Şimdi gündemde!",
+        }
+
+        # Haberleri çek
+        news = self.search_news(topic)
+        analysis["news"] = news[:5]
+
+        # Anahtar noktaları çıkar
+        if news:
+            analysis["key_points"] = [
+                n.get("title", "")[:80] + "..." if len(n.get("title", "")) > 80 else n.get("title", "")
+                for n in news[:3]
+            ]
+
+        # Tweet örnekleri
+        tweets = self.search_topic_tweets(topic)
+        analysis["sample_tweets"] = [t.to_dict() for t in tweets[:5]]
+
+        # Önerilen tweet açıları
+        analysis["suggested_angles"] = [
+            f"📊 {topic} hakkında bilgilendirici bir paylaşım",
+            f"💭 {topic} konusunda kişisel görüş",
+            f"❓ {topic} hakkında takipçilere soru",
+            f"📰 {topic} ile ilgili güncel gelişme yorumu",
+        ]
+
+        # Hashtag önerileri
+        clean_topic = topic.replace("#", "").replace(" ", "")
+        analysis["hashtags"] = [
+            clean_topic,
+            "Gündem",
+            "Türkiye",
+        ]
+
+        return analysis
 
     def _get_demo_trends(self) -> List[TrendTopic]:
         """Demo trend verisi"""

@@ -1,9 +1,8 @@
 """
-Twitter/X Growth Dashboard - Ücretsiz Versiyon
-===============================================
+Twitter/X Growth Dashboard - Kişiselleştirilmiş Versiyon
+=========================================================
 
-API gerektirmeyen, telefondan kullanılabilen tweet oluşturucu.
-Copy-paste ile manuel paylaşım için optimize edilmiş.
+Kullanıcının tarzını öğrenen, viral optimizasyonlu tweet oluşturucu.
 """
 
 import streamlit as st
@@ -20,6 +19,7 @@ from config.settings import config
 from src.scraper.trend_scraper import trend_scraper
 from src.content.ai_writer import ai_writer, TweetType
 from src.content.image_finder import image_finder
+from src.content.voice_profile import VoiceProfile, TweetOptimizer
 
 # Sayfa yapılandırması - MOBİL UYUMLU
 st.set_page_config(
@@ -92,42 +92,38 @@ st.markdown("""
         display: inline-block;
         margin-bottom: 10px;
     }
+    .viral-score {
+        background: linear-gradient(90deg, #ff6b6b, #feca57, #1dd1a1);
+        padding: 15px;
+        border-radius: 15px;
+        text-align: center;
+        color: white;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+    .tip-box {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 10px;
+        padding: 10px;
+        margin: 10px 0;
+    }
+    .success-box {
+        background: #d4edda;
+        border: 1px solid #28a745;
+        border-radius: 10px;
+        padding: 10px;
+        margin: 10px 0;
+    }
+    .profile-card {
+        background: #f8f9fa;
+        border: 2px solid #1DA1F2;
+        border-radius: 15px;
+        padding: 15px;
+        margin: 10px 0;
+    }
 </style>
 """, unsafe_allow_html=True)
-
-
-# Tweet şablonları (AI olmadan kullanılır)
-TWEET_TEMPLATES = {
-    "bilgilendirici": [
-        "{topic} hakkında herkesin bilmesi gereken önemli bir nokta var:\n\n{insight}\n\nBu konuda siz ne düşünüyorsunuz?",
-        "Son gelişmeler ışığında {topic} konusunu değerlendirmek gerekiyor.\n\n{insight}\n\nFikirlerinizi merak ediyorum.",
-        "{topic} ile ilgili dikkat çekici bir detay:\n\n{insight}",
-    ],
-    "soru": [
-        "{topic} denince aklınıza ilk ne geliyor?\n\nYorumlarda buluşalım! 👇",
-        "Sizce {topic} konusunda en büyük yanılgı nedir?\n\nMerak ediyorum 🤔",
-        "{topic} hakkında bir şeyi değiştirebilseydiniz, ne olurdu?",
-    ],
-    "görüş": [
-        "{topic} konusunda bence çoğu kişinin gözden kaçırdığı bir şey var:\n\n{insight}\n\nKatılıyor musunuz?",
-        "Herkes {topic} hakkında konuşuyor ama kimse şunu söylemiyor:\n\n{insight}",
-        "{topic} ile ilgili popüler olmayan görüşüm:\n\n{insight}\n\nNe dersiniz?",
-    ],
-    "gündem": [
-        "{topic} gündemde ve herkesin bir fikri var.\n\nBenim bakış açım şu:\n{insight}",
-        "Bugün {topic} çok konuşuluyor.\n\n{insight}\n\nSiz ne düşünüyorsunuz?",
-        "{topic} hakkında söylenecek çok şey var ama en önemlisi:\n\n{insight}",
-    ],
-}
-
-INSIGHTS = [
-    "Bu konunun farklı perspektiflerden değerlendirilmesi gerekiyor.",
-    "Detaylara baktığımızda ilginç şeyler ortaya çıkıyor.",
-    "Herkesin gözden kaçırdığı önemli noktalar var.",
-    "Bu gelişmenin uzun vadeli etkileri olacak.",
-    "Konuya objektif bakmak çok önemli.",
-    "Farklı görüşleri dinlemek faydalı olabilir.",
-]
 
 
 def init_session():
@@ -137,8 +133,10 @@ def init_session():
         "current_image": None,
         "selected_trend": None,
         "trend_analysis": None,
-        "persona": "Samimi, bilgili ve profesyonel bir üslup.",
         "trends_cache": None,
+        "voice_profile": VoiceProfile.load(),
+        "page": "main",  # main, profile, tips
+        "viral_analysis": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -153,54 +151,118 @@ def get_trends():
     return st.session_state.trends_cache
 
 
-def generate_smart_tweet(topic: str, analysis: dict = None, tweet_style: str = "auto") -> dict:
+def generate_personalized_tweet(topic: str, analysis: dict = None, tweet_style: str = "auto") -> dict:
     """
-    Akıllı tweet oluştur - AI varsa AI kullan, yoksa şablonlardan üret
+    Kişiselleştirilmiş tweet oluştur - Kullanıcının ses profiline göre
     """
+    profile = st.session_state.voice_profile
 
-    # AI varsa kullan
+    # AI varsa profili kullanarak tweet oluştur
     if ai_writer.is_available:
         try:
-            result = ai_writer.generate_tweet(
-                topic=topic,
-                context=str(analysis.get("key_points", [])) if analysis else "",
-                persona=st.session_state.persona
-            )
-            if result.text and "[İçerik oluşturulamadı" not in result.text:
+            # Profil prompt'unu oluştur
+            profile_prompt = profile.to_prompt()
+
+            # Ek bağlam
+            context_parts = []
+            if analysis:
+                if analysis.get("key_points"):
+                    context_parts.append(f"Ana noktalar: {', '.join(analysis['key_points'][:3])}")
+                if analysis.get("news"):
+                    titles = [n.get("title", "")[:50] for n in analysis["news"][:2]]
+                    context_parts.append(f"Güncel haberler: {'; '.join(titles)}")
+
+            context = "\n".join(context_parts) if context_parts else ""
+
+            # Tweet oluştur
+            full_prompt = f"""{profile_prompt}
+
+KONU: {topic}
+{f'BAĞLAM: {context}' if context else ''}
+
+Bu konu hakkında kullanıcının tarzında bir tweet yaz. Maximum 250 karakter (hashtag için yer bırak).
+Sadece tweet metnini yaz, başka bir şey yazma."""
+
+            result = ai_writer._call_ai(full_prompt)
+
+            if result and len(result) > 10:
+                # Tweet'i temizle
+                tweet_text = result.strip().strip('"').strip("'")
+
+                # Hashtag oluştur
+                clean_topic = topic.replace("#", "").replace(" ", "")
+                hashtags = [clean_topic]
+                if analysis and analysis.get("hashtags"):
+                    hashtags.extend(analysis["hashtags"][:1])
+
                 return {
-                    "text": result.text,
-                    "hashtags": result.hashtags or [topic.replace(" ", "").replace("#", "")],
-                    "image_query": result.suggested_image_query or topic,
+                    "text": tweet_text,
+                    "hashtags": hashtags[:2],
+                    "image_query": topic,
                     "source": "ai"
                 }
         except Exception as e:
             pass  # AI başarısız olursa şablonlara geç
 
-    # Şablonlardan üret (AI yoksa veya başarısız olursa)
-    style_map = {
-        "auto": random.choice(list(TWEET_TEMPLATES.keys())),
-        "Bilgilendirici": "bilgilendirici",
-        "Soru": "soru",
-        "Görüş/Yorum": "görüş",
-        "Gündem Yorumu": "gündem",
+    # Şablon bazlı üretim (fallback)
+    return generate_template_tweet(topic, analysis, tweet_style, profile)
+
+
+def generate_template_tweet(topic: str, analysis: dict, tweet_style: str, profile: VoiceProfile) -> dict:
+    """Şablon bazlı tweet üret"""
+
+    # Profil bazlı şablonlar
+    templates = {
+        "samimi": [
+            f"Arkadaşlar {topic} hakkında ne düşünüyorsunuz? Ben şunu fark ettim:\n\n{{insight}}\n\nYorumlara beklerim! 👇",
+            f"Bugün {topic} ile ilgili güzel bir şey paylaşmak istedim:\n\n{{insight}}",
+            f"{topic} konusunda bence çoğu kişi yanılıyor. Neden mi?\n\n{{insight}}\n\nKatılıyor musunuz?",
+        ],
+        "profesyonel": [
+            f"{topic} hakkında önemli bir değerlendirme:\n\n{{insight}}\n\nBu konuda görüşlerinizi merak ediyorum.",
+            f"Son gelişmeler ışığında {topic} konusunu ele alalım:\n\n{{insight}}",
+            f"{topic} ile ilgili dikkat edilmesi gereken kritik nokta:\n\n{{insight}}",
+        ],
+        "mizahi": [
+            f"{topic} deyince herkes ciddi ciddi konuşuyor ama:\n\n{{insight}} 😅",
+            f"Bi dk {topic} hakkında bir şey söyleyeceğim:\n\n{{insight}}\n\n😂 Yanlış mıyım?",
+            f"{topic} hakkında unpopular opinion:\n\n{{insight}}\n\nHadi tartışalım 🍿",
+        ],
+        "provokatif": [
+            f"Kimse {topic} hakkında gerçeği söylemiyor:\n\n{{insight}}\n\nDeğişir misiniz?",
+            f"{topic} konusunda herkes aynı şeyi söylüyor. Ama gerçek şu ki:\n\n{{insight}}",
+            f"Hot take: {topic} hakkında...\n\n{{insight}}\n\nTartışmaya açığım 🔥",
+        ],
     }
 
-    style = style_map.get(tweet_style, "gündem")
-    templates = TWEET_TEMPLATES.get(style, TWEET_TEMPLATES["gündem"])
-    template = random.choice(templates)
+    tone = profile.tone if profile.tone in templates else "samimi"
+    template_list = templates[tone]
+    template = random.choice(template_list)
 
-    # Analiz varsa, haberlerden insight oluştur
-    insight = random.choice(INSIGHTS)
+    # Insight oluştur
+    insights = [
+        "Farklı bir bakış açısı gerekiyor.",
+        "Detaylara baktığımızda ilginç şeyler çıkıyor.",
+        "Herkesin gözden kaçırdığı bir nokta var.",
+        "Bu konuyu ciddiye almak lazım.",
+        "Burada önemli bir fırsat/risk var.",
+    ]
+
+    insight = random.choice(insights)
     if analysis and analysis.get("key_points"):
         points = analysis["key_points"]
-        if points:
-            insight = points[0] if len(points[0]) < 100 else points[0][:97] + "..."
+        if points and len(points[0]) < 100:
+            insight = points[0]
 
-    text = template.format(topic=topic, insight=insight)
+    text = template.format(insight=insight)
 
-    # Hashtag oluştur
+    # Emoji ekle (profile'a göre)
+    if profile.emoji_usage == "çok" and profile.favorite_emojis:
+        text += f" {random.choice(profile.favorite_emojis)}"
+
+    # Hashtag
     clean_topic = topic.replace("#", "").replace(" ", "")
-    hashtags = [clean_topic, "Gündem"]
+    hashtags = [clean_topic]
 
     return {
         "text": text,
@@ -213,7 +275,257 @@ def generate_smart_tweet(topic: str, analysis: dict = None, tweet_style: str = "
 def render_header():
     """Başlık"""
     st.markdown('<p class="main-header">🐦 Tweet Oluşturucu</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">Gündem analizi • Akıllı içerik • Kolay paylaşım</p>', unsafe_allow_html=True)
+
+    profile = st.session_state.voice_profile
+    if profile.twitter_username:
+        st.markdown(f'<p class="sub-header">@{profile.twitter_username} için kişiselleştirilmiş</p>', unsafe_allow_html=True)
+    else:
+        st.markdown('<p class="sub-header">Gündem analizi • Kişisel içerik • Viral optimizasyon</p>', unsafe_allow_html=True)
+
+
+def render_navigation():
+    """Üst navigasyon"""
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if st.button("🏠 Ana Sayfa", use_container_width=True):
+            st.session_state.page = "main"
+            st.rerun()
+
+    with col2:
+        if st.button("👤 Profilim", use_container_width=True):
+            st.session_state.page = "profile"
+            st.rerun()
+
+    with col3:
+        if st.button("💡 İpuçları", use_container_width=True):
+            st.session_state.page = "tips"
+            st.rerun()
+
+    st.markdown("---")
+
+
+def render_profile_page():
+    """Profil ayarları sayfası"""
+    st.markdown("## 👤 Ses Profilini Ayarla")
+    st.markdown("AI'ın senin gibi yazması için bu bilgileri doldur.")
+
+    profile = st.session_state.voice_profile
+
+    # Temel bilgiler
+    st.markdown("### 📝 Temel Bilgiler")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        profile.twitter_username = st.text_input(
+            "Twitter Kullanıcı Adı",
+            value=profile.twitter_username,
+            placeholder="ilhntolga"
+        )
+    with col2:
+        profile.display_name = st.text_input(
+            "Görünen İsim",
+            value=profile.display_name,
+            placeholder="Tolga İlhan"
+        )
+
+    profile.bio = st.text_area(
+        "Kısa Bio (Hakkında)",
+        value=profile.bio,
+        placeholder="Örn: Yazılımcı, girişimci, teknoloji meraklısı...",
+        height=80
+    )
+
+    profile.profession = st.text_input(
+        "Meslek/Alan",
+        value=profile.profession,
+        placeholder="Örn: Yazılım Mühendisi, Girişimci, Öğrenci..."
+    )
+
+    # Yazım tarzı
+    st.markdown("### ✍️ Yazım Tarzı")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        profile.tone = st.selectbox(
+            "Genel Ton",
+            ["samimi", "profesyonel", "mizahi", "ciddi", "provokatif"],
+            index=["samimi", "profesyonel", "mizahi", "ciddi", "provokatif"].index(profile.tone)
+        )
+
+    with col2:
+        profile.language_style = st.selectbox(
+            "Dil Tarzı",
+            ["günlük", "resmi", "argo", "karma"],
+            index=["günlük", "resmi", "argo", "karma"].index(profile.language_style) if profile.language_style in ["günlük", "resmi", "argo", "karma"] else 0
+        )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        profile.emoji_usage = st.selectbox(
+            "Emoji Kullanımı",
+            ["yok", "az", "orta", "çok"],
+            index=["yok", "az", "orta", "çok"].index(profile.emoji_usage)
+        )
+
+    with col2:
+        profile.sentence_style = st.selectbox(
+            "Cümle Uzunluğu",
+            ["kısa", "orta", "uzun"],
+            index=["kısa", "orta", "uzun"].index(profile.sentence_style)
+        )
+
+    # Favori emojiler
+    profile.favorite_emojis = st.text_input(
+        "Favori Emojiler (boşlukla ayır)",
+        value=" ".join(profile.favorite_emojis),
+        placeholder="🚀 💪 🔥 😊"
+    ).split()
+
+    # Konular
+    st.markdown("### 📌 Konular")
+
+    profile.main_topics = st.text_input(
+        "Ana Konuların (virgülle ayır)",
+        value=", ".join(profile.main_topics),
+        placeholder="teknoloji, girişimcilik, yapay zeka, kripto"
+    ).split(", ") if st.session_state.get("topics_input") else profile.main_topics
+
+    main_topics_input = st.text_input(
+        "Ana Konuların (virgülle ayır)",
+        value=", ".join(profile.main_topics) if profile.main_topics else "",
+        placeholder="teknoloji, girişimcilik, yapay zeka, kripto",
+        key="main_topics_input"
+    )
+    profile.main_topics = [t.strip() for t in main_topics_input.split(",") if t.strip()]
+
+    avoid_topics_input = st.text_input(
+        "Kaçınılacak Konular (virgülle ayır)",
+        value=", ".join(profile.avoid_topics) if profile.avoid_topics else "",
+        placeholder="siyaset, din, kavga...",
+        key="avoid_topics_input"
+    )
+    profile.avoid_topics = [t.strip() for t in avoid_topics_input.split(",") if t.strip()]
+
+    # İlgi alanları
+    interests_input = st.text_input(
+        "İlgi Alanların (virgülle ayır)",
+        value=", ".join(profile.interests) if profile.interests else "",
+        placeholder="kitap, spor, müzik, seyahat",
+        key="interests_input"
+    )
+    profile.interests = [t.strip() for t in interests_input.split(",") if t.strip()]
+
+    # Viral taktikler
+    st.markdown("### 🚀 Viral Taktikler")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        profile.use_questions = st.checkbox("❓ Soru sor", value=profile.use_questions)
+        profile.use_humor = st.checkbox("😄 Mizah kullan", value=profile.use_humor)
+        profile.use_personal_stories = st.checkbox("📖 Kişisel hikayeler", value=profile.use_personal_stories)
+
+    with col2:
+        profile.use_hot_takes = st.checkbox("🔥 Cesur görüşler", value=profile.use_hot_takes)
+        profile.use_controversy = st.checkbox("⚡ Tartışmalı konular", value=profile.use_controversy)
+        profile.use_hashtags = st.checkbox("#️⃣ Hashtag kullan", value=profile.use_hashtags)
+
+    # Örnek tweetler
+    st.markdown("### 📝 Örnek Tweetlerin (AI eğitimi için)")
+    st.caption("En beğendiğin 3-5 tweet'ini yapıştır. AI senin tarzını öğrensin.")
+
+    sample_tweets_text = st.text_area(
+        "Her tweet'i yeni satıra yaz",
+        value="\n".join(profile.sample_tweets) if profile.sample_tweets else "",
+        height=200,
+        placeholder="Tweet 1...\nTweet 2...\nTweet 3..."
+    )
+    profile.sample_tweets = [t.strip() for t in sample_tweets_text.split("\n") if t.strip()]
+
+    # Kaydet butonu
+    st.markdown("---")
+
+    if st.button("💾 Profili Kaydet", type="primary", use_container_width=True):
+        profile.save()
+        st.session_state.voice_profile = profile
+        st.success("✅ Profil kaydedildi! Artık AI senin gibi yazacak.")
+        st.balloons()
+
+    # Profil önizleme
+    if profile.twitter_username:
+        st.markdown("---")
+        st.markdown("### 👀 Profil Önizleme")
+        st.markdown(f"""
+        <div class="profile-card">
+            <h4>@{profile.twitter_username}</h4>
+            <p>{profile.bio or 'Bio eklenmemiş'}</p>
+            <p><b>Ton:</b> {profile.tone} | <b>Emoji:</b> {profile.emoji_usage}</p>
+            <p><b>Konular:</b> {', '.join(profile.main_topics[:5]) if profile.main_topics else 'Belirlenmemiş'}</p>
+            <p><b>Örnek tweet sayısı:</b> {len(profile.sample_tweets)}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+def render_tips_page():
+    """Viral ipuçları sayfası"""
+    st.markdown("## 💡 Viral Tweet İpuçları")
+    st.markdown("Twitter algoritmasına göre optimize edilmiş stratejiler")
+
+    # Algoritma bilgileri
+    st.markdown("### 📊 Twitter Algoritması Ağırlıkları")
+    st.markdown("""
+    | Etkileşim | Ağırlık | Açıklama |
+    |-----------|---------|----------|
+    | 💬 Reply | **13.5x** | En değerli! |
+    | 👤 Profil Tıklama | **12x** | Merak uyandır |
+    | 🔗 Link Tıklama | **1.5x** | Linksiz daha iyi |
+    | 🔄 Retweet | **1x** | Paylaşılabilir yaz |
+    | ❤️ Like | **0.5x** | En kolay ama en az değerli |
+    """)
+
+    st.markdown("---")
+    st.markdown("### ⏰ En İyi Paylaşım Saatleri (Türkiye)")
+    st.markdown("""
+    - 🌅 **08:00-09:00** - Sabah rutini
+    - 🍽️ **12:00-13:00** - Öğle arası
+    - 🏠 **17:00-18:00** - İşten çıkış
+    - 🌙 **21:00-22:00** - Prime time!
+    """)
+
+    st.markdown("---")
+    st.markdown("### 🔥 Viral Tweet Formülleri")
+
+    tips = TweetOptimizer.get_improvement_tips()
+    for tip in tips:
+        st.markdown(f"- {tip}")
+
+    st.markdown("---")
+    st.markdown("### ✅ Tweet Kontrol Listesi")
+    st.markdown("""
+    - [ ] 280 karakterin altında mı?
+    - [ ] Soru içeriyor mu? (Reply için)
+    - [ ] 1-2 hashtag var mı?
+    - [ ] Emoji var mı?
+    - [ ] İlk 30 dakika etkileşime hazır mısın?
+    - [ ] Görsel ekledin mi? (1.5x etkileşim)
+    - [ ] Link YOK değil mi? (algoritma cezalandırır)
+    """)
+
+    st.markdown("---")
+    st.markdown("### 🧵 Thread Stratejisi")
+    st.markdown("""
+    Thread = Daha fazla süre = Daha yüksek skor
+
+    **İdeal Thread Yapısı:**
+    1. **İlk tweet**: Hook - merak uyandır
+    2. **2-7. tweetler**: Değerli içerik
+    3. **Son tweet**: CTA (takip et, paylaş)
+
+    **Thread başlangıçları:**
+    - "🧵 Thread:"
+    - "1/ Bugün ... hakkında konuşacağız"
+    - "Herkesin bilmesi gereken X şey:"
+    """)
 
 
 def render_step1_trends():
@@ -321,26 +633,33 @@ def render_step2_generate(topic: str, analysis: dict = None):
     with col2:
         include_image = st.checkbox("📷 Görsel ekle", value=True)
 
-    # AI durumu göster
+    # AI ve profil durumu göster
+    profile = st.session_state.voice_profile
     if ai_writer.is_available:
-        st.caption(f"✨ AI aktif ({ai_writer.provider})")
+        if profile.twitter_username:
+            st.caption(f"✨ AI aktif • @{profile.twitter_username} tarzında yazılacak")
+        else:
+            st.caption(f"✨ AI aktif ({ai_writer.provider}) - Profil ayarla daha iyi sonuç al!")
     else:
         st.caption("📝 Akıllı şablonlar kullanılıyor")
 
     if st.button("✨ Tweet Oluştur", type="primary", use_container_width=True):
-        with st.spinner("Tweet hazırlanıyor..."):
+        with st.spinner("Senin tarzında tweet hazırlanıyor..."):
 
-            # Tweet oluştur
-            result = generate_smart_tweet(topic, analysis, tweet_style)
+            # Kişiselleştirilmiş tweet oluştur
+            result = generate_personalized_tweet(topic, analysis, tweet_style)
 
             # Hashtag'leri ekle
             text = result["text"]
-            if result["hashtags"]:
+            if result["hashtags"] and profile.use_hashtags:
                 hashtags = " ".join([f"#{h}" for h in result["hashtags"][:2]])
                 if len(text) + len(hashtags) + 2 <= 280:
                     text = f"{text}\n\n{hashtags}"
 
             st.session_state.current_tweet = text
+
+            # Viral analiz yap
+            st.session_state.viral_analysis = TweetOptimizer.analyze_viral_potential(text)
 
             # Görsel bul
             if include_image:
@@ -355,14 +674,54 @@ def render_step2_generate(topic: str, analysis: dict = None):
         st.rerun()
 
 
+def render_viral_analysis():
+    """Viral analiz sonuçlarını göster"""
+    if not st.session_state.viral_analysis:
+        return
+
+    analysis = st.session_state.viral_analysis
+
+    with st.expander("🔥 Viral Analiz", expanded=True):
+        # Skor
+        score = analysis["score"]
+        st.markdown(f"""
+        <div class="viral-score">
+            Viral Skor: {score}/10 {analysis['viral_potential']}
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Bulunan faktörler
+        if analysis["factors_found"]:
+            st.markdown("**✅ İyi yaptıkların:**")
+            for factor in analysis["factors_found"]:
+                st.markdown(f"- {factor}")
+
+        # Öneriler
+        if analysis["suggestions"]:
+            st.markdown("**💡 İyileştirme önerileri:**")
+            for suggestion in analysis["suggestions"]:
+                st.markdown(f"- {suggestion}")
+
+        # İstatistikler
+        st.markdown(f"""
+        **📊 İstatistikler:**
+        - Karakter: {analysis['character_count']}/280
+        - Hashtag: {analysis['hashtag_count']}
+        - Tahmin: {analysis['engagement_estimate']}
+        """)
+
+
 def render_step3_copypost():
-    """Adım 3: Kopyala ve Paylaş"""
+    """Adım 3: İncele, Düzenle ve Paylaş"""
 
     if not st.session_state.current_tweet:
         return
 
     st.markdown("---")
-    st.markdown('<span class="step-indicator">3️⃣ Kopyala & Paylaş</span>', unsafe_allow_html=True)
+    st.markdown('<span class="step-indicator">3️⃣ İncele & Paylaş</span>', unsafe_allow_html=True)
+
+    # Viral analiz
+    render_viral_analysis()
 
     tweet_text = st.session_state.current_tweet
 
@@ -389,8 +748,12 @@ def render_step3_copypost():
         key="tweet_editor"
     )
 
+    # Değişiklik yapıldıysa yeniden analiz et
     if edited_tweet != tweet_text:
         st.session_state.current_tweet = edited_tweet
+        if st.button("🔄 Yeniden Analiz Et", use_container_width=True):
+            st.session_state.viral_analysis = TweetOptimizer.analyze_viral_potential(edited_tweet)
+            st.rerun()
 
     # Kopyalama ipucu
     st.markdown("""
@@ -437,6 +800,7 @@ def render_step3_copypost():
     if st.button("🔄 Yeni Tweet Oluştur", use_container_width=True):
         st.session_state.current_tweet = ""
         st.session_state.current_image = None
+        st.session_state.viral_analysis = None
         st.rerun()
 
 
@@ -445,12 +809,21 @@ def render_settings():
     with st.sidebar:
         st.markdown("## ⚙️ Ayarlar")
 
-        # Durum
+        profile = st.session_state.voice_profile
+
+        # Profil durumu
+        if profile.twitter_username:
+            st.success(f"✓ Profil: @{profile.twitter_username}")
+        else:
+            st.warning("⚠️ Profil ayarlanmamış")
+            st.caption("Profilini ayarla, AI seni öğrensin!")
+
+        # AI durumu
         if ai_writer.is_available:
             st.success(f"✓ AI: {ai_writer.provider}")
         else:
-            st.info("📝 Şablon modu (AI yok)")
-            st.caption("AI için OpenAI key ekleyin")
+            st.info("📝 Şablon modu")
+            st.caption("Gemini key ekle (ücretsiz!)")
 
         if image_finder.is_available:
             st.success("✓ Görsel API aktif")
@@ -458,22 +831,19 @@ def render_settings():
             st.info("ℹ️ Demo görseller")
 
         st.markdown("---")
-        st.markdown("### 💡 İpuçları")
-        st.markdown("""
-        - **Reply** en değerli (13.5x)
-        - **İlk 30 dk** kritik
-        - **Görsel** 3x etkileşim
-        - **1-2 hashtag** yeterli
-        """)
+        st.markdown("### 🔥 Hızlı İpucu")
+        tips = [
+            "Reply en değerli (13.5x)!",
+            "İlk 30 dk kritik.",
+            "Link ekleme, algoritma sevmez.",
+            "Soru sor, tartışma başlat!",
+            "Görsel 3x etkileşim sağlar.",
+        ]
+        st.info(random.choice(tips))
 
 
-def main():
-    """Ana uygulama"""
-    init_session()
-
-    render_header()
-    render_settings()
-
+def render_main_page():
+    """Ana sayfa - Tweet oluşturma"""
     # Adım 1: Konu seç
     topic = render_step1_trends()
 
@@ -486,12 +856,33 @@ def main():
     if topic:
         render_step2_generate(topic, analysis)
 
-    # Adım 3: Kopyala ve paylaş
+    # Adım 3: İncele ve paylaş
     render_step3_copypost()
+
+
+def main():
+    """Ana uygulama"""
+    init_session()
+
+    render_header()
+    render_navigation()
+    render_settings()
+
+    # Sayfa yönlendirme
+    if st.session_state.page == "profile":
+        render_profile_page()
+    elif st.session_state.page == "tips":
+        render_tips_page()
+    else:
+        render_main_page()
 
     # Footer
     st.markdown("---")
-    st.caption("🐦 Twitter/X Growth Tool | Ücretsiz")
+    profile = st.session_state.voice_profile
+    if profile.twitter_username:
+        st.caption(f"🐦 @{profile.twitter_username} için kişiselleştirilmiş | Powered by Gemini AI")
+    else:
+        st.caption("🐦 Twitter/X Growth Tool | Ücretsiz")
 
 
 if __name__ == "__main__":

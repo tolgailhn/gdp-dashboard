@@ -305,5 +305,55 @@ class TweetOptimizer:
         ]
 
 
+# @ilhntolga için varsayılan profil
+DEFAULT_PROFILE_DATA = {
+    "twitter_username": "ilhntolga",
+    "display_name": "Tolga",
+    "bio": "",
+    "tone": "samimi",
+    "language_style": "günlük",
+    "main_topics": ["teknoloji", "girişimcilik", "yapay zeka", "gündem"],
+    "avoid_topics": [],
+    "emoji_usage": "orta",
+    "favorite_emojis": ["🔥", "💪", "🚀", "👀", "💡"],
+    "use_hashtags": True,
+    "max_hashtags": 2,
+    "use_thread": True,
+    "sentence_style": "kısa",
+    "punctuation_style": "normal",
+    "caps_usage": "normal",
+    "sample_tweets": [],
+    "use_questions": True,
+    "use_controversy": True,
+    "use_humor": True,
+    "use_personal_stories": True,
+    "use_hot_takes": True,
+    "profession": "",
+    "interests": ["teknoloji", "iş dünyası", "kişisel gelişim"],
+    "location": "Türkiye",
+    "age_group": "",
+}
+
+
+def load_or_create_default() -> VoiceProfile:
+    """
+    Profili yükle veya varsayılan oluştur.
+    İlk açılışta @ilhntolga profili otomatik oluşturulur.
+    """
+    if PROFILE_FILE.exists():
+        try:
+            with open(PROFILE_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return VoiceProfile(**data)
+        except Exception as e:
+            logger.error(f"Profil yükleme hatası: {e}")
+
+    # Varsayılan profili oluştur ve kaydet
+    profile = VoiceProfile(**DEFAULT_PROFILE_DATA)
+    profile.save()
+    logger.info("Varsayılan profil oluşturuldu: @ilhntolga")
+    return profile
+
+
 # Varsayılan profil
-default_profile = VoiceProfile()
+default_profile = load_or_create_default()

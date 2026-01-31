@@ -19,7 +19,11 @@ from config.settings import config
 from src.scraper.trend_scraper import trend_scraper
 from src.content.ai_writer import ai_writer, TweetType
 from src.content.image_finder import image_finder
-from src.content.voice_profile import VoiceProfile, TweetOptimizer
+from src.content.voice_profile import VoiceProfile, TweetOptimizer, load_or_create_default
+from src.content.viral_strategies import (
+    viral_time_optimizer, viral_formulas, viral_checklist, xpatla_tips,
+    ViralTimeOptimizer, ViralContentFormulas, XPatlaInspiredTips
+)
 
 # Sayfa yapılandırması - MOBİL UYUMLU
 st.set_page_config(
@@ -134,9 +138,10 @@ def init_session():
         "selected_trend": None,
         "trend_analysis": None,
         "trends_cache": None,
-        "voice_profile": VoiceProfile.load(),
-        "page": "main",  # main, profile, tips
+        "voice_profile": load_or_create_default(),  # @ilhntolga profili otomatik yüklenir
+        "page": "main",  # main, profile, tips, xpatla
         "viral_analysis": None,
+        "daily_tip": xpatla_tips.get_daily_tip(),
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -285,20 +290,25 @@ def render_header():
 
 def render_navigation():
     """Üst navigasyon"""
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        if st.button("🏠 Ana Sayfa", use_container_width=True):
+        if st.button("🏠 Tweet", use_container_width=True):
             st.session_state.page = "main"
             st.rerun()
 
     with col2:
-        if st.button("👤 Profilim", use_container_width=True):
-            st.session_state.page = "profile"
+        if st.button("🔥 XPatla", use_container_width=True):
+            st.session_state.page = "xpatla"
             st.rerun()
 
     with col3:
-        if st.button("💡 İpuçları", use_container_width=True):
+        if st.button("👤 Profil", use_container_width=True):
+            st.session_state.page = "profile"
+            st.rerun()
+
+    with col4:
+        if st.button("💡 Tips", use_container_width=True):
             st.session_state.page = "tips"
             st.rerun()
 
@@ -464,6 +474,93 @@ def render_profile_page():
             <p><b>Örnek tweet sayısı:</b> {len(profile.sample_tweets)}</p>
         </div>
         """, unsafe_allow_html=True)
+
+
+def render_xpatla_page():
+    """XPatla tarzı viral strateji sayfası"""
+    st.markdown("## 🔥 XPatla - Viral Stratejiler")
+    st.markdown("X'te patlamak artık şans işi değil!")
+
+    # Günün ipucu
+    st.markdown("### 💡 Günün İpucu")
+    st.info(st.session_state.daily_tip)
+
+    if st.button("🔄 Yeni İpucu"):
+        st.session_state.daily_tip = xpatla_tips.get_daily_tip()
+        st.rerun()
+
+    st.markdown("---")
+
+    # En iyi paylaşım saatleri
+    st.markdown("### ⏰ Bugün İçin En İyi Saatler")
+    best_times = ViralTimeOptimizer.get_best_times_today()
+
+    for time_slot in best_times:
+        if time_slot["is_current"]:
+            st.success(f"🟢 **{time_slot['time']}** - {time_slot['description']} - **ŞİMDİ!**")
+        elif time_slot["is_upcoming"]:
+            st.info(f"🔵 {time_slot['time']} - {time_slot['description']}")
+        else:
+            st.markdown(f"⚪ ~~{time_slot['time']}~~ - {time_slot['description']}")
+
+    # Gün stratejisi
+    st.markdown("---")
+    st.markdown("### 📅 Bugünün Stratejisi")
+    st.markdown(ViralTimeOptimizer.get_day_strategy())
+
+    st.markdown("---")
+
+    # İçerik fikirleri
+    st.markdown("### 💭 İçerik Fikirleri")
+    ideas = xpatla_tips.get_content_ideas(5)
+    for i, idea in enumerate(ideas, 1):
+        st.markdown(f"{i}. {idea}")
+
+    if st.button("🎲 Yeni Fikirler Getir"):
+        st.rerun()
+
+    st.markdown("---")
+
+    # Hook örnekleri
+    st.markdown("### 🪝 Dikkat Çekici Başlangıçlar (Hook)")
+    st.caption("Bu başlangıçları kullanarak tweet'lerine dikkat çek:")
+
+    for hook in ViralContentFormulas.HOOKS[:5]:
+        example = hook.format(topic="[KONU]", count=5)
+        st.code(example, language=None)
+
+    st.markdown("---")
+
+    # Engagement triggers
+    st.markdown("### 💬 Etkileşim Tetikleyicileri")
+    st.caption("Tweet'inin sonuna bunlardan birini ekle:")
+
+    for trigger in ViralContentFormulas.ENGAGEMENT_TRIGGERS[:5]:
+        st.markdown(f"• {trigger.strip()}")
+
+    st.markdown("---")
+
+    # Algoritma ağırlıkları özeti
+    st.markdown("### 📊 X Algoritması Özeti")
+    st.markdown("""
+    | Aksiyon | Ağırlık | Strateji |
+    |---------|---------|----------|
+    | Reply alan reply | **75x** | Kendi tweetine reply at! |
+    | Reply | **13.5x** | Soru sor, tartışma başlat |
+    | Profil tıklama | **12x** | Merak uyandır |
+    | 2+ dk kalma | **10x** | Thread yap |
+    | Retweet | **1x** | Paylaşılabilir yaz |
+    | Like | **0.5x** | En kolay ama en az değerli |
+    """)
+
+    # Cezalar
+    st.markdown("### ⚠️ Bunlardan Kaçın!")
+    st.error("""
+    - ❌ Harici link → %50 reach düşüşü
+    - ❌ 3+ hashtag → Spam algılanır
+    - ❌ Offensive içerik → %80 reach düşüşü
+    - ❌ Çok fazla mention → Spam riski
+    """)
 
 
 def render_tips_page():
@@ -807,39 +904,41 @@ def render_step3_copypost():
 def render_settings():
     """Ayarlar (sidebar)"""
     with st.sidebar:
-        st.markdown("## ⚙️ Ayarlar")
+        st.markdown("## ⚙️ Durum")
 
         profile = st.session_state.voice_profile
 
         # Profil durumu
         if profile.twitter_username:
-            st.success(f"✓ Profil: @{profile.twitter_username}")
+            st.success(f"✓ @{profile.twitter_username}")
         else:
-            st.warning("⚠️ Profil ayarlanmamış")
-            st.caption("Profilini ayarla, AI seni öğrensin!")
+            st.warning("⚠️ Profil yok")
 
         # AI durumu
         if ai_writer.is_available:
             st.success(f"✓ AI: {ai_writer.provider}")
         else:
             st.info("📝 Şablon modu")
-            st.caption("Gemini key ekle (ücretsiz!)")
-
-        if image_finder.is_available:
-            st.success("✓ Görsel API aktif")
-        else:
-            st.info("ℹ️ Demo görseller")
 
         st.markdown("---")
-        st.markdown("### 🔥 Hızlı İpucu")
-        tips = [
-            "Reply en değerli (13.5x)!",
-            "İlk 30 dk kritik.",
-            "Link ekleme, algoritma sevmez.",
-            "Soru sor, tartışma başlat!",
-            "Görsel 3x etkileşim sağlar.",
-        ]
-        st.info(random.choice(tips))
+
+        # Şu anki saat analizi
+        st.markdown("### ⏰ Viral Saat")
+        best_times = ViralTimeOptimizer.get_best_times_today()
+        current_slot = next((t for t in best_times if t["is_current"]), None)
+
+        if current_slot:
+            st.success(f"🟢 Şimdi paylaş!\n{current_slot['description']}")
+        else:
+            next_slot = next((t for t in best_times if t["is_upcoming"]), None)
+            if next_slot:
+                st.info(f"⏳ Sonraki: {next_slot['time']}")
+
+        st.markdown("---")
+
+        # XPatla günlük ipucu
+        st.markdown("### 💡 XPatla İpucu")
+        st.caption(st.session_state.daily_tip[:100] + "..." if len(st.session_state.daily_tip) > 100 else st.session_state.daily_tip)
 
 
 def render_main_page():
@@ -873,6 +972,8 @@ def main():
         render_profile_page()
     elif st.session_state.page == "tips":
         render_tips_page()
+    elif st.session_state.page == "xpatla":
+        render_xpatla_page()
     else:
         render_main_page()
 

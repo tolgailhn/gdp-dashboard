@@ -76,6 +76,10 @@ class TwitterAPIConfig:
 class AIConfig:
     """AI içerik oluşturma yapılandırması"""
 
+    # Google Gemini API (ÜCRETSİZ - Varsayılan)
+    gemini_api_key: str = field(default_factory=lambda: get_secret("GEMINI_API_KEY"))
+    gemini_model: str = "gemini-1.5-flash"  # Ücretsiz ve hızlı model
+
     # OpenAI API (GPT)
     openai_api_key: str = field(default_factory=lambda: get_secret("OPENAI_API_KEY"))
     openai_model: str = "gpt-4-turbo-preview"
@@ -84,8 +88,8 @@ class AIConfig:
     anthropic_api_key: str = field(default_factory=lambda: get_secret("ANTHROPIC_API_KEY"))
     anthropic_model: str = "claude-3-opus-20240229"
 
-    # Varsayılan AI sağlayıcı
-    default_provider: str = "openai"  # "openai" veya "anthropic"
+    # Varsayılan AI sağlayıcı (Gemini ücretsiz olduğu için varsayılan)
+    default_provider: str = "gemini"  # "gemini", "openai" veya "anthropic"
 
     # İçerik oluşturma parametreleri
     max_tokens: int = 500
@@ -93,9 +97,18 @@ class AIConfig:
 
     def get_active_provider(self) -> str:
         """Aktif AI sağlayıcısını döndür"""
+        # Önce Gemini'yi dene (ücretsiz)
+        if self.gemini_api_key:
+            return "gemini"
+        # Sonra varsayılan sağlayıcıya bak
         if self.default_provider == "anthropic" and self.anthropic_api_key:
             return "anthropic"
-        elif self.openai_api_key:
+        elif self.default_provider == "openai" and self.openai_api_key:
+            return "openai"
+        # Herhangi birini dene
+        if self.anthropic_api_key:
+            return "anthropic"
+        if self.openai_api_key:
             return "openai"
         return "none"
 

@@ -91,7 +91,13 @@ class AIContentWriter:
     def _setup_client(self):
         """AI istemcisini kur"""
         try:
-            if self.provider == "openai":
+            if self.provider == "gemini":
+                import google.generativeai as genai
+                genai.configure(api_key=config.ai.gemini_api_key)
+                self.client = genai.GenerativeModel(config.ai.gemini_model)
+                logger.info("Google Gemini istemcisi başlatıldı")
+
+            elif self.provider == "openai":
                 from openai import OpenAI
                 self.client = OpenAI(api_key=config.ai.openai_api_key)
                 logger.info("OpenAI istemcisi başlatıldı")
@@ -426,7 +432,19 @@ class AIContentWriter:
         """AI API'yi çağır"""
 
         try:
-            if self.provider == "openai":
+            if self.provider == "gemini":
+                # Gemini için sistem promptunu kullanıcı promptuna ekle
+                full_prompt = f"Sen bir Twitter/X içerik uzmanısın. Türkçe yanıt ver.\n\n{prompt}"
+                response = self.client.generate_content(
+                    full_prompt,
+                    generation_config={
+                        "max_output_tokens": config.ai.max_tokens,
+                        "temperature": config.ai.temperature
+                    }
+                )
+                return response.text
+
+            elif self.provider == "openai":
                 response = self.client.chat.completions.create(
                     model=config.ai.openai_model,
                     messages=[

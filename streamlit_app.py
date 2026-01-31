@@ -24,6 +24,9 @@ from src.content.viral_strategies import (
     viral_time_optimizer, viral_formulas, viral_checklist, xpatla_tips,
     ViralTimeOptimizer, ViralContentFormulas, XPatlaInspiredTips
 )
+from src.content.viral_discovery import (
+    viral_discovery, CONTENT_CATEGORIES, ViralTweet
+)
 
 # Sayfa yapılandırması - MOBİL UYUMLU
 st.set_page_config(
@@ -139,9 +142,14 @@ def init_session():
         "trend_analysis": None,
         "trends_cache": None,
         "voice_profile": load_or_create_default(),  # @ilhntolga profili otomatik yüklenir
-        "page": "main",  # main, profile, tips, xpatla
+        "page": "main",  # main, profile, tips, xpatla, discover
         "viral_analysis": None,
         "daily_tip": xpatla_tips.get_daily_tip(),
+        # Keşfet sayfası için
+        "discovered_tweets": [],
+        "selected_category": None,
+        "search_topic": "",
+        "selected_viral_tweet": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -290,7 +298,7 @@ def render_header():
 
 def render_navigation():
     """Üst navigasyon"""
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
         if st.button("🏠 Tweet", use_container_width=True):
@@ -298,16 +306,21 @@ def render_navigation():
             st.rerun()
 
     with col2:
+        if st.button("🔍 Keşfet", use_container_width=True):
+            st.session_state.page = "discover"
+            st.rerun()
+
+    with col3:
         if st.button("🔥 XPatla", use_container_width=True):
             st.session_state.page = "xpatla"
             st.rerun()
 
-    with col3:
+    with col4:
         if st.button("👤 Profil", use_container_width=True):
             st.session_state.page = "profile"
             st.rerun()
 
-    with col4:
+    with col5:
         if st.button("💡 Tips", use_container_width=True):
             st.session_state.page = "tips"
             st.rerun()
@@ -474,6 +487,126 @@ def render_profile_page():
             <p><b>Örnek tweet sayısı:</b> {len(profile.sample_tweets)}</p>
         </div>
         """, unsafe_allow_html=True)
+
+
+def render_discover_page():
+    """Viral tweet keşfet sayfası"""
+    st.markdown("## 🔍 Viral Tweet Keşfet")
+    st.markdown("Yüksek etkileşimli tweet'leri bul ve ilham al!")
+
+    # Kategori seçimi
+    st.markdown("### 📂 Kategori Seç")
+
+    category_cols = st.columns(4)
+    categories = list(CONTENT_CATEGORIES.keys())
+
+    for i, cat_key in enumerate(categories[:8]):
+        cat_data = CONTENT_CATEGORIES[cat_key]
+        col_idx = i % 4
+
+        with category_cols[col_idx]:
+            if st.button(cat_data["name"], key=f"cat_{cat_key}", use_container_width=True):
+                st.session_state.selected_category = cat_key
+                # Kategoriye göre örnek konu ara
+                sample_topic = cat_data["keywords"][0]
+                st.session_state.search_topic = sample_topic
+                with st.spinner(f"{cat_data['name']} tweet'leri aranıyor..."):
+                    st.session_state.discovered_tweets = viral_discovery.search_viral_tweets(sample_topic, 8)
+                st.rerun()
+
+    st.markdown("---")
+
+    # Manuel konu arama
+    st.markdown("### 🔎 Konu Ara")
+
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        search_input = st.text_input(
+            "Konu yaz:",
+            value=st.session_state.search_topic,
+            placeholder="Örn: altın, futbol, yapay zeka...",
+            label_visibility="collapsed"
+        )
+
+    with col2:
+        if st.button("🔍 Ara", type="primary", use_container_width=True):
+            if search_input:
+                st.session_state.search_topic = search_input
+                with st.spinner(f"'{search_input}' hakkında viral tweet'ler aranıyor..."):
+                    st.session_state.discovered_tweets = viral_discovery.search_viral_tweets(search_input, 10)
+                st.rerun()
+
+    # Popüler konular
+    st.markdown("**🔥 Popüler Konular:**")
+    quick_topics = ["dolar", "altın", "bitcoin", "futbol", "yapay zeka", "ekonomi"]
+    topic_cols = st.columns(6)
+
+    for i, topic in enumerate(quick_topics):
+        with topic_cols[i]:
+            if st.button(topic, key=f"quick_{topic}"):
+                st.session_state.search_topic = topic
+                with st.spinner(f"'{topic}' aranıyor..."):
+                    st.session_state.discovered_tweets = viral_discovery.search_viral_tweets(topic, 10)
+                st.rerun()
+
+    st.markdown("---")
+
+    # Sonuçlar
+    if st.session_state.discovered_tweets:
+        st.markdown(f"### 📊 Viral Tweet'ler: '{st.session_state.search_topic}'")
+        st.caption(f"{len(st.session_state.discovered_tweets)} yüksek etkileşimli tweet bulundu")
+
+        for i, tweet in enumerate(st.session_state.discovered_tweets):
+            with st.container():
+                # Tweet kartı
+                engagement_display = f"❤️ {tweet.likes:,} | 🔄 {tweet.retweets:,} | 💬 {tweet.replies:,}"
+
+                st.markdown(f"""
+                <div style="
+                    background: #f8f9fa;
+                    border-left: 4px solid #1DA1F2;
+                    padding: 15px;
+                    margin: 10px 0;
+                    border-radius: 0 10px 10px 0;
+                ">
+                    <p style="font-size: 1rem; margin-bottom: 10px;">{tweet.text[:280]}</p>
+                    <p style="color: #657786; font-size: 0.85rem;">{engagement_display}</p>
+                    <p style="color: #17bf63; font-size: 0.8rem;">📈 {tweet.viral_reason}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    if st.button(f"✨ Bunu Remix Et", key=f"remix_{i}", use_container_width=True):
+                        # Tweet'i remix et ve ana sayfaya git
+                        remixed = viral_discovery.remix_tweet(
+                            tweet.text,
+                            st.session_state.search_topic,
+                            st.session_state.voice_profile.tone
+                        )
+                        st.session_state.current_tweet = remixed
+                        st.session_state.selected_viral_tweet = tweet
+                        st.session_state.page = "main"
+                        st.rerun()
+
+                with col2:
+                    if st.button(f"📋 Yapıyı Kopyala", key=f"copy_{i}", use_container_width=True):
+                        st.session_state.selected_viral_tweet = tweet
+                        st.toast("Tweet yapısı seçildi! Tweet oluştururken kullanılacak.")
+
+                st.markdown("---")
+
+    # Seçili kategori için şablonlar
+    if st.session_state.selected_category:
+        cat_data = CONTENT_CATEGORIES[st.session_state.selected_category]
+        st.markdown(f"### 📝 {cat_data['name']} Şablonları")
+
+        for i, template in enumerate(cat_data["templates"]):
+            st.code(template.format(insight="[İÇERİK]"), language=None)
+
+        if cat_data["hashtags"]:
+            st.markdown(f"**Önerilen Hashtagler:** {' '.join(cat_data['hashtags'])}")
 
 
 def render_xpatla_page():
@@ -718,6 +851,14 @@ def render_step2_generate(topic: str, analysis: dict = None):
     """Adım 2: Tweet oluştur"""
     st.markdown("---")
     st.markdown('<span class="step-indicator">2️⃣ Tweet Oluştur</span>', unsafe_allow_html=True)
+
+    # Eğer viral tweet seçiliyse göster
+    if st.session_state.selected_viral_tweet:
+        vt = st.session_state.selected_viral_tweet
+        st.info(f"📌 **İlham:** {vt.text[:100]}... (❤️{vt.likes:,})")
+        if st.button("❌ İlhamı Kaldır"):
+            st.session_state.selected_viral_tweet = None
+            st.rerun()
 
     col1, col2 = st.columns(2)
     with col1:
@@ -974,6 +1115,8 @@ def main():
         render_tips_page()
     elif st.session_state.page == "xpatla":
         render_xpatla_page()
+    elif st.session_state.page == "discover":
+        render_discover_page()
     else:
         render_main_page()
 

@@ -61,10 +61,14 @@ class TrendingDiscovery:
 
     def __init__(self):
         self.session = requests.Session()
+        # Daha güçlü headers - Reddit bot engellemesini aş
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept": "application/json, text/html",
-            "Accept-Language": "tr-TR,tr;q=0.9,en;q=0.8",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
         })
 
     def get_all_trending(self, category: str = "all") -> List[TrendingTopic]:
@@ -75,63 +79,19 @@ class TrendingDiscovery:
         reddit_topics = self.get_reddit_trending(category)
         all_topics.extend(reddit_topics)
 
+        # Reddit başarısız olduysa HackerNews'i dene
+        if not all_topics:
+            logger.warning("Reddit'ten veri alınamadı, HackerNews deneniyor...")
+            hn_topics = self.get_hackernews_trending()
+            all_topics.extend(hn_topics)
+
         # Sırala (upvotes + comments)
         all_topics.sort(key=lambda x: x.upvotes + x.comments * 2, reverse=True)
 
         return all_topics[:15]
 
-    def get_reddit_trending(self, category: str = "all") -> List[TrendingTopic]:
-        """Reddit'ten trending konuları getir"""
-        topics = []
-
-        subreddits = {
-            "ai": ["artificial", "MachineLearning", "ChatGPT", "OpenAI", "LocalLLaMA"],
-            "tech": ["technology", "programming", "webdev", "gadgets"],
-            "crypto": ["cryptocurrency", "Bitcoin", "ethereum"],
-            "world": ["worldnews", "news"],
-            "turkey": ["Turkey"],
-            "all": ["artificial", "technology", "worldnews", "ChatGPT", "cryptocurrency"],
-        }
-
-        subs = subreddits.get(category, subreddits["all"])
-
-        for sub in subs[:3]:
-            try:
-                url = f"https://www.reddit.com/r/{sub}/hot.json?limit=5"
-                response = self.session.get(url, timeout=10)
-
-                if response.status_code == 200:
-                    data = response.json()
-                    posts = data.get("data", {}).get("children", [])
-
-                    for post in posts:
-                        post_data = post.get("data", {})
-
-                        if post_data.get("stickied") or post_data.get("promoted"):
-                            continue
-
-                        topic = TrendingTopic(
-                            title=post_data.get("title", "")[:200],
-                            source="reddit",
-                            category=category if category != "all" else self._detect_category(post_data.get("title", "")),
-                            url=f"https://reddit.com{post_data.get('permalink', '')}",
-                            description=post_data.get("selftext", "")[:500],
-                            upvotes=post_data.get("ups", 0),
-                            comments=post_data.get("num_comments", 0),
-                            time_ago=self._format_time(post_data.get("created_utc", 0)),
-                        )
-
-                        if topic.upvotes > 50:
-                            topics.append(topic)
-
-            except Exception as e:
-                logger.debug(f"Reddit hatası ({sub}): {e}")
-                continue
-
-        return topics
-
     def get_hackernews_trending(self) -> List[TrendingTopic]:
-        """Hacker News'ten trending konuları getir"""
+        """Hacker News'ten trending konuları getir (Reddit backup)"""
         topics = []
 
         try:
@@ -166,6 +126,75 @@ class TrendingDiscovery:
 
         except Exception as e:
             logger.debug(f"HackerNews hatası: {e}")
+
+        return topics
+
+    def get_reddit_trending(self, category: str = "all") -> List[TrendingTopic]:
+        """Reddit'ten trending konuları getir - retry ile"""
+        topics = []
+
+        subreddits = {
+            "ai": ["artificial", "MachineLearning", "ChatGPT", "OpenAI", "LocalLLaMA"],
+            "tech": ["technology", "programming", "webdev", "gadgets"],
+            "crypto": ["cryptocurrency", "Bitcoin", "ethereum"],
+            "world": ["worldnews", "news"],
+            "turkey": ["Turkey"],
+            "all": ["technology", "artificial", "ChatGPT", "programming", "worldnews"],
+        }
+
+        subs = subreddits.get(category, subreddits["all"])
+
+        for sub in subs[:4]:
+            try:
+                # Reddit JSON API - retry ile
+                import time
+
+                for attempt in range(2):
+                    try:
+                        url = f"https://www.reddit.com/r/{sub}/hot.json?limit=7&raw_json=1"
+                        response = self.session.get(url, timeout=15)
+
+                        if response.status_code == 200:
+                            break
+                        elif response.status_code == 429:
+                            # Rate limited, bekle
+                            time.sleep(2)
+                            continue
+                    except:
+                        time.sleep(1)
+                        continue
+
+                if response.status_code == 200:
+                    try:
+                        data = response.json()
+                    except:
+                        continue
+
+                    posts = data.get("data", {}).get("children", [])
+
+                    for post in posts:
+                        post_data = post.get("data", {})
+
+                        if post_data.get("stickied") or post_data.get("promoted"):
+                            continue
+
+                        topic = TrendingTopic(
+                            title=post_data.get("title", "")[:200],
+                            source="reddit",
+                            category=category if category != "all" else self._detect_category(post_data.get("title", "")),
+                            url=f"https://reddit.com{post_data.get('permalink', '')}",
+                            description=post_data.get("selftext", "")[:500],
+                            upvotes=post_data.get("ups", 0),
+                            comments=post_data.get("num_comments", 0),
+                            time_ago=self._format_time(post_data.get("created_utc", 0)),
+                        )
+
+                        if topic.upvotes > 20:  # Daha düşük eşik
+                            topics.append(topic)
+
+            except Exception as e:
+                logger.warning(f"Reddit hatası ({sub}): {e}")
+                continue
 
         return topics
 

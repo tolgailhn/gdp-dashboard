@@ -219,6 +219,7 @@ class TrendingDiscovery:
         """
         Konu hakkında GERÇEK araştırma yap.
         Web'den detaylı bilgi topla.
+        Başarısız olursa başlıktan akıllı analiz yap.
         """
         research_data = []
 
@@ -237,9 +238,141 @@ class TrendingDiscovery:
 
         # 3. Key points çıkar
         all_text = " ".join(research_data)
-        topic.key_points = self._extract_key_points(all_text)
+        if all_text:
+            topic.key_points = self._extract_key_points(all_text)
+
+        # 4. Araştırma başarısız olduysa başlıktan akıllı analiz yap
+        if not topic.key_points and not topic.full_content:
+            title_analysis = self._analyze_title_smart(topic.title)
+            topic.key_points = title_analysis["key_points"]
+            topic.description = title_analysis["description"]
+            topic.full_content = title_analysis["context"]
 
         return topic
+
+    def _analyze_title_smart(self, title: str) -> Dict[str, any]:
+        """
+        Başlıktan akıllı analiz yap.
+        Teknik terimleri, ürün adlarını, kavramları tespit et.
+        """
+        result = {
+            "key_points": [],
+            "description": "",
+            "context": "",
+            "entities": [],
+            "concepts": []
+        }
+
+        title_lower = title.lower()
+
+        # Teknik terim sözlüğü
+        tech_terms = {
+            "open source": "Açık kaynak kodlu, herkesin inceleyip katkıda bulunabileceği yazılım",
+            "zero trust": "Sıfır güven modeli - hiçbir kullanıcı veya cihaza otomatik güvenilmez, her erişim doğrulanır",
+            "networking": "Ağ teknolojisi - bilgisayarlar arası iletişim altyapısı",
+            "vpn": "Sanal özel ağ - güvenli ve şifreli internet bağlantısı",
+            "ai": "Yapay zeka - makinelerin insan benzeri öğrenme ve karar verme yeteneği",
+            "machine learning": "Makine öğrenimi - verilerden öğrenen algoritmalar",
+            "llm": "Büyük dil modeli - ChatGPT gibi metin üreten AI sistemleri",
+            "api": "Uygulama programlama arayüzü - yazılımlar arası iletişim protokolü",
+            "cloud": "Bulut bilişim - internet üzerinden sunulan hesaplama kaynakları",
+            "saas": "Hizmet olarak yazılım - abonelik bazlı bulut uygulamaları",
+            "kubernetes": "Konteyner orkestrasyon platformu - uygulamaları ölçeklendirme aracı",
+            "docker": "Konteyner teknolojisi - uygulamaları izole ortamlarda çalıştırma",
+            "blockchain": "Blok zinciri - dağıtık, değiştirilemez veri yapısı",
+            "cryptocurrency": "Kripto para - şifreleme ile güvence altına alınan dijital para",
+            "bitcoin": "İlk ve en büyük kripto para birimi",
+            "ethereum": "Akıllı sözleşme destekli kripto para platformu",
+            "startup": "Yeni kurulan, hızlı büyümeyi hedefleyen teknoloji şirketi",
+            "funding": "Yatırım turu - şirketlerin dış kaynaklardan para toplaması",
+            "acquisition": "Satın alma - bir şirketin başka bir şirketi alması",
+            "ipo": "Halka arz - şirket hisselerinin borsada işlem görmeye başlaması",
+            "security": "Güvenlik - sistemleri tehditlere karşı koruma",
+            "privacy": "Gizlilik - kişisel verilerin korunması",
+            "encryption": "Şifreleme - verileri okunamaz hale getirme",
+            "bug": "Yazılım hatası",
+            "patch": "Güvenlik yaması - hataları düzelten güncelleme",
+            "vulnerability": "Güvenlik açığı - saldırganların istismar edebileceği zayıflık",
+            "hack": "Siber saldırı veya yaratıcı çözüm",
+            "data breach": "Veri sızıntısı - yetkisiz kişilerin verilere erişmesi",
+            "ransomware": "Fidye yazılımı - verileri şifreleyip para isteyen kötü yazılım",
+            "gpu": "Grafik işlemci - AI ve oyunlarda kullanılan güçlü işlemci",
+            "chip": "Mikroçip - elektronik devre",
+            "semiconductor": "Yarı iletken - çip üretiminde kullanılan malzeme",
+            "quantum": "Kuantum teknolojisi - kuantum fiziğine dayalı hesaplama",
+            "robotics": "Robot teknolojisi",
+            "autonomous": "Otonom - insan müdahalesi olmadan çalışan",
+            "ev": "Elektrikli araç",
+            "battery": "Pil teknolojisi",
+            "renewable": "Yenilenebilir enerji",
+            "solar": "Güneş enerjisi",
+            "spacex": "Elon Musk'ın uzay şirketi",
+            "nasa": "ABD Ulusal Havacılık ve Uzay Dairesi",
+            "launch": "Lansman veya fırlatma",
+            "satellite": "Uydu",
+            "5g": "Beşinci nesil mobil ağ teknolojisi",
+            "metaverse": "Sanal evren - 3D dijital dünya",
+            "vr": "Sanal gerçeklik",
+            "ar": "Artırılmış gerçeklik",
+        }
+
+        # Başlıkta geçen terimleri bul
+        found_terms = []
+        explanations = []
+
+        for term, explanation in tech_terms.items():
+            if term in title_lower:
+                found_terms.append(term)
+                explanations.append(f"{term.title()}: {explanation}")
+
+        # Key points oluştur
+        if explanations:
+            result["key_points"] = explanations[:4]
+
+        # Şirket/ürün adını tespit et (başlıktaki ilk kelime genelde)
+        words = title.split()
+        if words:
+            # Tire veya iki nokta öncesi genelde ürün/şirket adı
+            if " - " in title:
+                product_name = title.split(" - ")[0].strip()
+            elif ": " in title:
+                product_name = title.split(": ")[0].strip()
+            else:
+                product_name = words[0]
+
+            result["entities"].append(product_name)
+
+        # Genel açıklama oluştur
+        if found_terms:
+            if "open source" in found_terms:
+                result["description"] = f"{result['entities'][0] if result['entities'] else 'Bu proje'} açık kaynak kodlu bir proje. Kaynak kodları herkese açık, topluluk katkılarına açık."
+
+            if "zero trust" in found_terms or "security" in found_terms:
+                result["description"] += " Güvenlik odaklı bir çözüm sunuyor."
+
+            if "ai" in found_terms or "machine learning" in found_terms:
+                result["description"] = f"{result['entities'][0] if result['entities'] else 'Bu'} yapay zeka teknolojisi kullanıyor."
+
+        # Context (AI için ek bilgi)
+        context_parts = [f"Konu: {title}"]
+        if found_terms:
+            context_parts.append(f"Tespit edilen teknoloji terimleri: {', '.join(found_terms)}")
+        if result["entities"]:
+            context_parts.append(f"Bahsedilen ürün/şirket: {', '.join(result['entities'])}")
+        if explanations:
+            context_parts.append("Terim açıklamaları:\n" + "\n".join(explanations))
+
+        result["context"] = "\n".join(context_parts)
+
+        # Eğer hiçbir terim bulunamadıysa genel bir açıklama yap
+        if not result["key_points"]:
+            result["key_points"] = [
+                f"'{title}' konusu şu an gündemde",
+                "Detaylar için kaynağı inceleyebilirsiniz",
+            ]
+            result["description"] = f"'{title}' hakkında önemli bir gelişme yaşanıyor."
+
+        return result
 
     def _fetch_article_content(self, url: str) -> str:
         """Makale içeriğini çek"""
@@ -429,38 +562,55 @@ class InformativeThreadGenerator:
     ) -> Optional[ThreadContent]:
         """AI ile içerik oluştur"""
 
-        prompt = f"""Sen bir teknoloji ve gündem yazarısın. Twitter/X için bilgilendirici, detaylı ve etkileşim alan içerikler yazıyorsun.
+        # Ton açıklamaları
+        tone_descriptions = {
+            "samimi": "arkadaşça, sıcak, konuşma dili kullan. 'ya', 'bak', 'aslında' gibi ifadeler olabilir",
+            "profesyonel": "ciddi ama sıkıcı değil, bilgilendirici ve güvenilir",
+            "mizahi": "esprili ama bilgilendirici, hafif bir dil",
+            "provokatif": "cesur, tartışma başlatan, dikkat çeken"
+        }
+        tone_desc = tone_descriptions.get(user_voice, tone_descriptions["samimi"])
 
-ARAŞTIRMA VERİLERİ:
-{research_context}
+        prompt = f"""Sen @caglauren gibi teknoloji ve gündem içerik üreticisisin. Twitter/X'te takipçileri bilgilendiren, detaylı ve etkileşim alan uzun tweetler yazıyorsun.
 
-GÖREV:
-Bu konu hakkında Türkçe, bilgilendirici ve detaylı bir Twitter/X paylaşımı yaz.
+BAŞLIK: {topic.title}
 
-KURALLAR:
-1. X Premium kullanıyorum, uzun yazabilirsin (1500-2000 karakter ideal)
-2. Konuyu detaylıca açıkla, yüzeysel kalma
-3. Gerçek bilgiler ver, araştırma verilerini kullan
-4. {user_voice} bir ton kullan
-5. Başlık dikkat çekici olsun
-6. Sonunda soru sor veya tartışma başlat
-7. 1-2 emoji kullan ama abartma
-8. Hashtag KULLANMA (sonra eklenecek)
+KAYNAK: {topic.source} ({topic.url if topic.url else 'URL yok'})
 
-FORMAT:
-- Dikkat çekici giriş (1-2 cümle)
-- Ana bilgiler (detaylı açıklama)
-- Neden önemli? (analiz)
-- Sonuç ve soru
+MEVCUT BİLGİLER:
+{research_context if research_context else 'Ek bilgi yok, başlıktan yola çık.'}
 
-Sadece tweet metnini yaz, başka açıklama ekleme."""
+ÖNEMLİ TALİMAT:
+1. Başlıktaki konuyu AÇIKLA. Ne olduğunu, ne işe yaradığını anlat.
+2. Teknik terimleri Türkçe açıkla (örn: "Zero Trust = her bağlantıyı doğrula, güvenme")
+3. Bu neden önemli? Kim için faydalı? Ne değiştirecek?
+4. Somut örnekler ver
+5. X Premium için 1200-1800 karakter yaz (uzun tweet)
+6. {tone_desc}
+7. Emoji az kullan (2-3 tane max)
+8. Sonunda tartışma sorusu sor
+
+ÖRNEK YAPI:
+🔥 [Dikkat çekici giriş - ne oldu?]
+
+[Bu ne demek? Açıklama]
+
+[Neden önemli? Kim için?]
+
+[Detaylar ve örnekler]
+
+[Sonuç ve soru] 👇
+
+Sadece tweet metnini yaz. Hashtag ekleme."""
 
         try:
             response = ai_client._call_ai(prompt)
 
-            if response and len(response) > 100:
+            if response and len(response) > 150:
                 # İçeriği temizle
                 content = response.strip()
+                # Baştaki ve sondaki tırnak işaretlerini kaldır
+                content = content.strip('"\'')
 
                 # ThreadContent oluştur
                 return ThreadContent(
@@ -487,82 +637,116 @@ Sadece tweet metnini yaz, başka açıklama ekleme."""
         research_context: str,
         user_voice: str
     ) -> ThreadContent:
-        """Şablondan bilgilendirici içerik oluştur"""
+        """Şablondan bilgilendirici içerik oluştur - Akıllı versiyon"""
 
-        # Kategori bazlı şablonlar
+        # Key points varsa kullan, yoksa başlıktan üret
+        key_points_text = ""
+        if topic.key_points:
+            # Key points'i düzgün formatla
+            formatted_points = []
+            for p in topic.key_points[:4]:
+                # Eğer zaten açıklama içeriyorsa
+                if ":" in p:
+                    formatted_points.append(f"• {p[:200]}")
+                else:
+                    formatted_points.append(f"• {p[:150]}")
+            key_points_text = "\n".join(formatted_points)
+        else:
+            key_points_text = "• Detaylar geliştikçe güncelleyeceğiz"
+
+        # Description - akıllı oluştur
+        if topic.description and len(topic.description) > 50:
+            description = topic.description[:400]
+        elif topic.full_content and len(topic.full_content) > 50:
+            description = topic.full_content[:400]
+        else:
+            # Başlıktan açıklama oluştur
+            description = f"'{topic.title}' konusu teknoloji gündeminde öne çıkıyor."
+
+        # Başlıktan ürün/proje adını çıkar
+        product_name = topic.title.split(" - ")[0].split(":")[0].strip() if " - " in topic.title or ":" in topic.title else topic.title.split()[0]
+
+        # Akıllı şablonlar - daha detaylı ve bilgilendirici
         templates = {
             "ai": """🤖 {title}
 
-Bu gelişme yapay zeka dünyasında önemli bir adım.
+Yapay zeka dünyasından dikkat çeken bir gelişme var.
 
-📌 Ne oldu?
+📌 Bu ne?
 {description}
 
-💡 Neden önemli?
+💡 Önemli detaylar:
 {key_points}
 
-🔮 Bu, yapay zeka alanında yeni bir dönemin başlangıcı olabilir.
+🎯 Neden takip etmelisin?
+Yapay zeka her geçen gün hayatımıza daha fazla giriyor. {product_name} gibi gelişmeler, bu alandaki hızlı ilerlemeyi gösteriyor.
 
-Siz bu gelişme hakkında ne düşünüyorsunuz? Yorumlarda tartışalım 👇""",
+Bu gelişme hakkında ne düşünüyorsun? Yapay zeka ile ilgili beklentilerin neler? 👇""",
 
             "tech": """💻 {title}
 
 Teknoloji dünyasından önemli bir haber.
 
-📌 Detaylar:
+📌 Nedir?
 {description}
 
-🔍 Önemli noktalar:
+🔍 Detaylar:
 {key_points}
 
-Bu gelişmeyi yakından takip edeceğiz.
+💡 Neden önemli?
+{product_name}, teknoloji ekosisteminde fark yaratan projelerden biri olabilir. Özellikle açık kaynak projeleri, inovasyonun demokratikleşmesinde kritik rol oynuyor.
 
-Sizce bu teknoloji geleceği nasıl şekillendirecek? 👇""",
+Bu teknolojiyi deneyen veya kullanan var mı? Deneyimlerinizi merak ediyorum 👇""",
 
             "crypto": """₿ {title}
 
-Kripto piyasalarında dikkat çeken gelişme.
+Kripto ve blockchain dünyasından güncel gelişme.
 
 📊 Ne oluyor?
 {description}
 
-📈 Dikkat edilmesi gerekenler:
+📈 Öne çıkanlar:
 {key_points}
 
-⚠️ Not: Bu finansal tavsiye değildir. Kendi araştırmanızı yapın.
+⚠️ Unutma: Bu finansal tavsiye değil. Her zaman kendi araştırmanı yap.
 
-Piyasalar hakkında ne düşünüyorsunuz? 👇""",
+Piyasalar hakkındaki görüşlerin neler? 👇""",
+
+            "world": """🌍 {title}
+
+Dünya gündeminden önemli bir gelişme.
+
+📌 Ne oldu?
+{description}
+
+🔍 Detaylar:
+{key_points}
+
+Bu gelişmenin uzun vadeli etkileri ne olabilir? Düşüncelerini paylaş 👇""",
 
             "default": """🔥 {title}
 
-Gündemden önemli bir gelişme.
+Gündemde dikkat çeken bir konu var.
 
 📌 Özet:
 {description}
 
-💡 Öne çıkan noktalar:
+💡 Önemli noktalar:
 {key_points}
 
-Bu konu hakkında düşüncelerinizi merak ediyorum 👇"""
+🎯 Bu gelişme, {product_name} ve ilgili alanlar için önemli bir adım olabilir.
+
+Sen bu konu hakkında ne düşünüyorsun? Yorumlarını bekliyorum 👇"""
         }
 
         template = templates.get(topic.category, templates["default"])
 
-        # Key points'i formatla
-        key_points_text = ""
-        if topic.key_points:
-            key_points_text = "\n".join([f"• {p[:150]}" for p in topic.key_points[:4]])
-        else:
-            key_points_text = "• Detaylar gelişiyor, takipte kalın."
-
-        # Description
-        description = topic.description[:300] if topic.description else "Bu konuda önemli gelişmeler yaşanıyor."
-
         # Şablonu doldur
         content = template.format(
-            title=topic.title[:100],
+            title=topic.title[:120],
             description=description,
             key_points=key_points_text,
+            product_name=product_name,
         )
 
         return ThreadContent(

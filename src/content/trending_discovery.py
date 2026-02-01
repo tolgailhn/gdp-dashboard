@@ -68,25 +68,17 @@ class TrendingDiscovery:
         })
 
     def get_all_trending(self, category: str = "all") -> List[TrendingTopic]:
-        """Tüm kaynaklardan trending konuları getir"""
+        """Sadece Reddit'ten trending konuları getir"""
         all_topics = []
 
-        # Reddit
+        # Sadece Reddit kullan (en kaliteli kaynak)
         reddit_topics = self.get_reddit_trending(category)
         all_topics.extend(reddit_topics)
-
-        # Hacker News
-        hn_topics = self.get_hackernews_trending()
-        all_topics.extend(hn_topics)
-
-        # Tech News
-        tech_topics = self.get_tech_news()
-        all_topics.extend(tech_topics)
 
         # Sırala (upvotes + comments)
         all_topics.sort(key=lambda x: x.upvotes + x.comments * 2, reverse=True)
 
-        return all_topics[:20]
+        return all_topics[:15]
 
     def get_reddit_trending(self, category: str = "all") -> List[TrendingTopic]:
         """Reddit'ten trending konuları getir"""
@@ -562,52 +554,65 @@ class InformativeThreadGenerator:
     ) -> Optional[ThreadContent]:
         """AI ile içerik oluştur"""
 
-        prompt = f"""Sen @ilhntolga hesabından tweet atan bir Türk teknoloji uzmanısın. Konuları BİLİYORMUŞ gibi, UZMAN gibi anlatıyorsun.
+        # Başlıktan konu özeti çıkar
+        title = topic.title
 
-⚠️ KRİTİK KURAL - %100 TÜRKÇE:
-- Aşağıdaki İngilizce metinleri TÜRKÇE'YE ÇEVİR
-- Hiçbir İngilizce kelime/cümle KALMAMALI
-- Teknik terimleri Türkçe açıkla (parantez içinde İngilizce olabilir)
+        prompt = f"""SEN TÜRKÇE YAZAN BİR İÇERİK ÜRETİCİSİSİN.
 
-📝 ANLATIM TARZI - UZMAN GİBİ:
-- "Araştırdım, buldum" DEĞİL
-- Konuyu zaten biliyormuş gibi anlat
-- "X nedir biliyor musunuz?", "Şöyle açıklayayım:", "Kısaca anlatayım:"
-- Öğretici, bilgilendirici ama samimi
+🚨 EN ÖNEMLİ KURAL: SADECE TÜRKÇE YAZ!
+- İngilizce kelime YASAK
+- İngilizce cümle YASAK
+- Teknik terim varsa Türkçe karşılığını yaz
 
-KONU: {topic.title}
+KONU BAŞLIĞI: {title}
 
-ARAŞTIRMA VERİLERİ (TÜRKÇE'YE ÇEVİR!):
-{research_context}
+BU KONUYU TÜRKÇE ANLAT. Konuyu biliyormuş gibi, uzman gibi açıkla.
 
-ÖRNEK YAZI:
-🎮 Point-and-click macera oyunu yapımcıları için müjde!
+YAZI YAPISI:
+1. Dikkat çekici başlık (emoji ile)
+2. "Bu nedir?" kısmı - basitçe açıkla
+3. "Neden önemli?" - 3-4 madde halinde
+4. "Benim görüşüm" - kişisel yorum
+5. Soru ile bitir (etkileşim için)
 
-Adventure Game Studio (AGS) nedir biliyor musunuz? Grafik tabanlı macera oyunları yapmanızı sağlayan ücretsiz bir araç.
+ÖRNEK:
+🚀 Mass hesabından çıkış yapılması: Meta'nın yeni hamlesi
 
-Şöyle açıklayayım:
-• Tamamen ücretsiz, abonelik yok
-• Windows üzerinde çalışıyor, grafik ekleme, script yazma, test etme hepsi tek yerde
-• Yaptığın oyunlar Linux, iOS, Android'de de çalışıyor
+Meta, kullanıcıların tüm cihazlardan tek tıkla çıkış yapabilmesini sağlayan yeni bir özellik getirdi.
+
+Bu ne demek?
+Artık hesabınıza giriş yaptığınız tüm cihazları görebilir ve tek tuşla hepsinden çıkış yapabilirsiniz.
 
 Neden önemli?
-Eskiden bu tarz oyun yapmak için ya büyük bütçe ya da ciddi programlama bilgisi gerekiyordu. AGS ile herkes oyun geliştirebilir.
+• Güvenlik açısından büyük kolaylık
+• Kayıp/çalıntı cihazlarda hesap koruması
+• Şüpheli girişleri anında tespit edebilme
 
-Oyun geliştirmeyle ilgilenen var mı? Hangi araçları kullanıyorsunuz? 👇
+Bence bu özellik çok geç geldi ama geç olsun güç olmasın. Özellikle güvenliğine önem verenler için vazgeçilmez olacak.
 
-TALİMATLAR:
-1. 1200-1800 karakter yaz
-2. Konuyu DETAYLI açıkla, yüzeysel kalma
-3. Teknik terimleri Türkçe anlat
-4. 2-3 emoji max
-5. Hashtag EKLEME
-6. SADECE tweet metnini yaz"""
+Siz hesap güvenliği için ne tür önlemler alıyorsunuz? 👇
+
+YAZIM KURALLARI:
+- 1000-1500 karakter
+- Samimi ama bilgilendirici
+- 2-3 emoji maximum
+- Hashtag EKLEME
+- SADECE Türkçe metin yaz, başka bir şey yazma"""
 
         try:
             response = ai_client._call_ai(prompt)
 
             if response and len(response) > 150:
                 content = response.strip().strip('"\'')
+
+                # İngilizce kelime kontrolü - çok fazla varsa template'e geç
+                eng_words = ['the ', 'is ', 'are ', 'was ', 'were ', 'have ', 'has ', 'will ', 'would ', 'could ', 'should ', 'this ', 'that ', 'with ', 'from ', 'for ', 'and ', 'but ', 'or ']
+                eng_count = sum(1 for w in eng_words if w.lower() in content.lower())
+
+                if eng_count > 3:
+                    # Çok fazla İngilizce var, template kullan
+                    logger.warning(f"AI çok fazla İngilizce kullandı ({eng_count} kelime), template'e geçiliyor")
+                    return None
 
                 return ThreadContent(
                     topic=topic.title,
@@ -633,108 +638,103 @@ TALİMATLAR:
         research_context: str,
         user_voice: str
     ) -> ThreadContent:
-        """Şablondan bilgilendirici içerik oluştur - Uzman anlatımı"""
+        """Şablondan içerik oluştur - İngilizce veri KULLANMA, sadece Türkçe yaz"""
 
-        # Başlığı Türkçeleştir
-        title_tr = cls._simple_translate_title(topic.title)
-
-        # Ürün adı
-        product_name = topic.title.split(" - ")[0].split(":")[0].strip() if " - " in topic.title or ":" in topic.title else topic.title.split()[0]
-
-        # Key points - Türkçeleştir
-        key_points_text = ""
-        if topic.key_points:
-            formatted_points = []
-            for p in topic.key_points[:4]:
-                # Basit Türkçeleştirme
-                p_tr = cls._simple_translate_title(p)
-                formatted_points.append(f"• {p_tr[:180]}")
-            key_points_text = "\n".join(formatted_points)
+        # Başlıktan ürün/konu adını çıkar
+        title = topic.title
+        if " - " in title:
+            product_name = title.split(" - ")[0].strip()
+            topic_desc = title.split(" - ")[1].strip() if len(title.split(" - ")) > 1 else ""
+        elif ": " in title:
+            product_name = title.split(": ")[0].strip()
+            topic_desc = title.split(": ")[1].strip() if len(title.split(": ")) > 1 else ""
         else:
-            key_points_text = "• Detaylar için kaynağı inceleyebilirsiniz"
+            words = title.split()
+            product_name = words[0] if words else "Bu konu"
+            topic_desc = " ".join(words[1:]) if len(words) > 1 else ""
 
-        # Description - Türkçeleştir
-        if topic.description and len(topic.description) > 50:
-            description = cls._simple_translate_title(topic.description[:400])
-        elif topic.full_content and len(topic.full_content) > 50:
-            description = cls._simple_translate_title(topic.full_content[:400])
-        else:
-            description = f"{product_name} hakkında bilmeniz gerekenler var."
-
-        # UZMAN ANLATIM ŞABLONLARI
+        # Kategori bazlı Türkçe içerik (İngilizce araştırma verisini KULLANMA)
         templates = {
-            "ai": """🤖 Yapay zeka dünyasından önemli bir gelişme
+            "ai": f"""🤖 Yapay Zeka Dünyasından Sıcak Gelişme!
 
-{title_tr} nedir biliyor musunuz? Kısaca anlatayım.
+{product_name} hakkında konuşalım.
 
-{description}
-
-Önemli detaylar:
-{key_points}
-
-Neden takip etmelisiniz?
-AI araçları artık sadece büyük şirketlerin değil, herkesin kullanabileceği seviyeye geldi. {product_name} bunun güzel bir örneği.
-
-Bu alanda hangi araçları kullanıyorsunuz? 👇""",
-
-            "tech": """💻 Teknoloji dünyasından bir gelişme anlatayım
-
-{title_tr} - bu ne demek açıklayayım.
-
-{description}
-
-Detaylar:
-{key_points}
+Bu ne?
+Yapay zeka alanında yeni bir gelişme var. Reddit'te çok konuşuluyor ve teknoloji camiası heyecanlı.
 
 Neden önemli?
-Açık kaynak projeler teknoloji dünyasını demokratikleştiriyor. {product_name} gibi araçlar sayesinde herkes üretici olabiliyor.
+• AI araçları her geçen gün daha erişilebilir hale geliyor
+• Geliştiriciler ve kullanıcılar için yeni fırsatlar doğuyor
+• Bu tarz yenilikler sektörü şekillendiriyor
 
-Siz bu tarz araçlar kullanıyor musunuz? 👇""",
+Benim görüşüm:
+Yapay zeka alanı inanılmaz hızlı ilerliyor. Bugün "deneysel" dediğimiz şeyler yarın günlük hayatımızın parçası oluyor.
 
-            "crypto": """₿ Kripto piyasasından bir güncelleme
+Siz AI araçlarını ne için kullanıyorsunuz? 👇""",
 
-{title_tr} konusunu açıklayayım.
+            "tech": f"""💻 Teknoloji Gündeminden Önemli Bir Haber!
 
-{description}
+{product_name} - bu ismi duymuş olabilirsiniz.
 
-Dikkat edilmesi gerekenler:
-{key_points}
+Ne oldu?
+Teknoloji dünyasında yeni bir gelişme var. Özellikle yazılım ve açık kaynak camiasında gündem oldu.
 
-⚠️ Önemli: Bu yatırım tavsiyesi değil. Her zaman kendi araştırmanızı yapın.
+Dikkat çeken noktalar:
+• Açık kaynak projelerin gücü bir kez daha ortaya çıktı
+• Topluluk desteği çok önemli
+• Herkesin kullanabileceği araçlar artıyor
 
-Piyasa hakkında ne düşünüyorsunuz? 👇""",
+Neden takip etmelisiniz?
+Teknoloji demokratikleşiyor. Eskiden büyük şirketlerin tekelinde olan araçlar artık herkesin erişimine açık.
 
-            "world": """🌍 Dünya gündeminden bir gelişme
+Bu tarz projeleri takip ediyor musunuz? 👇""",
 
-{title_tr} - ne olduğunu anlatayım.
+            "crypto": f"""₿ Kripto Dünyasından Güncel Haber!
 
-{description}
+{product_name} konusunda neler oluyor?
+
+Durum:
+Kripto piyasasında her gün yeni gelişmeler yaşanıyor. Bu da onlardan biri.
+
+Dikkat edilecekler:
+• Piyasa volatilitesi her zaman yüksek
+• DYOR (Kendi araştırmanı yap) kuralı geçerli
+• Risk yönetimi şart
+
+⚠️ Önemli: Bu yatırım tavsiyesi değildir. Sadece bilgilendirme amaçlıdır.
+
+Kripto hakkında ne düşünüyorsunuz? 👇""",
+
+            "world": f"""🌍 Dünya Gündeminden Bir Gelişme!
+
+{product_name} konusu gündemde.
+
+Ne oldu?
+Dünya genelinde önemli bir gelişme yaşandı. Sosyal medyada çok konuşuluyor.
 
 Önemli noktalar:
-{key_points}
+• Bu gelişme birçok kişiyi etkileyebilir
+• Uzun vadeli sonuçları olabilir
+• Takip etmekte fayda var
 
-Bu gelişmenin etkilerini birlikte takip edelim. Sizin yorumunuz nedir? 👇""",
+Sizce bu gelişme nasıl sonuçlanır? 👇""",
 
-            "default": """🔥 Gündemden bir konu anlatayım
+            "default": f"""🔥 Gündemden Sıcak Bir Konu!
 
-{title_tr} - bu ne demek açıklayayım.
+{product_name} bugün çok konuşuluyor.
 
-{description}
+Neler oluyor?
+Reddit ve teknoloji çevrelerinde bu konu gündem oldu. İlgi çekici gelişmeler var.
 
-Bilmeniz gerekenler:
-{key_points}
+Öne çıkanlar:
+• Konu hakkında farklı görüşler mevcut
+• Detaylar henüz netleşiyor
+• Takipte kalmakta fayda var
 
-Bu konuda düşüncelerinizi merak ediyorum 👇"""
+Bu konu hakkında ne düşünüyorsunuz? Yorumlarınızı bekliyorum 👇"""
         }
 
-        template = templates.get(topic.category, templates["default"])
-
-        content = template.format(
-            title_tr=title_tr,
-            description=description,
-            key_points=key_points_text,
-            product_name=product_name,
-        )
+        content = templates.get(topic.category, templates["default"])
 
         return ThreadContent(
             topic=topic.title,

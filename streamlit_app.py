@@ -28,9 +28,16 @@ from src.content.viral_discovery import (
     viral_discovery, CONTENT_CATEGORIES, ViralTweet
 )
 from src.content.trending_discovery import (
-    trending_discovery, thread_generator, TRENDING_CATEGORIES,
-    TrendingTopic, ThreadContent
+    trending_discovery, TRENDING_CATEGORIES,
+    TrendingTopic, ThreadContent, InformativeThreadGenerator
 )
+
+# AI client'ı thread generator için kullanacağız
+def get_ai_client():
+    """AI client'ı döndür (Gemini veya fallback)"""
+    if ai_writer.is_available:
+        return ai_writer
+    return None
 
 # Sayfa yapılandırması - MOBİL UYUMLU
 st.set_page_config(
@@ -507,6 +514,7 @@ def render_trending_page():
     """Gündem - Reddit, HackerNews, Tech haberlerinden trending konular"""
     st.markdown("## 📡 Şu An Ne Konuşuluyor?")
     st.markdown("Reddit, HackerNews ve teknoloji haberlerinden anlık gündem")
+    st.caption("🔵 X Premium desteği - Uzun, detaylı içerikler oluştur!")
 
     # Kategori seçimi
     st.markdown("### 📂 Kategori")
@@ -604,25 +612,37 @@ def render_trending_page():
                 col1, col2, col3 = st.columns(3)
 
                 with col1:
-                    if st.button("🧵 Thread Yaz", key=f"thread_{i}", use_container_width=True):
-                        with st.spinner("Thread hazırlanıyor..."):
-                            # Detayları getir
-                            detailed_topic = trending_discovery.get_topic_details(topic)
-                            # Thread oluştur
-                            thread = thread_generator.generate_thread(
-                                detailed_topic,
-                                st.session_state.voice_profile.tone
+                    if st.button("📝 İçerik Yaz", key=f"thread_{i}", use_container_width=True):
+                        with st.spinner("🔍 Araştırma yapılıyor..."):
+                            # 1. GERÇEK ARAŞTIRMA YAP
+                            researched_topic = trending_discovery.research_topic(topic)
+
+                        with st.spinner("✍️ İçerik oluşturuluyor..."):
+                            # 2. AI ile bilgilendirici içerik oluştur
+                            ai_client = get_ai_client()
+                            user_tone = st.session_state.voice_profile.tone
+
+                            thread = InformativeThreadGenerator.generate_informative_content(
+                                topic=researched_topic,
+                                ai_client=ai_client,
+                                user_voice=user_tone,
+                                max_length=2000  # X Premium için uzun içerik
                             )
                             st.session_state.generated_thread = thread
-                            st.session_state.selected_trending_topic = topic
+                            st.session_state.selected_trending_topic = researched_topic
+
                         st.rerun()
 
                 with col2:
-                    if st.button("✨ Tweet Yaz", key=f"single_{i}", use_container_width=True):
-                        # Tek tweet oluştur
-                        thread = thread_generator.generate_thread(topic)
-                        single_tweet = thread_generator.format_as_single_tweet(thread)
-                        st.session_state.current_tweet = single_tweet
+                    if st.button("⚡ Hızlı Tweet", key=f"single_{i}", use_container_width=True):
+                        # Kısa tweet oluştur (araştırma olmadan)
+                        quick_content = InformativeThreadGenerator.generate_informative_content(
+                            topic=topic,
+                            ai_client=get_ai_client(),
+                            user_voice=st.session_state.voice_profile.tone,
+                            max_length=280
+                        )
+                        st.session_state.current_tweet = quick_content.full_text[:280]
                         st.session_state.page = "main"
                         st.rerun()
 
@@ -632,50 +652,105 @@ def render_trending_page():
 
                 st.markdown("---")
 
-    # Oluşturulan thread
+    # Oluşturulan içerik - X PREMIUM UZUN TWEET GÖSTERİMİ
     if st.session_state.generated_thread:
         thread = st.session_state.generated_thread
+        topic = st.session_state.selected_trending_topic
 
-        st.markdown("### 🧵 Oluşturulan Thread")
+        st.markdown("### 📝 Oluşturulan İçerik")
 
-        # Thread'i göster
-        st.markdown("**Hook (İlk Tweet):**")
-        st.code(thread.hook, language=None)
+        # Araştırma bilgisi göster
+        if topic and topic.key_points:
+            with st.expander("🔍 Araştırma Sonuçları", expanded=False):
+                st.markdown("**Bulunan önemli noktalar:**")
+                for point in topic.key_points[:5]:
+                    st.markdown(f"• {point[:200]}")
+                if topic.url:
+                    st.markdown(f"**Kaynak:** [{topic.url[:50]}...]({topic.url})")
 
-        st.markdown("**İçerik:**")
-        for i, tweet in enumerate(thread.body_tweets):
-            st.code(tweet, language=None)
+        # Karakter sayısı
+        char_count = thread.char_count
+        if char_count <= 280:
+            char_info = f"📊 {char_count} karakter (Standart tweet)"
+        elif char_count <= 4000:
+            char_info = f"📊 {char_count} karakter (X Premium uzun tweet ✓)"
+        else:
+            char_info = f"📊 {char_count} karakter (Çok uzun, kısaltılabilir)"
 
-        st.markdown("**Son Tweet (CTA):**")
-        st.code(thread.conclusion, language=None)
+        st.caption(char_info)
 
-        st.markdown(f"**Hashtagler:** {' '.join(thread.hashtags)}")
+        # ANA İÇERİK - Düzenlenebilir text area
+        edited_content = st.text_area(
+            "İçerik (düzenleyebilirsin):",
+            value=thread.full_text,
+            height=400,
+            label_visibility="collapsed",
+            key="thread_editor"
+        )
+
+        # Hashtag'ler
+        if thread.hashtags:
+            st.markdown(f"**Önerilen Hashtagler:** {' '.join(thread.hashtags)}")
+
+        # Kopyalama ipucu
+        st.markdown("""
+        <div class="copy-hint">
+            💡 <b>X Premium ile uzun tweet paylaşabilirsin!</b><br>
+            Metni seç → Kopyala → X uygulamasına yapıştır
+        </div>
+        """, unsafe_allow_html=True)
 
         # Aksiyonlar
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
 
         with col1:
-            if st.button("📋 Tümünü Kopyala için Aç", type="primary", use_container_width=True):
-                # Tüm thread'i birleştir
-                full_thread = f"{thread.hook}\n\n"
-                full_thread += "\n\n".join(thread.body_tweets)
-                full_thread += f"\n\n{thread.conclusion}"
-                full_thread += f"\n\n{' '.join(thread.hashtags)}"
+            # X'te paylaş butonu
+            import urllib.parse
+            tweet_encoded = urllib.parse.quote(edited_content[:280])  # Intent için ilk 280 karakter
+            twitter_url = f"https://twitter.com/intent/tweet?text={tweet_encoded}"
 
-                st.session_state.current_tweet = full_thread
+            st.markdown(f"""
+            <a href="{twitter_url}" target="_blank" style="
+                display: block;
+                background: #1DA1F2;
+                color: white;
+                text-align: center;
+                padding: 12px;
+                border-radius: 20px;
+                text-decoration: none;
+                font-weight: bold;
+            ">
+                🐦 X'te Paylaş
+            </a>
+            """, unsafe_allow_html=True)
+
+        with col2:
+            if st.button("🔄 Yeniden Yaz", use_container_width=True):
+                topic = st.session_state.selected_trending_topic
+                if topic:
+                    with st.spinner("Yeniden yazılıyor..."):
+                        thread = InformativeThreadGenerator.generate_informative_content(
+                            topic=topic,
+                            ai_client=get_ai_client(),
+                            user_voice=st.session_state.voice_profile.tone,
+                            max_length=2000
+                        )
+                        st.session_state.generated_thread = thread
+                    st.rerun()
+
+        with col3:
+            if st.button("📋 Ana Sayfaya Al", use_container_width=True):
+                # Hashtag'leri ekle
+                final_text = edited_content
+                if thread.hashtags and not any(h in edited_content for h in thread.hashtags):
+                    final_text += f"\n\n{' '.join(thread.hashtags)}"
+
+                st.session_state.current_tweet = final_text
                 st.session_state.page = "main"
                 st.rerun()
 
-        with col2:
-            if st.button("🔄 Yeniden Oluştur", use_container_width=True):
-                topic = st.session_state.selected_trending_topic
-                if topic:
-                    thread = thread_generator.generate_thread(topic)
-                    st.session_state.generated_thread = thread
-                    st.rerun()
-
         # Temizle
-        if st.button("❌ Thread'i Kapat"):
+        if st.button("❌ Kapat"):
             st.session_state.generated_thread = None
             st.session_state.selected_trending_topic = None
             st.rerun()

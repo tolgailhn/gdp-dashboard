@@ -1,11 +1,12 @@
 """
-Trending Topic Discovery - Gündem Keşif Sistemi
-=================================================
+Trending Topic Discovery - Gündem Keşif Sistemi (v2)
+======================================================
 
 Reddit, Hacker News, Tech haberleri ve sosyal medyadan
 şu an en çok konuşulan konuları bulur.
 
-Thread formatında bilgilendirici içerik oluşturur.
+GERÇEK ARAŞTIRMA yaparak bilgilendirici içerik oluşturur.
+X Premium uzun tweet desteği.
 """
 
 import requests
@@ -34,18 +35,22 @@ class TrendingTopic:
     comments: int = 0
     time_ago: str = ""
     key_points: List[str] = field(default_factory=list)
+    full_content: str = ""  # Tam içerik (araştırma sonucu)
     related_links: List[str] = field(default_factory=list)
 
 
 @dataclass
 class ThreadContent:
-    """Thread içeriği"""
+    """Thread içeriği - X Premium uzun tweet desteği"""
     topic: str
-    hook: str  # İlk tweet (dikkat çekici)
-    body_tweets: List[str]  # Ana içerik tweet'leri
-    conclusion: str  # Son tweet (CTA)
+    full_text: str  # Tek uzun tweet (X Premium için)
+    hook: str  # İlk kısım
+    body: str  # Ana içerik
+    conclusion: str  # Son kısım
     hashtags: List[str] = field(default_factory=list)
     sources: List[str] = field(default_factory=list)
+    word_count: int = 0
+    char_count: int = 0
 
 
 class TrendingDiscovery:
@@ -87,13 +92,12 @@ class TrendingDiscovery:
         """Reddit'ten trending konuları getir"""
         topics = []
 
-        # Kategori bazlı subreddit'ler
         subreddits = {
             "ai": ["artificial", "MachineLearning", "ChatGPT", "OpenAI", "LocalLLaMA"],
             "tech": ["technology", "programming", "webdev", "gadgets"],
             "crypto": ["cryptocurrency", "Bitcoin", "ethereum"],
             "world": ["worldnews", "news"],
-            "turkey": ["Turkey", "KGBTR"],
+            "turkey": ["Turkey"],
             "all": ["artificial", "technology", "worldnews", "ChatGPT", "cryptocurrency"],
         }
 
@@ -101,7 +105,6 @@ class TrendingDiscovery:
 
         for sub in subs[:3]:
             try:
-                # Reddit JSON API (resmi değil ama çalışıyor)
                 url = f"https://www.reddit.com/r/{sub}/hot.json?limit=5"
                 response = self.session.get(url, timeout=10)
 
@@ -112,7 +115,6 @@ class TrendingDiscovery:
                     for post in posts:
                         post_data = post.get("data", {})
 
-                        # Pinned ve reklam postlarını atla
                         if post_data.get("stickied") or post_data.get("promoted"):
                             continue
 
@@ -121,13 +123,13 @@ class TrendingDiscovery:
                             source="reddit",
                             category=category if category != "all" else self._detect_category(post_data.get("title", "")),
                             url=f"https://reddit.com{post_data.get('permalink', '')}",
-                            description=post_data.get("selftext", "")[:300],
+                            description=post_data.get("selftext", "")[:500],
                             upvotes=post_data.get("ups", 0),
                             comments=post_data.get("num_comments", 0),
                             time_ago=self._format_time(post_data.get("created_utc", 0)),
                         )
 
-                        if topic.upvotes > 100:  # Sadece popüler olanları al
+                        if topic.upvotes > 50:
                             topics.append(topic)
 
             except Exception as e:
@@ -141,7 +143,6 @@ class TrendingDiscovery:
         topics = []
 
         try:
-            # HN Top Stories API
             url = "https://hacker-news.firebaseio.com/v0/topstories.json"
             response = self.session.get(url, timeout=10)
 
@@ -180,11 +181,9 @@ class TrendingDiscovery:
         """Teknoloji haberlerini getir"""
         topics = []
 
-        # TechCrunch, Wired vb. RSS'lerden
         rss_feeds = [
             ("https://techcrunch.com/feed/", "TechCrunch"),
             ("https://www.wired.com/feed/rss", "Wired"),
-            ("https://feeds.arstechnica.com/arstechnica/technology-lab", "ArsTechnica"),
         ]
 
         for feed_url, source in rss_feeds:
@@ -206,7 +205,7 @@ class TrendingDiscovery:
                                 source=source.lower(),
                                 category=self._detect_category(title.get_text()),
                                 url=link.get_text(strip=True) if link else "",
-                                description=self._clean_html(description.get_text()[:300]) if description else "",
+                                description=self._clean_html(description.get_text()[:500]) if description else "",
                             )
                             topics.append(topic)
 
@@ -216,69 +215,118 @@ class TrendingDiscovery:
 
         return topics
 
-    def get_topic_details(self, topic: TrendingTopic) -> TrendingTopic:
-        """Konu hakkında detaylı bilgi topla"""
+    def research_topic(self, topic: TrendingTopic) -> TrendingTopic:
+        """
+        Konu hakkında GERÇEK araştırma yap.
+        Web'den detaylı bilgi topla.
+        """
+        research_data = []
 
-        # URL'den içerik çek
+        # 1. Kaynak URL'den içerik çek
         if topic.url:
-            try:
-                response = self.session.get(topic.url, timeout=10)
-                if response.status_code == 200:
-                    soup = BeautifulSoup(response.text, 'lxml')
+            content = self._fetch_article_content(topic.url)
+            if content:
+                research_data.append(content)
+                topic.full_content = content
 
-                    # Paragrafları bul
-                    paragraphs = soup.find_all('p')[:10]
-                    text_content = " ".join([p.get_text(strip=True) for p in paragraphs])
+        # 2. Reddit yorumlarından bilgi topla
+        if topic.source == "reddit" and topic.url:
+            comments = self._fetch_reddit_comments(topic.url)
+            if comments:
+                research_data.extend(comments[:5])
 
-                    # Key points çıkar
-                    sentences = text_content.split('.')[:5]
-                    topic.key_points = [s.strip() + '.' for s in sentences if len(s.strip()) > 30]
-
-            except Exception as e:
-                logger.debug(f"Detay çekme hatası: {e}")
+        # 3. Key points çıkar
+        all_text = " ".join(research_data)
+        topic.key_points = self._extract_key_points(all_text)
 
         return topic
 
-    def search_topic_info(self, query: str) -> Dict:
-        """Konu hakkında bilgi ara"""
-        info = {
-            "query": query,
-            "reddit_discussions": [],
-            "news_articles": [],
-            "key_facts": [],
-            "related_topics": [],
-        }
-
-        # Reddit'te ara
+    def _fetch_article_content(self, url: str) -> str:
+        """Makale içeriğini çek"""
         try:
-            encoded_query = urllib.parse.quote(query)
-            url = f"https://www.reddit.com/search.json?q={encoded_query}&sort=hot&limit=5"
-            response = self.session.get(url, timeout=10)
+            response = self.session.get(url, timeout=15)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'lxml')
+
+                # Script ve style taglerini kaldır
+                for tag in soup(['script', 'style', 'nav', 'footer', 'header']):
+                    tag.decompose()
+
+                # Makale içeriğini bul
+                article = soup.find('article') or soup.find('main') or soup.find('body')
+
+                if article:
+                    paragraphs = article.find_all('p')
+                    content = " ".join([p.get_text(strip=True) for p in paragraphs[:15]])
+                    return content[:3000]
+
+        except Exception as e:
+            logger.debug(f"İçerik çekme hatası: {e}")
+
+        return ""
+
+    def _fetch_reddit_comments(self, url: str) -> List[str]:
+        """Reddit yorumlarını çek"""
+        comments = []
+        try:
+            # Reddit JSON API
+            json_url = url.rstrip('/') + '.json'
+            response = self.session.get(json_url, timeout=10)
 
             if response.status_code == 200:
                 data = response.json()
-                posts = data.get("data", {}).get("children", [])
+                if len(data) > 1:
+                    comment_data = data[1].get("data", {}).get("children", [])
 
-                for post in posts[:3]:
-                    post_data = post.get("data", {})
-                    info["reddit_discussions"].append({
-                        "title": post_data.get("title", ""),
-                        "subreddit": post_data.get("subreddit", ""),
-                        "upvotes": post_data.get("ups", 0),
-                        "comments": post_data.get("num_comments", 0),
-                    })
+                    for comment in comment_data[:10]:
+                        body = comment.get("data", {}).get("body", "")
+                        if body and len(body) > 50 and "[deleted]" not in body:
+                            comments.append(body[:500])
 
         except Exception as e:
-            logger.debug(f"Reddit arama hatası: {e}")
+            logger.debug(f"Reddit yorum hatası: {e}")
 
-        return info
+        return comments
+
+    def _extract_key_points(self, text: str) -> List[str]:
+        """Metinden önemli noktaları çıkar"""
+        if not text:
+            return []
+
+        # Cümlelere ayır
+        sentences = re.split(r'[.!?]', text)
+
+        # Önemli cümleleri filtrele
+        key_points = []
+        important_words = [
+            "önemli", "kritik", "yeni", "ilk", "büyük", "değişti",
+            "announced", "launched", "new", "first", "major", "breaking",
+            "revolutionary", "significant", "important", "update"
+        ]
+
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if len(sentence) > 40 and len(sentence) < 300:
+                if any(word in sentence.lower() for word in important_words):
+                    key_points.append(sentence)
+
+        # En az 3 nokta olsun
+        if len(key_points) < 3:
+            for sentence in sentences:
+                sentence = sentence.strip()
+                if len(sentence) > 50 and len(sentence) < 250 and sentence not in key_points:
+                    key_points.append(sentence)
+                    if len(key_points) >= 5:
+                        break
+
+        return key_points[:7]
 
     def _detect_category(self, text: str) -> str:
         """Metinden kategori tespit et"""
         text_lower = text.lower()
 
         categories = {
-            "ai": ["ai", "artificial intelligence", "machine learning", "chatgpt", "openai", "llm", "gpt", "claude", "gemini", "neural", "deep learning"],
+            "ai": ["ai", "artificial intelligence", "machine learning", "chatgpt", "openai", "llm", "gpt", "claude", "gemini", "neural", "deep learning", "yapay zeka"],
             "crypto": ["bitcoin", "crypto", "ethereum", "blockchain", "btc", "eth", "token", "defi", "nft"],
             "tech": ["apple", "google", "microsoft", "startup", "app", "software", "programming", "code", "developer"],
             "world": ["war", "election", "president", "government", "politics", "climate", "economy"],
@@ -315,137 +363,235 @@ class TrendingDiscovery:
         return clean.strip()
 
 
-class ThreadGenerator:
+class InformativeThreadGenerator:
     """
-    Bilgilendirici thread içeriği oluşturucu.
-    Çağla Üren tarzı detaylı, eğitici thread'ler.
-    """
+    Bilgilendirici, detaylı içerik oluşturucu.
+    X Premium uzun tweet desteği (25.000 karakter).
 
-    # Thread şablonları
-    THREAD_TEMPLATES = {
-        "ai": {
-            "hooks": [
-                "🧵 {topic} hakkında bilmeniz gereken her şey.\n\nBu gelişme çok önemli. Açıklıyorum 👇",
-                "Herkes {topic} konuşuyor ama çoğu kişi detayları bilmiyor.\n\nThread: Neler oluyor? 🧵",
-                "🚨 {topic} - Bu gelişmeyi kaçırmayın.\n\nNeden önemli? Anlatıyorum 👇",
-            ],
-            "body_templates": [
-                "1/ Önce temel bilgi:\n\n{point}",
-                "2/ Peki bu neden önemli?\n\n{point}",
-                "3/ Teknik detaylar:\n\n{point}",
-                "4/ Pratik etkileri:\n\n{point}",
-                "5/ Gelecekte ne olacak?\n\n{point}",
-            ],
-            "conclusions": [
-                "Son olarak:\n\nBu gelişmeyi takip etmeye devam edeceğim.\n\nTakip et, kaçırma! 🔔\n\nFaydalı bulduysan RT 🙏",
-                "Özetle:\n\n{topic} dünyayı değiştirecek.\n\nHazır mısınız?\n\nKaydet 📌 Paylaş 🔄",
-            ],
-        },
-        "tech": {
-            "hooks": [
-                "🔥 {topic} - Teknoloji dünyasından önemli gelişme.\n\nDetaylar thread'de 👇",
-                "Bugün herkes {topic} konuşuyor.\n\nNeden? Anlatıyorum 🧵",
-            ],
-            "body_templates": [
-                "1/ Ne oldu?\n\n{point}",
-                "2/ Neden önemli?\n\n{point}",
-                "3/ Kullanıcıları nasıl etkileyecek?\n\n{point}",
-                "4/ Rakipler ne yapıyor?\n\n{point}",
-            ],
-            "conclusions": [
-                "Son söz:\n\nTeknoloji hızla değişiyor.\n\nGüncel kalmak için takipte kal! 🚀",
-            ],
-        },
-        "crypto": {
-            "hooks": [
-                "💰 {topic} - Kripto dünyasında neler oluyor?\n\nThread 🧵",
-                "🚨 {topic} haberi piyasaları salladı.\n\nNe bilmeniz gerekiyor? 👇",
-            ],
-            "body_templates": [
-                "1/ Gelişme ne?\n\n{point}",
-                "2/ Piyasa tepkisi:\n\n{point}",
-                "3/ Uzman görüşleri:\n\n{point}",
-                "4/ Ne yapmalı?\n\n{point}",
-            ],
-            "conclusions": [
-                "Dikkat:\n\nBu finansal tavsiye değil.\n\nKendi araştırmanızı yapın. DYOR! 🔍",
-            ],
-        },
-        "default": {
-            "hooks": [
-                "🧵 {topic} hakkında thread.\n\nÖnemli detaylar aşağıda 👇",
-                "Bugün {topic} gündemde.\n\nNeler oluyor? Anlatıyorum 🧵",
-            ],
-            "body_templates": [
-                "1/ Konu ne?\n\n{point}",
-                "2/ Neden önemli?\n\n{point}",
-                "3/ Detaylar:\n\n{point}",
-                "4/ Sonuç:\n\n{point}",
-            ],
-            "conclusions": [
-                "Faydalı bulduysan:\n\n❤️ Beğen\n🔄 Paylaş\n💾 Kaydet\n\nTakipte kal!",
-            ],
-        },
-    }
+    Çağla Üren tarzı: Araştırma + Bilgi + Analiz
+    """
 
     @classmethod
-    def generate_thread(cls, topic: TrendingTopic, user_style: str = "samimi",
-                        additional_info: str = "") -> ThreadContent:
+    def generate_informative_content(
+        cls,
+        topic: TrendingTopic,
+        ai_client=None,
+        user_voice: str = "samimi",
+        max_length: int = 2000
+    ) -> ThreadContent:
         """
-        Trending konudan thread oluştur.
+        AI kullanarak bilgilendirici içerik oluştur.
+        Gerçek araştırma verilerini kullanır.
         """
-        category = topic.category if topic.category in cls.THREAD_TEMPLATES else "default"
-        templates = cls.THREAD_TEMPLATES[category]
 
-        # Hook oluştur
-        hook = random.choice(templates["hooks"]).format(topic=topic.title[:50])
+        # Araştırma verilerini hazırla
+        research_context = cls._prepare_research_context(topic)
 
-        # Body tweets
-        body_tweets = []
-        points = topic.key_points if topic.key_points else [
-            topic.description or "Bu konu hakkında önemli gelişmeler var.",
-            "Detaylar henüz netleşiyor.",
-            "Takipte kalın.",
-        ]
+        # AI varsa kullan
+        if ai_client and hasattr(ai_client, '_call_ai'):
+            content = cls._generate_with_ai(ai_client, topic, research_context, user_voice, max_length)
+            if content:
+                return content
 
-        for i, template in enumerate(templates["body_templates"][:len(points)]):
-            point = points[i] if i < len(points) else "..."
-            tweet = template.format(point=point[:200])
-            body_tweets.append(tweet)
+        # AI yoksa şablondan oluştur (ama araştırma verilerini kullan)
+        return cls._generate_from_template(topic, research_context, user_voice)
 
-        # Conclusion
-        conclusion = random.choice(templates["conclusions"]).format(topic=topic.title[:30])
+    @classmethod
+    def _prepare_research_context(cls, topic: TrendingTopic) -> str:
+        """Araştırma verilerini context olarak hazırla"""
+        context_parts = []
 
-        # Hashtags
-        category_hashtags = {
-            "ai": ["#YapayZeka", "#AI", "#Teknoloji"],
-            "tech": ["#Teknoloji", "#Tech"],
-            "crypto": ["#Bitcoin", "#Kripto"],
-            "default": ["#Gündem"],
+        context_parts.append(f"KONU: {topic.title}")
+
+        if topic.description:
+            context_parts.append(f"ÖZET: {topic.description}")
+
+        if topic.full_content:
+            context_parts.append(f"DETAYLI İÇERİK: {topic.full_content[:1500]}")
+
+        if topic.key_points:
+            points = "\n".join([f"- {p}" for p in topic.key_points])
+            context_parts.append(f"ÖNEMLİ NOKTALAR:\n{points}")
+
+        if topic.source:
+            context_parts.append(f"KAYNAK: {topic.source}")
+
+        return "\n\n".join(context_parts)
+
+    @classmethod
+    def _generate_with_ai(
+        cls,
+        ai_client,
+        topic: TrendingTopic,
+        research_context: str,
+        user_voice: str,
+        max_length: int
+    ) -> Optional[ThreadContent]:
+        """AI ile içerik oluştur"""
+
+        prompt = f"""Sen bir teknoloji ve gündem yazarısın. Twitter/X için bilgilendirici, detaylı ve etkileşim alan içerikler yazıyorsun.
+
+ARAŞTIRMA VERİLERİ:
+{research_context}
+
+GÖREV:
+Bu konu hakkında Türkçe, bilgilendirici ve detaylı bir Twitter/X paylaşımı yaz.
+
+KURALLAR:
+1. X Premium kullanıyorum, uzun yazabilirsin (1500-2000 karakter ideal)
+2. Konuyu detaylıca açıkla, yüzeysel kalma
+3. Gerçek bilgiler ver, araştırma verilerini kullan
+4. {user_voice} bir ton kullan
+5. Başlık dikkat çekici olsun
+6. Sonunda soru sor veya tartışma başlat
+7. 1-2 emoji kullan ama abartma
+8. Hashtag KULLANMA (sonra eklenecek)
+
+FORMAT:
+- Dikkat çekici giriş (1-2 cümle)
+- Ana bilgiler (detaylı açıklama)
+- Neden önemli? (analiz)
+- Sonuç ve soru
+
+Sadece tweet metnini yaz, başka açıklama ekleme."""
+
+        try:
+            response = ai_client._call_ai(prompt)
+
+            if response and len(response) > 100:
+                # İçeriği temizle
+                content = response.strip()
+
+                # ThreadContent oluştur
+                return ThreadContent(
+                    topic=topic.title,
+                    full_text=content,
+                    hook=content[:200] + "..." if len(content) > 200 else content,
+                    body=content,
+                    conclusion="",
+                    hashtags=cls._generate_hashtags(topic),
+                    sources=[topic.url] if topic.url else [],
+                    word_count=len(content.split()),
+                    char_count=len(content),
+                )
+
+        except Exception as e:
+            logger.error(f"AI içerik oluşturma hatası: {e}")
+
+        return None
+
+    @classmethod
+    def _generate_from_template(
+        cls,
+        topic: TrendingTopic,
+        research_context: str,
+        user_voice: str
+    ) -> ThreadContent:
+        """Şablondan bilgilendirici içerik oluştur"""
+
+        # Kategori bazlı şablonlar
+        templates = {
+            "ai": """🤖 {title}
+
+Bu gelişme yapay zeka dünyasında önemli bir adım.
+
+📌 Ne oldu?
+{description}
+
+💡 Neden önemli?
+{key_points}
+
+🔮 Bu, yapay zeka alanında yeni bir dönemin başlangıcı olabilir.
+
+Siz bu gelişme hakkında ne düşünüyorsunuz? Yorumlarda tartışalım 👇""",
+
+            "tech": """💻 {title}
+
+Teknoloji dünyasından önemli bir haber.
+
+📌 Detaylar:
+{description}
+
+🔍 Önemli noktalar:
+{key_points}
+
+Bu gelişmeyi yakından takip edeceğiz.
+
+Sizce bu teknoloji geleceği nasıl şekillendirecek? 👇""",
+
+            "crypto": """₿ {title}
+
+Kripto piyasalarında dikkat çeken gelişme.
+
+📊 Ne oluyor?
+{description}
+
+📈 Dikkat edilmesi gerekenler:
+{key_points}
+
+⚠️ Not: Bu finansal tavsiye değildir. Kendi araştırmanızı yapın.
+
+Piyasalar hakkında ne düşünüyorsunuz? 👇""",
+
+            "default": """🔥 {title}
+
+Gündemden önemli bir gelişme.
+
+📌 Özet:
+{description}
+
+💡 Öne çıkan noktalar:
+{key_points}
+
+Bu konu hakkında düşüncelerinizi merak ediyorum 👇"""
         }
-        hashtags = category_hashtags.get(category, category_hashtags["default"])
+
+        template = templates.get(topic.category, templates["default"])
+
+        # Key points'i formatla
+        key_points_text = ""
+        if topic.key_points:
+            key_points_text = "\n".join([f"• {p[:150]}" for p in topic.key_points[:4]])
+        else:
+            key_points_text = "• Detaylar gelişiyor, takipte kalın."
+
+        # Description
+        description = topic.description[:300] if topic.description else "Bu konuda önemli gelişmeler yaşanıyor."
+
+        # Şablonu doldur
+        content = template.format(
+            title=topic.title[:100],
+            description=description,
+            key_points=key_points_text,
+        )
 
         return ThreadContent(
             topic=topic.title,
-            hook=hook,
-            body_tweets=body_tweets,
-            conclusion=conclusion,
-            hashtags=hashtags,
+            full_text=content,
+            hook=content[:200],
+            body=content,
+            conclusion="",
+            hashtags=cls._generate_hashtags(topic),
             sources=[topic.url] if topic.url else [],
+            word_count=len(content.split()),
+            char_count=len(content),
         )
 
     @classmethod
-    def format_as_single_tweet(cls, thread: ThreadContent) -> str:
-        """Thread'i tek tweet olarak formatla (kısa versiyon)"""
-        return f"{thread.hook}\n\n{' '.join(thread.hashtags[:2])}"
+    def _generate_hashtags(cls, topic: TrendingTopic) -> List[str]:
+        """Konu için hashtag oluştur"""
+        hashtags = []
 
-    @classmethod
-    def format_as_full_thread(cls, thread: ThreadContent) -> List[str]:
-        """Thread'i tweet listesi olarak formatla"""
-        tweets = [thread.hook]
-        tweets.extend(thread.body_tweets)
-        tweets.append(thread.conclusion)
-        return tweets
+        category_tags = {
+            "ai": ["#YapayZeka", "#AI", "#Teknoloji"],
+            "tech": ["#Teknoloji", "#Tech", "#Gündem"],
+            "crypto": ["#Bitcoin", "#Kripto", "#BTC"],
+            "world": ["#Gündem", "#Dünya", "#Haber"],
+        }
+
+        hashtags.extend(category_tags.get(topic.category, ["#Gündem"]))
+
+        return hashtags[:2]
 
 
 # Kategoriler için Türkçe isimler
@@ -458,6 +604,6 @@ TRENDING_CATEGORIES = {
 }
 
 
-# Global instance
+# Global instances
 trending_discovery = TrendingDiscovery()
-thread_generator = ThreadGenerator()
+thread_generator = InformativeThreadGenerator()

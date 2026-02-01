@@ -692,6 +692,84 @@ def render_trending_page():
         if thread.hashtags:
             st.markdown(f"**Önerilen Hashtagler:** {' '.join(thread.hashtags)}")
 
+        # GÖRSEL OLUŞTURMA BÖLÜMÜ
+        st.markdown("---")
+        st.markdown("### 🖼️ Görsel")
+
+        # Session state için görsel değişkenleri
+        if "generated_image" not in st.session_state:
+            st.session_state.generated_image = None
+        if "image_prompt" not in st.session_state:
+            st.session_state.image_prompt = ""
+
+        col_img1, col_img2 = st.columns(2)
+
+        with col_img1:
+            if st.button("🎨 Görsel Prompt Oluştur", use_container_width=True):
+                with st.spinner("Görsel prompt'u oluşturuluyor..."):
+                    # AI ile görsel prompt'u oluştur
+                    image_prompt = ai_writer.generate_image_prompt(
+                        content=edited_content,
+                        topic=topic.title if topic else ""
+                    )
+                    st.session_state.image_prompt = image_prompt
+                st.rerun()
+
+        with col_img2:
+            if st.button("🔍 Hazır Görsel Bul", use_container_width=True):
+                with st.spinner("İlgili görsel aranıyor..."):
+                    # Pexels'tan görsel ara
+                    search_term = topic.title.split()[0] if topic else "technology"
+                    image_result = ai_writer.find_relevant_image(search_term)
+                    if image_result:
+                        st.session_state.generated_image = image_result
+                    else:
+                        st.warning("Görsel bulunamadı, farklı bir terim deneyin.")
+                st.rerun()
+
+        # Görsel prompt'u göster ve düzenle
+        if st.session_state.image_prompt:
+            st.markdown("**Görsel Prompt'u (düzenleyebilirsin):**")
+            edited_prompt = st.text_area(
+                "Prompt:",
+                value=st.session_state.image_prompt,
+                height=100,
+                label_visibility="collapsed",
+                key="image_prompt_editor"
+            )
+
+            if st.button("🖼️ Görsel Oluştur (Gemini Imagen)", use_container_width=True):
+                with st.spinner("Görsel oluşturuluyor... (bu biraz sürebilir)"):
+                    try:
+                        image = ai_writer.generate_image(edited_prompt)
+                        if image:
+                            st.session_state.generated_image = {"pil_image": image, "source": "gemini"}
+                        else:
+                            st.warning("Görsel oluşturulamadı. Hazır görsel aramayı deneyin.")
+                    except Exception as e:
+                        st.error(f"Hata: {e}")
+                        st.info("💡 İpucu: Hazır görsel bul butonunu kullanabilirsiniz.")
+                st.rerun()
+
+        # Oluşturulan/bulunan görseli göster
+        if st.session_state.generated_image:
+            st.markdown("**Önerilen Görsel:**")
+            img = st.session_state.generated_image
+
+            if img.get("source") == "gemini" and img.get("pil_image"):
+                st.image(img["pil_image"], use_container_width=True)
+                st.caption("Gemini Imagen ile oluşturuldu")
+            elif img.get("url"):
+                st.image(img["url"], use_container_width=True)
+                st.markdown(f"[📥 Görseli İndir]({img.get('download_url', img['url'])})")
+                st.caption(f"Fotoğraf: {img.get('photographer', 'Pexels')}")
+
+            if st.button("❌ Görseli Kaldır"):
+                st.session_state.generated_image = None
+                st.rerun()
+
+        st.markdown("---")
+
         # Kopyalama ipucu
         st.markdown("""
         <div class="copy-hint">
@@ -736,6 +814,8 @@ def render_trending_page():
                             max_length=2000
                         )
                         st.session_state.generated_thread = thread
+                        st.session_state.generated_image = None
+                        st.session_state.image_prompt = ""
                     st.rerun()
 
         with col3:
@@ -746,6 +826,13 @@ def render_trending_page():
                     final_text += f"\n\n{' '.join(thread.hashtags)}"
 
                 st.session_state.current_tweet = final_text
+                # Görseli de taşı
+                if st.session_state.generated_image and st.session_state.generated_image.get("url"):
+                    st.session_state.current_image = type('obj', (object,), {
+                        'url': st.session_state.generated_image['url'],
+                        'download_url': st.session_state.generated_image.get('download_url', ''),
+                        'photographer': st.session_state.generated_image.get('photographer', '')
+                    })()
                 st.session_state.page = "main"
                 st.rerun()
 
@@ -753,6 +840,8 @@ def render_trending_page():
         if st.button("❌ Kapat"):
             st.session_state.generated_thread = None
             st.session_state.selected_trending_topic = None
+            st.session_state.generated_image = None
+            st.session_state.image_prompt = ""
             st.rerun()
 
 

@@ -562,67 +562,52 @@ class InformativeThreadGenerator:
     ) -> Optional[ThreadContent]:
         """AI ile içerik oluştur"""
 
-        # Ton açıklamaları
-        tone_descriptions = {
-            "samimi": "arkadaşça, samimi, 'ya', 'bak', 'aslında', 'harbiden' gibi günlük konuşma dili",
-            "profesyonel": "ciddi ama samimi, güvenilir ama sıcak",
-            "mizahi": "esprili, hafif alaycı ama bilgilendirici",
-            "provokatif": "cesur, kışkırtıcı, dikkat çeken"
-        }
-        tone_desc = tone_descriptions.get(user_voice, tone_descriptions["samimi"])
+        prompt = f"""Sen @ilhntolga hesabından tweet atan bir Türk teknoloji uzmanısın. Konuları BİLİYORMUŞ gibi, UZMAN gibi anlatıyorsun.
 
-        prompt = f"""Sen Türk bir teknoloji içerik üreticisisin. Twitter/X'te @ilhntolga hesabından paylaşım yapıyorsun.
+⚠️ KRİTİK KURAL - %100 TÜRKÇE:
+- Aşağıdaki İngilizce metinleri TÜRKÇE'YE ÇEVİR
+- Hiçbir İngilizce kelime/cümle KALMAMALI
+- Teknik terimleri Türkçe açıkla (parantez içinde İngilizce olabilir)
 
-KURAL #1 - HER ŞEY TÜRKÇE OLMALI:
-- İngilizce başlık varsa Türkçe'ye çevir
-- Teknik terimleri Türkçe açıkla
-- Yabancı içeriği Türkçe özetle
+📝 ANLATIM TARZI - UZMAN GİBİ:
+- "Araştırdım, buldum" DEĞİL
+- Konuyu zaten biliyormuş gibi anlat
+- "X nedir biliyor musunuz?", "Şöyle açıklayayım:", "Kısaca anlatayım:"
+- Öğretici, bilgilendirici ama samimi
 
-KURAL #2 - BİRİNCİ ŞAHIS KULLAN (SENİN AĞZINDAN):
-- "Bugün ilginç bir şey gördüm..."
-- "Araştırırken şunu fark ettim..."
-- "Sizinle paylaşmak istedim..."
-- "Benim dikkatimi çeken şu oldu..."
-- "Baktım ki..."
-- "Merak edip araştırdım..."
+KONU: {topic.title}
 
-KONU (İngilizce ise Türkçe'ye çevir):
-{topic.title}
+ARAŞTIRMA VERİLERİ (TÜRKÇE'YE ÇEVİR!):
+{research_context}
 
-KAYNAK BİLGİLER (Türkçe'ye çevirerek kullan):
-{research_context if research_context else 'Başlıktan yola çık.'}
+ÖRNEK YAZI:
+🎮 Point-and-click macera oyunu yapımcıları için müjde!
 
-YAZIM TARZI: {tone_desc}
+Adventure Game Studio (AGS) nedir biliyor musunuz? Grafik tabanlı macera oyunları yapmanızı sağlayan ücretsiz bir araç.
 
-ÖRNEK YAPI:
-🔥 [Türkçe dikkat çekici giriş - kişisel]
+Şöyle açıklayayım:
+• Tamamen ücretsiz, abonelik yok
+• Windows üzerinde çalışıyor, grafik ekleme, script yazma, test etme hepsi tek yerde
+• Yaptığın oyunlar Linux, iOS, Android'de de çalışıyor
 
-Bugün [konu] hakkında bir şey gördüm/okudum ve sizinle paylaşmak istedim.
+Neden önemli?
+Eskiden bu tarz oyun yapmak için ya büyük bütçe ya da ciddi programlama bilgisi gerekiyordu. AGS ile herkes oyun geliştirebilir.
 
-[Bu ne? Türkçe açıklama - teknik terimleri basitçe anlat]
+Oyun geliştirmeyle ilgilenen var mı? Hangi araçları kullanıyorsunuz? 👇
 
-Benim dikkatimi çeken noktalar:
-• [Nokta 1]
-• [Nokta 2]
-• [Nokta 3]
-
-[Kişisel yorum - neden önemli bence]
-
-Siz ne düşünüyorsunuz? [Soru] 👇
-
-ÖNEMLİ:
-- 1200-1800 karakter yaz (X Premium)
-- Emoji az kullan (2-3 max)
-- Hashtag EKLEME
-- SADECE tweet metnini yaz"""
+TALİMATLAR:
+1. 1200-1800 karakter yaz
+2. Konuyu DETAYLI açıkla, yüzeysel kalma
+3. Teknik terimleri Türkçe anlat
+4. 2-3 emoji max
+5. Hashtag EKLEME
+6. SADECE tweet metnini yaz"""
 
         try:
             response = ai_client._call_ai(prompt)
 
             if response and len(response) > 150:
-                # İçeriği temizle
-                content = response.strip()
-                content = content.strip('"\'')
+                content = response.strip().strip('"\'')
 
                 return ThreadContent(
                     topic=topic.title,
@@ -648,104 +633,98 @@ Siz ne düşünüyorsunuz? [Soru] 👇
         research_context: str,
         user_voice: str
     ) -> ThreadContent:
-        """Şablondan bilgilendirici içerik oluştur - Kişisel ve Türkçe"""
+        """Şablondan bilgilendirici içerik oluştur - Uzman anlatımı"""
 
-        # Başlığı Türkçeleştir (basit kelimeler)
+        # Başlığı Türkçeleştir
         title_tr = cls._simple_translate_title(topic.title)
-
-        # Key points varsa kullan
-        key_points_text = ""
-        if topic.key_points:
-            formatted_points = []
-            for p in topic.key_points[:4]:
-                if ":" in p:
-                    formatted_points.append(f"• {p[:200]}")
-                else:
-                    formatted_points.append(f"• {p[:150]}")
-            key_points_text = "\n".join(formatted_points)
-        else:
-            key_points_text = "• Detayları araştırıyorum, takipte kalın"
-
-        # Description
-        if topic.description and len(topic.description) > 50:
-            description = topic.description[:400]
-        elif topic.full_content and len(topic.full_content) > 50:
-            description = topic.full_content[:400]
-        else:
-            description = f"Bu konu şu an teknoloji gündeminde çok konuşuluyor."
 
         # Ürün adı
         product_name = topic.title.split(" - ")[0].split(":")[0].strip() if " - " in topic.title or ":" in topic.title else topic.title.split()[0]
 
-        # KİŞİSEL ŞABLONLAR - Birinci şahıs, samimi
+        # Key points - Türkçeleştir
+        key_points_text = ""
+        if topic.key_points:
+            formatted_points = []
+            for p in topic.key_points[:4]:
+                # Basit Türkçeleştirme
+                p_tr = cls._simple_translate_title(p)
+                formatted_points.append(f"• {p_tr[:180]}")
+            key_points_text = "\n".join(formatted_points)
+        else:
+            key_points_text = "• Detaylar için kaynağı inceleyebilirsiniz"
+
+        # Description - Türkçeleştir
+        if topic.description and len(topic.description) > 50:
+            description = cls._simple_translate_title(topic.description[:400])
+        elif topic.full_content and len(topic.full_content) > 50:
+            description = cls._simple_translate_title(topic.full_content[:400])
+        else:
+            description = f"{product_name} hakkında bilmeniz gerekenler var."
+
+        # UZMAN ANLATIM ŞABLONLARI
         templates = {
-            "ai": """🤖 Bugün ilginç bir AI gelişmesi gördüm
+            "ai": """🤖 Yapay zeka dünyasından önemli bir gelişme
 
-{title_tr} hakkında bir şeyler okudum ve sizinle paylaşmak istedim.
+{title_tr} nedir biliyor musunuz? Kısaca anlatayım.
 
-Kısaca ne olmuş?
-{description}
-
-Benim dikkatimi çeken noktalar:
-{key_points}
-
-Neden önemli bence?
-Yapay zeka alanı inanılmaz hızlı ilerliyor. {product_name} gibi projeler, bu alanda neler olabileceğinin sadece başlangıcı.
-
-Siz yapay zeka araçlarını kullanıyor musunuz? Favoriniz hangisi? 👇""",
-
-            "tech": """💻 Bugün teknoloji dünyasından bir şey paylaşmak istiyorum
-
-{title_tr} konusunu araştırırken ilginç şeyler buldum.
-
-Ne olmuş?
-{description}
-
-Öne çıkan detaylar:
-{key_points}
-
-Benim yorumum:
-{product_name} tarzı projeler, özellikle açık kaynak olanlar, teknoloji dünyasını şekillendiriyor. Takip etmekte fayda var.
-
-Bu alanda deneyimi olan var mı? Yorumlarınızı merak ediyorum 👇""",
-
-            "crypto": """₿ Kripto dünyasından bir güncelleme
-
-{title_tr} - bu konuyu inceledim, önemli görünüyor.
-
-Ne oluyor?
-{description}
-
-Dikkat çeken noktalar:
-{key_points}
-
-Ama şunu unutmayın: Ben finansal danışman değilim, bu yatırım tavsiyesi değil. Kendi araştırmanızı yapın!
-
-Piyasalar hakkında ne düşünüyorsunuz? 👇""",
-
-            "world": """🌍 Dünya gündeminden önemli bir gelişme var
-
-{title_tr} - bu konuyu takip ediyorum ve sizinle paylaşmak istedim.
-
-Ne oldu?
 {description}
 
 Önemli detaylar:
 {key_points}
 
-Bu gelişmenin uzun vadede nasıl etkileri olacak sizce? Düşüncelerinizi yazın 👇""",
+Neden takip etmelisiniz?
+AI araçları artık sadece büyük şirketlerin değil, herkesin kullanabileceği seviyeye geldi. {product_name} bunun güzel bir örneği.
 
-            "default": """🔥 Bugün dikkatimi çeken bir konu var
+Bu alanda hangi araçları kullanıyorsunuz? 👇""",
 
-{title_tr} hakkında bir şeyler okudum, sizinle paylaşayım dedim.
+            "tech": """💻 Teknoloji dünyasından bir gelişme anlatayım
 
-Özet:
+{title_tr} - bu ne demek açıklayayım.
+
 {description}
 
-Öne çıkanlar:
+Detaylar:
 {key_points}
 
-Bu konu hakkında ne düşünüyorsunuz? Yorumlarınızı bekliyorum 👇"""
+Neden önemli?
+Açık kaynak projeler teknoloji dünyasını demokratikleştiriyor. {product_name} gibi araçlar sayesinde herkes üretici olabiliyor.
+
+Siz bu tarz araçlar kullanıyor musunuz? 👇""",
+
+            "crypto": """₿ Kripto piyasasından bir güncelleme
+
+{title_tr} konusunu açıklayayım.
+
+{description}
+
+Dikkat edilmesi gerekenler:
+{key_points}
+
+⚠️ Önemli: Bu yatırım tavsiyesi değil. Her zaman kendi araştırmanızı yapın.
+
+Piyasa hakkında ne düşünüyorsunuz? 👇""",
+
+            "world": """🌍 Dünya gündeminden bir gelişme
+
+{title_tr} - ne olduğunu anlatayım.
+
+{description}
+
+Önemli noktalar:
+{key_points}
+
+Bu gelişmenin etkilerini birlikte takip edelim. Sizin yorumunuz nedir? 👇""",
+
+            "default": """🔥 Gündemden bir konu anlatayım
+
+{title_tr} - bu ne demek açıklayayım.
+
+{description}
+
+Bilmeniz gerekenler:
+{key_points}
+
+Bu konuda düşüncelerinizi merak ediyorum 👇"""
         }
 
         template = templates.get(topic.category, templates["default"])
@@ -770,28 +749,60 @@ Bu konu hakkında ne düşünüyorsunuz? Yorumlarınızı bekliyorum 👇"""
         )
 
     @classmethod
-    def _simple_translate_title(cls, title: str) -> str:
-        """Başlıktaki yaygın İngilizce kelimeleri Türkçe'ye çevir"""
+    def _simple_translate_title(cls, text: str) -> str:
+        """Yaygın İngilizce kelimeleri Türkçe'ye çevir"""
+        import re
+
+        # Kapsamlı çeviri sözlüğü
         translations = {
+            # Cümle kalıpları
             "What I learned": "Öğrendiklerim",
             "How to": "Nasıl yapılır",
-            "Why": "Neden",
-            "The": "",
-            "A new": "Yeni bir",
-            "New": "Yeni",
-            "First": "İlk",
-            "Best": "En iyi",
-            "Top": "En popüler",
+            "Why you should": "Neden yapmalısınız",
+            "It is free": "Ücretsiz",
+            "It was the first": "İlk olarak",
+            "I've been using": "Kullanıyorum",
+            "I tried": "Denedim",
+            "I preferred": "Tercih ettim",
+            "can be played": "oynanabilir",
+            "requires no subscription": "abonelik gerektirmiyor",
+            "standalone": "bağımsız",
+            "point-and-click": "tıkla-oyna tarzı",
+            "adventure games": "macera oyunları",
+            "graphical": "grafiksel",
+
+            # Fiiller
             "building": "geliştirme",
+            "creating": "oluşturma",
             "coding": "kodlama",
-            "agent": "ajan/asistan",
-            "AI": "Yapay Zeka",
-            "machine learning": "makine öğrenimi",
-            "open source": "açık kaynak",
-            "startup": "girişim",
+            "writing": "yazma",
+            "testing": "test etme",
+            "importing": "içe aktarma",
+            "integrating": "entegre etme",
+            "streamlines": "kolaylaştırıyor",
             "launches": "çıkardı",
             "announces": "duyurdu",
             "released": "yayınladı",
+            "including": "dahil olmak üzere",
+            "using": "kullanarak",
+
+            # Sıfatlar
+            "opinionated": "belirli kurallara sahip",
+            "minimal": "minimal/sade",
+            "free": "ücretsiz",
+            "new": "yeni",
+            "first": "ilk",
+            "best": "en iyi",
+            "top": "en popüler",
+            "multiple": "birden fazla",
+            "Windows-based": "Windows tabanlı",
+
+            # İsimler - Teknoloji
+            "agent": "ajan/asistan",
+            "AI": "yapay zeka",
+            "machine learning": "makine öğrenimi",
+            "open source": "açık kaynak",
+            "startup": "girişim",
             "update": "güncelleme",
             "security": "güvenlik",
             "privacy": "gizlilik",
@@ -799,14 +810,46 @@ Bu konu hakkında ne düşünüyorsunuz? Yorumlarınızı bekliyorum 👇"""
             "cloud": "bulut",
             "app": "uygulama",
             "tool": "araç",
+            "tools": "araçlar",
             "feature": "özellik",
+            "features": "özellikler",
+            "platform": "platform",
+            "platforms": "platformlar",
+            "IDE": "geliştirme ortamı",
+            "scripts": "scriptler",
+            "graphics": "grafikler",
+            "games": "oyunlar",
+            "game": "oyun",
+            "Game Studio": "Oyun Stüdyosu",
+
+            # Zaman ifadeleri
+            "In the past": "Geçtiğimiz",
+            "three years": "üç yıl",
+            "a year": "bir yıl",
+            "half": "buçuk",
+
+            # Bağlaçlar
+            "and": "ve",
+            "or": "veya",
+            "but": "ama",
+            "for": "için",
+            "with": "ile",
+            "from": "dan",
+            "into": "içine",
+            "finally": "sonunda",
+
+            # Artikeller (kaldır)
+            "The ": "",
+            "A ": "",
+            "An ": "",
         }
 
-        result = title
-        for eng, tr in translations.items():
+        result = text
+        # Uzun ifadeleri önce çevir (sıralama önemli)
+        sorted_translations = sorted(translations.items(), key=lambda x: len(x[0]), reverse=True)
+
+        for eng, tr in sorted_translations:
             if eng.lower() in result.lower():
-                # Case-insensitive replace
-                import re
                 result = re.sub(re.escape(eng), tr, result, flags=re.IGNORECASE)
 
         return result.strip()

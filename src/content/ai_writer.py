@@ -631,5 +631,125 @@ class AIContentWriter:
         """
 
 
+    # ========================================================================
+    # GÖRSEL OLUŞTURMA
+    # ========================================================================
+
+    def generate_image_prompt(self, content: str, topic: str = "") -> str:
+        """
+        Tweet içeriğinden görsel prompt'u oluştur
+
+        Args:
+            content: Tweet içeriği
+            topic: Konu başlığı
+
+        Returns:
+            Görsel oluşturmak için İngilizce prompt
+        """
+        prompt = f"""Tweet içeriğinden görsel oluşturmak için İngilizce prompt yaz.
+
+TWEET:
+{content}
+
+{"KONU: " + topic if topic else ""}
+
+KURALLAR:
+1. Sadece İngilizce prompt yaz
+2. Görsel, sosyal medyada dikkat çekecek şekilde olmalı
+3. Metin içermemeli (text-free)
+4. Profesyonel, modern görünümlü
+5. Renkli ve canlı
+6. 1:1 veya 16:9 oranında düşün
+7. Fotorealistik veya dijital art stili
+
+FORMAT (sadece bunu yaz):
+[İngilizce görsel prompt'u buraya - tek paragraf]
+
+Örnek:
+"A futuristic AI robot working on a laptop in a modern office, digital art style, vibrant colors, professional look, 16:9 aspect ratio"
+"""
+
+        if self.is_available:
+            response = self._call_ai(prompt)
+            # Sadece prompt'u çıkar
+            if response:
+                # Tırnak içindeki metni bul
+                import re
+                match = re.search(r'"([^"]+)"', response)
+                if match:
+                    return match.group(1)
+                # Yoksa ilk satırı al
+                return response.strip().split('\n')[0].strip('"').strip()
+
+        # Fallback - basit prompt
+        return f"Modern digital illustration about {topic or 'technology'}, professional style, vibrant colors, social media friendly"
+
+    def generate_image(self, prompt: str) -> Optional[str]:
+        """
+        Gemini Imagen ile görsel oluştur
+
+        Args:
+            prompt: İngilizce görsel prompt'u
+
+        Returns:
+            Base64 encoded image veya None
+        """
+        if self.provider != "gemini":
+            logger.warning("Görsel oluşturma sadece Gemini ile destekleniyor")
+            return None
+
+        try:
+            import google.generativeai as genai
+            from google.generativeai import types
+
+            # Imagen modelini kullan
+            imagen = genai.ImageGenerationModel("imagen-3.0-generate-002")
+
+            result = imagen.generate_images(
+                prompt=prompt,
+                number_of_images=1,
+                safety_filter_level="block_only_high",
+                person_generation="allow_adult",
+                aspect_ratio="16:9",
+            )
+
+            if result.images:
+                # İlk görseli base64 olarak döndür
+                image = result.images[0]
+                return image._pil_image  # PIL Image döner
+
+        except Exception as e:
+            logger.error(f"Görsel oluşturma hatası: {e}")
+            # Alternatif: Pexels'tan ilgili görsel ara
+            return None
+
+        return None
+
+    def find_relevant_image(self, topic: str) -> Optional[Dict]:
+        """
+        Pexels/Unsplash'tan ilgili görsel bul (fallback)
+
+        Args:
+            topic: Aranacak konu
+
+        Returns:
+            Görsel bilgileri dict veya None
+        """
+        try:
+            from src.content.image_finder import image_finder
+            image = image_finder.find_best_image(topic)
+            if image:
+                return {
+                    "url": image.url,
+                    "download_url": image.download_url,
+                    "photographer": image.photographer,
+                    "source": "pexels"
+                }
+        except Exception as e:
+            logger.debug(f"Görsel arama hatası: {e}")
+
+        return None
+
+
 # Singleton instance
 ai_writer = AIContentWriter()

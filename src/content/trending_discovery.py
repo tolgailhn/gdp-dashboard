@@ -564,44 +564,57 @@ class InformativeThreadGenerator:
 
         # Ton açıklamaları
         tone_descriptions = {
-            "samimi": "arkadaşça, sıcak, konuşma dili kullan. 'ya', 'bak', 'aslında' gibi ifadeler olabilir",
-            "profesyonel": "ciddi ama sıkıcı değil, bilgilendirici ve güvenilir",
-            "mizahi": "esprili ama bilgilendirici, hafif bir dil",
-            "provokatif": "cesur, tartışma başlatan, dikkat çeken"
+            "samimi": "arkadaşça, samimi, 'ya', 'bak', 'aslında', 'harbiden' gibi günlük konuşma dili",
+            "profesyonel": "ciddi ama samimi, güvenilir ama sıcak",
+            "mizahi": "esprili, hafif alaycı ama bilgilendirici",
+            "provokatif": "cesur, kışkırtıcı, dikkat çeken"
         }
         tone_desc = tone_descriptions.get(user_voice, tone_descriptions["samimi"])
 
-        prompt = f"""Sen @caglauren gibi teknoloji ve gündem içerik üreticisisin. Twitter/X'te takipçileri bilgilendiren, detaylı ve etkileşim alan uzun tweetler yazıyorsun.
+        prompt = f"""Sen Türk bir teknoloji içerik üreticisisin. Twitter/X'te @ilhntolga hesabından paylaşım yapıyorsun.
 
-BAŞLIK: {topic.title}
+KURAL #1 - HER ŞEY TÜRKÇE OLMALI:
+- İngilizce başlık varsa Türkçe'ye çevir
+- Teknik terimleri Türkçe açıkla
+- Yabancı içeriği Türkçe özetle
 
-KAYNAK: {topic.source} ({topic.url if topic.url else 'URL yok'})
+KURAL #2 - BİRİNCİ ŞAHIS KULLAN (SENİN AĞZINDAN):
+- "Bugün ilginç bir şey gördüm..."
+- "Araştırırken şunu fark ettim..."
+- "Sizinle paylaşmak istedim..."
+- "Benim dikkatimi çeken şu oldu..."
+- "Baktım ki..."
+- "Merak edip araştırdım..."
 
-MEVCUT BİLGİLER:
-{research_context if research_context else 'Ek bilgi yok, başlıktan yola çık.'}
+KONU (İngilizce ise Türkçe'ye çevir):
+{topic.title}
 
-ÖNEMLİ TALİMAT:
-1. Başlıktaki konuyu AÇIKLA. Ne olduğunu, ne işe yaradığını anlat.
-2. Teknik terimleri Türkçe açıkla (örn: "Zero Trust = her bağlantıyı doğrula, güvenme")
-3. Bu neden önemli? Kim için faydalı? Ne değiştirecek?
-4. Somut örnekler ver
-5. X Premium için 1200-1800 karakter yaz (uzun tweet)
-6. {tone_desc}
-7. Emoji az kullan (2-3 tane max)
-8. Sonunda tartışma sorusu sor
+KAYNAK BİLGİLER (Türkçe'ye çevirerek kullan):
+{research_context if research_context else 'Başlıktan yola çık.'}
+
+YAZIM TARZI: {tone_desc}
 
 ÖRNEK YAPI:
-🔥 [Dikkat çekici giriş - ne oldu?]
+🔥 [Türkçe dikkat çekici giriş - kişisel]
 
-[Bu ne demek? Açıklama]
+Bugün [konu] hakkında bir şey gördüm/okudum ve sizinle paylaşmak istedim.
 
-[Neden önemli? Kim için?]
+[Bu ne? Türkçe açıklama - teknik terimleri basitçe anlat]
 
-[Detaylar ve örnekler]
+Benim dikkatimi çeken noktalar:
+• [Nokta 1]
+• [Nokta 2]
+• [Nokta 3]
 
-[Sonuç ve soru] 👇
+[Kişisel yorum - neden önemli bence]
 
-Sadece tweet metnini yaz. Hashtag ekleme."""
+Siz ne düşünüyorsunuz? [Soru] 👇
+
+ÖNEMLİ:
+- 1200-1800 karakter yaz (X Premium)
+- Emoji az kullan (2-3 max)
+- Hashtag EKLEME
+- SADECE tweet metnini yaz"""
 
         try:
             response = ai_client._call_ai(prompt)
@@ -609,10 +622,8 @@ Sadece tweet metnini yaz. Hashtag ekleme."""
             if response and len(response) > 150:
                 # İçeriği temizle
                 content = response.strip()
-                # Baştaki ve sondaki tırnak işaretlerini kaldır
                 content = content.strip('"\'')
 
-                # ThreadContent oluştur
                 return ThreadContent(
                     topic=topic.title,
                     full_text=content,
@@ -637,113 +648,110 @@ Sadece tweet metnini yaz. Hashtag ekleme."""
         research_context: str,
         user_voice: str
     ) -> ThreadContent:
-        """Şablondan bilgilendirici içerik oluştur - Akıllı versiyon"""
+        """Şablondan bilgilendirici içerik oluştur - Kişisel ve Türkçe"""
 
-        # Key points varsa kullan, yoksa başlıktan üret
+        # Başlığı Türkçeleştir (basit kelimeler)
+        title_tr = cls._simple_translate_title(topic.title)
+
+        # Key points varsa kullan
         key_points_text = ""
         if topic.key_points:
-            # Key points'i düzgün formatla
             formatted_points = []
             for p in topic.key_points[:4]:
-                # Eğer zaten açıklama içeriyorsa
                 if ":" in p:
                     formatted_points.append(f"• {p[:200]}")
                 else:
                     formatted_points.append(f"• {p[:150]}")
             key_points_text = "\n".join(formatted_points)
         else:
-            key_points_text = "• Detaylar geliştikçe güncelleyeceğiz"
+            key_points_text = "• Detayları araştırıyorum, takipte kalın"
 
-        # Description - akıllı oluştur
+        # Description
         if topic.description and len(topic.description) > 50:
             description = topic.description[:400]
         elif topic.full_content and len(topic.full_content) > 50:
             description = topic.full_content[:400]
         else:
-            # Başlıktan açıklama oluştur
-            description = f"'{topic.title}' konusu teknoloji gündeminde öne çıkıyor."
+            description = f"Bu konu şu an teknoloji gündeminde çok konuşuluyor."
 
-        # Başlıktan ürün/proje adını çıkar
+        # Ürün adı
         product_name = topic.title.split(" - ")[0].split(":")[0].strip() if " - " in topic.title or ":" in topic.title else topic.title.split()[0]
 
-        # Akıllı şablonlar - daha detaylı ve bilgilendirici
+        # KİŞİSEL ŞABLONLAR - Birinci şahıs, samimi
         templates = {
-            "ai": """🤖 {title}
+            "ai": """🤖 Bugün ilginç bir AI gelişmesi gördüm
 
-Yapay zeka dünyasından dikkat çeken bir gelişme var.
+{title_tr} hakkında bir şeyler okudum ve sizinle paylaşmak istedim.
 
-📌 Bu ne?
+Kısaca ne olmuş?
 {description}
 
-💡 Önemli detaylar:
+Benim dikkatimi çeken noktalar:
 {key_points}
 
-🎯 Neden takip etmelisin?
-Yapay zeka her geçen gün hayatımıza daha fazla giriyor. {product_name} gibi gelişmeler, bu alandaki hızlı ilerlemeyi gösteriyor.
+Neden önemli bence?
+Yapay zeka alanı inanılmaz hızlı ilerliyor. {product_name} gibi projeler, bu alanda neler olabileceğinin sadece başlangıcı.
 
-Bu gelişme hakkında ne düşünüyorsun? Yapay zeka ile ilgili beklentilerin neler? 👇""",
+Siz yapay zeka araçlarını kullanıyor musunuz? Favoriniz hangisi? 👇""",
 
-            "tech": """💻 {title}
+            "tech": """💻 Bugün teknoloji dünyasından bir şey paylaşmak istiyorum
 
-Teknoloji dünyasından önemli bir haber.
+{title_tr} konusunu araştırırken ilginç şeyler buldum.
 
-📌 Nedir?
+Ne olmuş?
 {description}
 
-🔍 Detaylar:
+Öne çıkan detaylar:
 {key_points}
 
-💡 Neden önemli?
-{product_name}, teknoloji ekosisteminde fark yaratan projelerden biri olabilir. Özellikle açık kaynak projeleri, inovasyonun demokratikleşmesinde kritik rol oynuyor.
+Benim yorumum:
+{product_name} tarzı projeler, özellikle açık kaynak olanlar, teknoloji dünyasını şekillendiriyor. Takip etmekte fayda var.
 
-Bu teknolojiyi deneyen veya kullanan var mı? Deneyimlerinizi merak ediyorum 👇""",
+Bu alanda deneyimi olan var mı? Yorumlarınızı merak ediyorum 👇""",
 
-            "crypto": """₿ {title}
+            "crypto": """₿ Kripto dünyasından bir güncelleme
 
-Kripto ve blockchain dünyasından güncel gelişme.
+{title_tr} - bu konuyu inceledim, önemli görünüyor.
 
-📊 Ne oluyor?
+Ne oluyor?
 {description}
 
-📈 Öne çıkanlar:
+Dikkat çeken noktalar:
 {key_points}
 
-⚠️ Unutma: Bu finansal tavsiye değil. Her zaman kendi araştırmanı yap.
+Ama şunu unutmayın: Ben finansal danışman değilim, bu yatırım tavsiyesi değil. Kendi araştırmanızı yapın!
 
-Piyasalar hakkındaki görüşlerin neler? 👇""",
+Piyasalar hakkında ne düşünüyorsunuz? 👇""",
 
-            "world": """🌍 {title}
+            "world": """🌍 Dünya gündeminden önemli bir gelişme var
 
-Dünya gündeminden önemli bir gelişme.
+{title_tr} - bu konuyu takip ediyorum ve sizinle paylaşmak istedim.
 
-📌 Ne oldu?
+Ne oldu?
 {description}
 
-🔍 Detaylar:
+Önemli detaylar:
 {key_points}
 
-Bu gelişmenin uzun vadeli etkileri ne olabilir? Düşüncelerini paylaş 👇""",
+Bu gelişmenin uzun vadede nasıl etkileri olacak sizce? Düşüncelerinizi yazın 👇""",
 
-            "default": """🔥 {title}
+            "default": """🔥 Bugün dikkatimi çeken bir konu var
 
-Gündemde dikkat çeken bir konu var.
+{title_tr} hakkında bir şeyler okudum, sizinle paylaşayım dedim.
 
-📌 Özet:
+Özet:
 {description}
 
-💡 Önemli noktalar:
+Öne çıkanlar:
 {key_points}
 
-🎯 Bu gelişme, {product_name} ve ilgili alanlar için önemli bir adım olabilir.
-
-Sen bu konu hakkında ne düşünüyorsun? Yorumlarını bekliyorum 👇"""
+Bu konu hakkında ne düşünüyorsunuz? Yorumlarınızı bekliyorum 👇"""
         }
 
         template = templates.get(topic.category, templates["default"])
 
-        # Şablonu doldur
         content = template.format(
-            title=topic.title[:120],
+            title_tr=title_tr,
             description=description,
             key_points=key_points_text,
             product_name=product_name,
@@ -760,6 +768,48 @@ Sen bu konu hakkında ne düşünüyorsun? Yorumlarını bekliyorum 👇"""
             word_count=len(content.split()),
             char_count=len(content),
         )
+
+    @classmethod
+    def _simple_translate_title(cls, title: str) -> str:
+        """Başlıktaki yaygın İngilizce kelimeleri Türkçe'ye çevir"""
+        translations = {
+            "What I learned": "Öğrendiklerim",
+            "How to": "Nasıl yapılır",
+            "Why": "Neden",
+            "The": "",
+            "A new": "Yeni bir",
+            "New": "Yeni",
+            "First": "İlk",
+            "Best": "En iyi",
+            "Top": "En popüler",
+            "building": "geliştirme",
+            "coding": "kodlama",
+            "agent": "ajan/asistan",
+            "AI": "Yapay Zeka",
+            "machine learning": "makine öğrenimi",
+            "open source": "açık kaynak",
+            "startup": "girişim",
+            "launches": "çıkardı",
+            "announces": "duyurdu",
+            "released": "yayınladı",
+            "update": "güncelleme",
+            "security": "güvenlik",
+            "privacy": "gizlilik",
+            "data": "veri",
+            "cloud": "bulut",
+            "app": "uygulama",
+            "tool": "araç",
+            "feature": "özellik",
+        }
+
+        result = title
+        for eng, tr in translations.items():
+            if eng.lower() in result.lower():
+                # Case-insensitive replace
+                import re
+                result = re.sub(re.escape(eng), tr, result, flags=re.IGNORECASE)
+
+        return result.strip()
 
     @classmethod
     def _generate_hashtags(cls, topic: TrendingTopic) -> List[str]:

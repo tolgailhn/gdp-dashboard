@@ -635,13 +635,6 @@ class AIContentEngine:
         if self.bearer_token:
             return False, "❌ Bearer Token geçersiz. Developer Portal'dan yeniden oluştur."
         return False, "❌ Token ayarlanmamış."
-                else:
-                    return False, f"❌ API v2 hatası: {response.status_code}"
-
-            except Exception as e:
-                return False, f"❌ API v2 hatası: {str(e)[:50]}"
-
-        return False, "❌ Token ayarlanmamış. Cookie token gir (auth_token + ct0)"
 
     def update_tokens(self, auth_token: str = None, ct0: str = None, bearer_token: str = None):
         """Token'ları güncelle"""

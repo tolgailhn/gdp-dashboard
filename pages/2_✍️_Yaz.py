@@ -150,12 +150,15 @@ with mode_tab2:
             research_summary = research.summary
 
             with st.expander("📊 Araştırma Sonuçları", expanded=True):
+                if research.topic:
+                    st.markdown(f"**Tespit edilen konu:** `{research.topic}`")
+                    st.markdown("---")
                 if research.web_results:
-                    st.markdown("**Web Sonuçları:**")
+                    st.markdown(f"**Web Sonuçları ({len(research.web_results)}):**")
                     for wr in research.web_results[:6]:
                         st.markdown(f"- **{wr['title']}**\n  {wr['body'][:150]}...")
                 if research.related_tweets:
-                    st.markdown("**İlgili Tweet'ler:**")
+                    st.markdown(f"**İlgili Tweet'ler ({len(research.related_tweets)}):**")
                     for rt in research.related_tweets[:3]:
                         st.markdown(f"- @{rt['author']}: _{rt['text'][:120]}_...")
 

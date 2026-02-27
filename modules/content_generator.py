@@ -122,12 +122,15 @@ Yazım tarzı: ANALİTİK / DERİNLEMESİNE
         "description": "Başka bir tweete yorum/quote tweet",
         "prompt": """
 Yazım tarzı: QUOTE TWEET
-- Orijinal tweet'e tepki ver, yorum yap
-- Kendi perspektifini ekle
-- Kısa ve etkili ol (1-3 cümle ideal)
-- Orijinal tweet'i tekrarlama, ona ek bilgi veya farklı bakış açısı ekle
-- Bazen espri, bazen ciddi analiz
-- Örnek: "Bunu test ettim - gerçekten çalışıyor. Özellikle Türkçe'de bile reasoning kalitesi fark edilir seviyede artmış. Fine-tuning yapanlar için game changer olabilir."
+
+ASLA orijinal tweet'i Türkçeye çevirme veya tekrarlama!
+Tweet'in KONUSU hakkında KENDİ YORUMUNU yaz.
+
+İyi quote tweet örnekleri:
+- "Bunu test ettim, coding'de gerçekten fark var. Özellikle Türkçe prompt'larda bile reasoning kalitesi artmış"
+- "Herkes bunu konuşuyor ama asıl ilginç olan pricing kısmı - API fiyatını %40 düşürmüşler, bu küçük startuplar için büyük fark yaratır"
+- "ya bunu gördüm de hemen denedim, bi önceki versiyona göre context window'u gerçekten uzun dökümanları anlıyor artık"
+- "Bence asıl rekabet burada başlıyor. Open-source tarafı bu kadar güçlenince OpenAI'ın fiyat politikası değişmek zorunda"
 """,
     },
 }
@@ -221,20 +224,16 @@ class ContentGenerator:
         if not self.client:
             raise ValueError("API client not initialized. Check your API key.")
 
-        system_prompt = self._build_system_prompt("quote_tweet", user_samples)
+        system_prompt = self._build_system_prompt(style, user_samples)
 
         research_block = ""
         if research_summary:
             research_block = f"""
-## ARAŞTIRMA SONUÇLARI (bu bilgileri kullanarak bilgili ve detaylı bir yorum yaz):
+## ARAŞTIRMA SONUÇLARI:
 {research_summary}
-
-ÖNEMLİ: Araştırma sonuçlarından öğrendiğin bilgileri kullanarak tweet yaz.
-Sadece "ilginç" veya "güzel" gibi boş yorumlar yazma.
-Araştırmadan öğrendiğin spesifik bir bilgi, karşılaştırma veya teknik detay ekle.
 """
 
-        user_prompt = f"""Aşağıdaki tweet'e bir quote tweet yaz.
+        user_prompt = f"""Aşağıdaki tweet'in KONUSU hakkında kendi yorumunu yaz. Bu bir quote tweet olacak.
 
 Orijinal Tweet (@{original_author}):
 "{original_tweet}"
@@ -242,16 +241,25 @@ Orijinal Tweet (@{original_author}):
 {research_block}
 {f"Ek talimatlar: {additional_context}" if additional_context else ""}
 
-KURALLAR:
-- Orijinal tweet'i tekrarlama
-- Kendi bakış açını ekle
-- Kısa ve etkili ol (1-3 cümle ideal)
-- %100 doğal insan yazısı, robotik olmasın
-- Varsa teknik detay ekle veya düzelt
-- Kendi deneyiminden/bilginden yararlan
-- Araştırma sonuçları varsa, onlardan öğrendiğin spesifik bilgileri kullan
+## ÇOK ÖNEMLİ KURALLAR:
 
-Sadece quote tweet metnini yaz, başka bir şey yazma."""
+1. KONUYU ANLA: Bu tweet ne hakkında? Hangi ürün, model, gelişme? Onu anla.
+
+2. ASLA ÇEVİRME: Orijinal tweet'i Türkçeye çevirme, aynı cümleleri farklı kelimelerle tekrarlama. Bu en büyük hata.
+
+3. KENDİ YORUMUNU YAZ: Konu hakkında SENİN düşüncen ne? Bunu yaz. Örnekler:
+   - "Bunu test ettim, gerçekten fark var" gibi kişisel deneyim
+   - "Bu X ile karşılaştırınca şöyle bir avantajı var" gibi karşılaştırma
+   - "Bence asıl önemli olan şu kısım..." gibi analiz
+   - "Herkes bunu konuşuyor ama kimse şunu fark etmedi" gibi farklı bakış açısı
+
+4. ARAŞTIRMA KULLAN: Eğer araştırma sonuçları varsa, oradaki bilgilerden SPESIFIK bir detay seç ve yorumuna ekle. Araştırmadan öğrendiğin somut bir bilgiyi paylaş.
+
+5. KISA TUT: 1-3 cümle. Uzun yazma.
+
+6. TÜRKÇE DOĞAL DİL: Günlük konuşma dili. "ya", "bence", "aslında", "harbiden" gibi.
+
+Sadece quote tweet metnini yaz, başka bir şey yazma. Tırnak işareti kullanma."""
 
         if self.provider == "anthropic":
             return self._generate_anthropic(system_prompt, user_prompt)

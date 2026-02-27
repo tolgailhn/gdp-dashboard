@@ -1170,22 +1170,8 @@ def render_discover_page():
             AIContentEngine, WRITING_STYLES, AVAILABLE_MODELS,
             CONTENT_FORMATS, DEFAULT_AI_ACCOUNTS
         )
-        # Token'ları al - Bearer Token öncelikli
-        bearer_token = os.environ.get("TWITTER_BEARER_TOKEN", "")
-        auth_token = os.environ.get("TWITTER_AUTH_TOKEN", "")
-        ct0_token = os.environ.get("TWITTER_CT0", "")
-
-        # Eğer env'de yoksa trending_discovery'den al
-        if not auth_token and hasattr(trending_discovery, 'twitter_auth_token'):
-            auth_token = trending_discovery.twitter_auth_token or ""
-        if not ct0_token and hasattr(trending_discovery, 'twitter_ct0'):
-            ct0_token = trending_discovery.twitter_ct0 or ""
-
-        engine = AIContentEngine(
-            auth_token=auth_token,
-            ct0=ct0_token,
-            bearer_token=bearer_token
-        )
+        # Engine'i oluştur - varsayılan Bearer Token zaten içinde
+        engine = AIContentEngine()
         engine_available = True
     except Exception as e:
         st.error(f"Content engine yüklenemedi: {e}")
@@ -1197,17 +1183,13 @@ def render_discover_page():
     api_mode = "API v2" if engine.api_mode == "v2" else "Cookie Auth"
     st.caption(f"🤖 Model: **{model_info.get('name', 'Claude Sonnet')}** | 🔗 {api_mode}")
 
-    # Token kontrolü ve debug
-    if not bearer_token and (not auth_token or not ct0_token):
-        st.error("❌ X/Twitter token'ları ayarlanmamış!")
-        st.info("💡 Profil sekmesine git > X API Ayarları > Bearer Token gir")
-        return
+    # Token durumu göster
+    if engine.bearer_token:
+        st.success(f"✅ API v2 aktif (Bearer Token)")
+    elif engine.auth_token and engine.ct0:
+        st.success(f"✅ Cookie Auth aktif")
     else:
-        # Debug: Token özeti göster
-        if bearer_token:
-            st.success(f"✅ API v2 aktif: Bearer Token ayarlı")
-        else:
-            st.success(f"✅ Cookie Auth: Token'lar ayarlı")
+        st.warning("⚠️ Token bulunamadı ama varsayılan token kullanılacak")
 
     # Bağlantı testi butonu
     with st.expander("🔧 Bağlantı Testi", expanded=False):
@@ -1299,12 +1281,7 @@ def render_discover_page():
         category = st.session_state.get("discover_category", "ai")
 
         if st.button("🔄 Haberleri Tara", type="primary", use_container_width=True):
-            # Token kontrolü - Bearer Token veya Cookie Auth
-            if not bearer_token and (not auth_token or not ct0_token):
-                st.error("❌ Token'lar eksik! Profil > X API Ayarları'na git ve token gir.")
-                st.stop()
-
-            api_info = "API v2" if bearer_token else "Direct API"
+            api_info = "API v2" if engine.bearer_token else "Cookie Auth"
             with st.spinner(f"🔍 {category.upper()} haberleri aranıyor ({api_info})..."):
                 try:
                     if category == "ai":

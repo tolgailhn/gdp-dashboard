@@ -1,3 +1,2 @@
 streamlit
 pandas
-tweepy>=4.14.0

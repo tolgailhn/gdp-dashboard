@@ -349,7 +349,12 @@ def init_session():
         "page": "main",  # main, profile, tips, xpatla, discover, trending
         "viral_analysis": None,
         "daily_tip": xpatla_tips.get_daily_tip(),
-        # Keşfet sayfası için
+        # Keşfet sayfası için (yeni AI content engine)
+        "discover_category": "ai",  # ai veya football
+        "discover_tweets": [],
+        "pending_viral": None,  # Onay bekleyen viral tweet
+        "pending_tweet_idx": None,
+        # Eski keşfet (geriye uyumluluk)
         "discovered_tweets": [],
         "selected_category": None,
         "search_topic": "",
@@ -1105,123 +1110,157 @@ def render_trending_page():
 
 
 def render_discover_page():
-    """Viral tweet keşfet sayfası"""
-    st.markdown("## 🔍 Viral Tweet Keşfet")
-    st.markdown("Yüksek etkileşimli tweet'leri bul ve ilham al!")
+    """AI/Futbol içerik keşfet - Hesap takibi + Viral rewrite"""
+    st.markdown("## 🔍 İçerik Keşfet")
+
+    # AI Content Engine'i yükle
+    try:
+        from src.content.ai_content_engine import AIContentEngine, AI_ACCOUNTS, FOOTBALL_ACCOUNTS
+        engine = AIContentEngine()
+        engine_available = True
+    except Exception as e:
+        st.error(f"Content engine yüklenemedi: {e}")
+        engine_available = False
+        return
 
     # Kategori seçimi
-    st.markdown("### 📂 Kategori Seç")
+    st.markdown("### 📂 Kategori")
+    col1, col2 = st.columns(2)
 
-    category_cols = st.columns(4)
-    categories = list(CONTENT_CATEGORIES.keys())
-
-    for i, cat_key in enumerate(categories[:8]):
-        cat_data = CONTENT_CATEGORIES[cat_key]
-        col_idx = i % 4
-
-        with category_cols[col_idx]:
-            if st.button(cat_data["name"], key=f"cat_{cat_key}", use_container_width=True):
-                st.session_state.selected_category = cat_key
-                # Kategoriye göre örnek konu ara
-                sample_topic = cat_data["keywords"][0]
-                st.session_state.search_topic = sample_topic
-                with st.spinner(f"{cat_data['name']} tweet'leri aranıyor..."):
-                    st.session_state.discovered_tweets = viral_discovery.search_viral_tweets(sample_topic, 8)
-                st.rerun()
-
-    st.markdown("---")
-
-    # Manuel konu arama
-    st.markdown("### 🔎 Konu Ara")
-
-    col1, col2 = st.columns([3, 1])
     with col1:
-        search_input = st.text_input(
-            "Konu yaz:",
-            value=st.session_state.search_topic,
-            placeholder="Örn: altın, futbol, yapay zeka...",
-            label_visibility="collapsed"
-        )
+        ai_selected = st.session_state.get("discover_category", "ai") == "ai"
+        if st.button("🤖 AI / Teknoloji", type="primary" if ai_selected else "secondary", use_container_width=True):
+            st.session_state.discover_category = "ai"
+            st.session_state.discover_tweets = []
+            st.rerun()
 
     with col2:
-        if st.button("🔍 Ara", type="primary", use_container_width=True):
-            if search_input:
-                st.session_state.search_topic = search_input
-                with st.spinner(f"'{search_input}' hakkında viral tweet'ler aranıyor..."):
-                    st.session_state.discovered_tweets = viral_discovery.search_viral_tweets(search_input, 10)
-                st.rerun()
+        football_selected = st.session_state.get("discover_category", "ai") == "football"
+        if st.button("⚽ Futbol", type="primary" if football_selected else "secondary", use_container_width=True):
+            st.session_state.discover_category = "football"
+            st.session_state.discover_tweets = []
+            st.rerun()
 
-    # Popüler konular
-    st.markdown("**🔥 Popüler Konular:**")
-    quick_topics = ["dolar", "altın", "bitcoin", "futbol", "yapay zeka", "ekonomi"]
-    topic_cols = st.columns(6)
+    # Zaman aralığı seçimi
+    st.markdown("### ⏰ Zaman Aralığı")
+    hours = st.select_slider(
+        "Son kaç saat?",
+        options=[6, 12, 24, 48],
+        value=12,
+        format_func=lambda x: f"Son {x} saat"
+    )
 
-    for i, topic in enumerate(quick_topics):
-        with topic_cols[i]:
-            if st.button(topic, key=f"quick_{topic}"):
-                st.session_state.search_topic = topic
-                with st.spinner(f"'{topic}' aranıyor..."):
-                    st.session_state.discovered_tweets = viral_discovery.search_viral_tweets(topic, 10)
-                st.rerun()
+    # Takip edilen hesaplar
+    category = st.session_state.get("discover_category", "ai")
+    accounts = AI_ACCOUNTS if category == "ai" else FOOTBALL_ACCOUNTS
+
+    with st.expander(f"📋 Takip Edilen Hesaplar ({len(accounts)})"):
+        for name, username in accounts.items():
+            st.markdown(f"• **{name}** - [@{username}](https://x.com/{username})")
 
     st.markdown("---")
 
-    # Sonuçlar
-    if st.session_state.discovered_tweets:
-        st.markdown(f"### 📊 Viral Tweet'ler: '{st.session_state.search_topic}'")
-        st.caption(f"{len(st.session_state.discovered_tweets)} yüksek etkileşimli tweet bulundu")
+    # İçerik yükle butonu
+    if st.button("🔄 İçerikleri Yükle", type="primary", use_container_width=True):
+        with st.spinner(f"🔍 {category.upper()} içerikleri taranıyor (son {hours} saat)..."):
+            if category == "ai":
+                tweets = engine.get_ai_content(hours=hours, limit=15)
+            else:
+                tweets = engine.get_football_content(hours=hours, limit=15)
 
-        for i, tweet in enumerate(st.session_state.discovered_tweets):
+            st.session_state.discover_tweets = tweets
+
+        if tweets:
+            st.success(f"✅ {len(tweets)} içerik bulundu!")
+        else:
+            st.warning("İçerik bulunamadı. Token'ları kontrol et veya zaman aralığını artır.")
+        st.rerun()
+
+    # Sonuçları göster
+    tweets = st.session_state.get("discover_tweets", [])
+
+    if tweets:
+        st.markdown(f"### 📊 Bulunan İçerikler ({len(tweets)})")
+
+        for i, tweet in enumerate(tweets):
             with st.container():
                 # Tweet kartı
-                engagement_display = f"❤️ {tweet.likes:,} | 🔄 {tweet.retweets:,} | 💬 {tweet.replies:,}"
+                engagement = f"❤️ {tweet.likes:,} | 🔄 {tweet.retweets:,}"
 
                 st.markdown(f"""
                 <div style="
-                    background: #f8f9fa;
+                    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
                     border-left: 4px solid #1DA1F2;
                     padding: 15px;
                     margin: 10px 0;
-                    border-radius: 0 10px 10px 0;
+                    border-radius: 0 12px 12px 0;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
                 ">
-                    <p style="font-size: 1rem; margin-bottom: 10px;">{tweet.text[:280]}</p>
-                    <p style="color: #657786; font-size: 0.85rem;">{engagement_display}</p>
-                    <p style="color: #17bf63; font-size: 0.8rem;">📈 {tweet.viral_reason}</p>
+                    <div style="font-size: 0.8rem; color: #657786; margin-bottom: 8px;">
+                        <strong>@{tweet.author}</strong> • {tweet.author_name}
+                    </div>
+                    <p style="font-size: 1rem; margin-bottom: 10px; line-height: 1.5;">{tweet.text[:500]}{'...' if len(tweet.text) > 500 else ''}</p>
+                    <div style="color: #17bf63; font-size: 0.85rem;">{engagement}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
-                col1, col2 = st.columns(2)
+                col1, col2, col3 = st.columns(3)
 
                 with col1:
-                    if st.button(f"✨ Bunu Remix Et", key=f"remix_{i}", use_container_width=True):
-                        # Tweet'i remix et ve ana sayfaya git
-                        remixed = viral_discovery.remix_tweet(
-                            tweet.text,
-                            st.session_state.search_topic,
-                            st.session_state.voice_profile.tone
-                        )
-                        st.session_state.current_tweet = remixed
-                        st.session_state.selected_viral_tweet = tweet
-                        st.session_state.page = "main"
+                    if st.button("✨ Viral Yaz", key=f"viral_{i}", use_container_width=True):
+                        with st.spinner("🔥 Viral versiyon yazılıyor..."):
+                            viral = engine.rewrite_viral(tweet, style="informative")
+                            st.session_state.pending_viral = viral
+                            st.session_state.pending_tweet_idx = i
                         st.rerun()
 
                 with col2:
-                    if st.button(f"📋 Yapıyı Kopyala", key=f"copy_{i}", use_container_width=True):
-                        st.session_state.selected_viral_tweet = tweet
-                        st.toast("Tweet yapısı seçildi! Tweet oluştururken kullanılacak.")
+                    if st.button("📝 Düzenle", key=f"edit_{i}", use_container_width=True):
+                        st.session_state.current_tweet = tweet.text
+                        st.session_state.page = "main"
+                        st.rerun()
+
+                with col3:
+                    st.markdown(f"[🔗 Kaynak]({tweet.url})")
+
+                # Viral preview göster
+                if st.session_state.get("pending_tweet_idx") == i and st.session_state.get("pending_viral"):
+                    viral = st.session_state.pending_viral
+                    st.markdown("---")
+                    st.markdown("#### ✅ Viral Versiyon (Onay Bekliyor)")
+
+                    # Düzenlenebilir alan
+                    edited_text = st.text_area(
+                        "Tweet metni:",
+                        value=viral.rewritten_text,
+                        height=200,
+                        key=f"edit_viral_{i}"
+                    )
+
+                    # Viral skor
+                    st.progress(viral.viral_score / 100)
+                    st.caption(f"Viral Potansiyel: {viral.viral_score:.0f}/100")
+
+                    approve_col, reject_col = st.columns(2)
+
+                    with approve_col:
+                        if st.button("✅ Onayla ve Kullan", key=f"approve_{i}", type="primary", use_container_width=True):
+                            st.session_state.current_tweet = edited_text
+                            st.session_state.pending_viral = None
+                            st.session_state.pending_tweet_idx = None
+                            st.session_state.page = "main"
+                            st.rerun()
+
+                    with reject_col:
+                        if st.button("❌ İptal", key=f"reject_{i}", use_container_width=True):
+                            st.session_state.pending_viral = None
+                            st.session_state.pending_tweet_idx = None
+                            st.rerun()
 
                 st.markdown("---")
 
-    # Seçili kategori için şablonlar
-    if st.session_state.selected_category:
-        cat_data = CONTENT_CATEGORIES[st.session_state.selected_category]
-        st.markdown(f"### 📝 {cat_data['name']} Şablonları")
-
-        for i, template in enumerate(cat_data["templates"]):
-            st.code(template.format(insight="[İÇERİK]"), language=None)
-
-        if cat_data["hashtags"]:
-            st.markdown(f"**Önerilen Hashtagler:** {' '.join(cat_data['hashtags'])}")
+    else:
+        st.info("👆 Yukarıdan kategori seç ve 'İçerikleri Yükle' butonuna tıkla!")
 
 
 def render_xpatla_page():

@@ -1321,11 +1321,9 @@ siz bu konu hakkında ne düşünüyorsunuz?"""
 
 # Kategoriler için Türkçe isimler
 TRENDING_CATEGORIES = {
-    "ai": {"name": "🤖 Yapay Zeka", "desc": "AI, ChatGPT, LLM haberleri"},
-    "tech": {"name": "💻 Teknoloji", "desc": "Genel teknoloji haberleri"},
-    "crypto": {"name": "₿ Kripto", "desc": "Bitcoin, Ethereum, DeFi"},
-    "world": {"name": "🌍 Dünya", "desc": "Dünya gündemi"},
-    "all": {"name": "🔥 Tümü", "desc": "Tüm kategoriler"},
+    "ai": {"name": "🤖 AI / Teknoloji", "desc": "AI, ChatGPT, LLM haberleri"},
+    "football": {"name": "⚽ Futbol", "desc": "Transfer, maç sonuçları"},
+    "all": {"name": "🔥 Gündem", "desc": "Türkiye gündemi"},
 }
 
 

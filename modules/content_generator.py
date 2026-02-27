@@ -214,29 +214,61 @@ class ContentGenerator:
         system_prompt = self._build_system_prompt(style, user_samples)
 
         if research_summary:
-            # RESEARCH MODE: AI has full context, write informed opinion
-            user_prompt = f"""Görevin: Aşağıdaki araştırma bilgilerini oku, konuyu tam anla, sonra bu konu hakkında KENDİ ORİJİNAL YORUMUNU Türkçe tweet olarak yaz.
+            # Override system prompt for research mode - remove "KISA YAZ" constraints
+            system_prompt = self._build_research_system_prompt(user_samples)
+            # RESEARCH MODE: AI has full context, write detailed analytical post
+            user_prompt = f"""Görevin: Aşağıdaki araştırma bilgilerini DERİNLEMESİNE oku. Tüm rakamları, ilişkileri, stratejik detayları anla. Sonra bu konu hakkında DETAYLİ ANALİTİK bir Türkçe tweet/thread yaz.
 
 {research_summary}
 
 {f"Kullanıcı notu: {additional_context}" if additional_context else ""}
 
 ## GÖREV:
-Yukarıdaki TÜM bilgileri (thread, web araştırması, diğer yorumlar) oku ve anla.
-Sonra bu konu hakkında kendi orijinal yorumunu yaz.
+Yukarıdaki TÜM bilgileri (thread, web araştırması, diğer yorumlar) derinlemesine analiz et.
+Araştırmadaki spesifik rakamları, isimleri, ilişkileri kullanarak UZUN ve DETAYLİ bir analiz yaz.
 
-## YAPMAN GEREKEN:
-- Araştırmadan öğrendiğin spesifik bir bilgiyi yorumuna ekle (rakam, karşılaştırma, detay)
-- Tweet'te bahsedilmeyen ama araştırmada bulduğun bir açıyı vurgula
-- Kişisel bakış açını ekle: "bence...", "dikkat çeken şey...", "herkes X diyor ama..."
-- Kısa ve vurucu yaz (2-4 cümle)
-- Doğal Türkçe günlük dil kullan
+## NASIL YAZMALISIN (ÇOK ÖNEMLİ):
+
+1. **RAKAM DAĞILIMI YAP**: Toplu rakamı parçalarına ayır. "110 milyar" deme, "Amazon 50, NVIDIA 30, SoftBank 30" de.
+
+2. **PARADOKS VE ÇELİŞKİLERİ BUL**: İlişkilerdeki ilginçlikleri yakala.
+   Örnek: "NVIDIA hem çip satıyor hem de en büyük müşterisine yatırım yapıyor. Hem tedarikçisin hem ortaksın."
+   Örnek: "Amazon hem Anthropic'e hem OpenAI'a yatırım yapıyor. İki rakibe birden para döküyorsun."
+
+3. **MAKRO KARŞILAŞTIRMALAR YAP**: Büyük rakamları somutlaştır.
+   Örnek: "OpenAI tek başına bazı G20 ülkelerinin yıllık bütçesinden büyük yatırım topladı."
+   Örnek: "Bu para ile X tane startup fonlanabilirdi."
+
+4. **STRATEJİK ANALİZ YAP**: Neden böyle olduğunu açıkla.
+   Örnek: "Asıl savaş model değil, altyapı. Kim compute sağlarsa o kazanır."
+
+5. **PROVOKATIF SORUYLA BİTİR**: Okuyucuyu düşündürecek bir soruyla kapat.
+   Örnek: "Bu kadar parayı gerçekten ürüne mi dönüştürecekler yoksa compute yarışında buharlaşıp mı gidecek?"
+
+## UZUNLUK VE FORMAT:
+- KISA YAZMA! Minimum 4-5 paragraf yaz. Detaylı analiz istiyorum.
+- Her paragraf farklı bir açıdan konuyu ele alsın
+- Araştırmadan bulduğun SPESİFİK rakamları, isimleri, tarihleri kullan
+- Düz metin yaz, madde işareti veya liste formatı kullanma
+- Doğal Türkçe günlük dil kullan, teknik terimler İngilizce kalabilir
+
+## ÖRNEK ÇIKTI (bu tarz ve uzunlukta yaz):
+"110 milyar dolar tek turda. Amazon 50, nvidia 30, softbank 30. Ön değerleme 730 milyar.
+
+Bu artık bir yapay zeka şirketi değil, küçük bir ülke ekonomisi. Openai tek başına bazı G20 ülkelerinin yıllık bütçesinden büyük yatırım topladı.
+
+Bir düşün, nvidia hem çip satıyor hem de en büyük müşterisine yatırım yapıyor. Yani hem tedarikçisin hem ortaksın. Bu ilişki yapısı klasik iş modellerine sığmıyor.
+
+Amazon tarafı da ilginç. Aws zaten anthropice milyarlar dökmüştü, şimdi openaia da 50 milyar. İki rakibe birden yatırım yapıyorsun çünkü asıl savaş model değil, altyapı.
+
+Sama şükran mesajı yazmış ama ben şunu merak ediyorum: bu kadar parayı gerçekten ürüne mi dönüştürecekler yoksa compute yarışında buharlaşıp mı gidecek?"
 
 ## YAPMA:
-- Orijinal tweet'i Türkçeye çevirme veya özetle
-- "Heyecan verici", "çığır açan" gibi klişeler kullanma
+- Orijinal tweet'i Türkçeye çevirme veya özetleme
+- "Heyecan verici", "çığır açan", "dikkat çekici gelişme" gibi klişeler kullanma
 - Orijinal tweet'teki cümleleri tekrarlama
-- Uzun uzun açıklama yapma
+- KISA YAZMA - 1-3 cümlelik yüzeysel yorum yazma, DERİNLEMESİNE analiz yaz
+- Madde işareti, numara listesi kullanma - düz paragraflar halinde yaz
 
 Sadece tweet metnini yaz, başka bir şey yazma."""
         else:
@@ -334,6 +366,36 @@ Sadece yeni tweet metnini yaz."""
         else:
             return self._generate_openai(system_prompt, user_prompt)
 
+    def _build_research_system_prompt(self, user_samples: list = None) -> str:
+        """Build system prompt optimized for research-based detailed analysis"""
+        persona = self.custom_persona or BASE_SYSTEM_PROMPT
+
+        prompt = f"""{persona}
+
+## ARAŞTIRMA MODU - DETAYLİ ANALİZ:
+Bu modda KISA tweet yazmıyorsun. Araştırma verilerini kullanarak DETAYLİ ANALİTİK bir yazı yazıyorsun.
+
+KURALLAR:
+- Minimum 4-5 paragraf yaz, detaylı ol
+- Araştırmadan SPESİFİK rakamlar, isimler ve veriler kullan
+- Paradoksları, çelişkileri ve ilginç ilişkileri yakala
+- Makro karşılaştırmalar yap (ülke bütçeleri, piyasa değerleri vs.)
+- Stratejik analiz yap - "neden" sorusunu cevapla
+- Provokatif bir soruyla bitir
+- Düz paragraflar halinde yaz, liste/madde işareti kullanma
+- Doğal Türkçe yaz, teknik terimler İngilizce kalabilir
+- Robotik AI kalıpları YASAK
+"""
+
+        if user_samples:
+            samples_text = "\n".join([f"- {s}" for s in user_samples[:10]])
+            prompt += f"""
+## KULLANICININ GERÇEK TWEET ÖRNEKLERİ (bu tarzda yaz):
+{samples_text}
+"""
+
+        return prompt
+
     def _build_system_prompt(self, style: str, user_samples: list = None) -> str:
         """Build the complete system prompt"""
         persona = self.custom_persona or BASE_SYSTEM_PROMPT
@@ -404,7 +466,7 @@ Sadece tweet metnini yaz, başka bir şey yazma. Tırnak işareti kullanma."""
         """Generate content using Anthropic Claude API"""
         response = self.client.messages.create(
             model=self.model,
-            max_tokens=2000,
+            max_tokens=4000,
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
             temperature=0.9,
@@ -419,7 +481,7 @@ Sadece tweet metnini yaz, başka bir şey yazma. Tırnak işareti kullanma."""
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            max_tokens=2000,
+            max_tokens=4000,
             temperature=0.9,
         )
         text = response.choices[0].message.content.strip()

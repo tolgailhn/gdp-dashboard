@@ -73,6 +73,7 @@ def extract_topic_from_text(full_text: str) -> dict:
     Finds actual product names, companies, and what happened.
     Returns targeted search queries.
     """
+    current_year = str(datetime.datetime.now().year)
     text = re.sub(r'https?://\S+', '', full_text).strip()
     text_clean = re.sub(r'@\w+', '', text)
     text_clean = re.sub(r'#(\w+)', r'\1', text_clean)
@@ -154,24 +155,24 @@ def extract_topic_from_text(full_text: str) -> dict:
     if entities and action:
         main = entities[0]
         if action == 'investment' and amounts:
-            queries.append(f"{main} {amounts[0]} investment funding 2025")
+            queries.append(f"{main} {amounts[0]} investment funding {current_year}")
         elif action == 'release':
-            queries.append(f"{main} release announcement features 2025")
+            queries.append(f"{main} release announcement features {current_year}")
         elif action == 'benchmark' and percentages:
-            queries.append(f"{main} benchmark results {percentages[0]} 2025")
+            queries.append(f"{main} benchmark results {percentages[0]} {current_year}")
         else:
-            queries.append(f"{main} {action} 2025")
+            queries.append(f"{main} {action} {current_year}")
 
         # Second query: combine companies + products
         if len(entities) > 1:
-            queries.append(f"{entities[0]} {entities[1]} {action or 'AI'} 2025")
+            queries.append(f"{entities[0]} {entities[1]} {action or 'AI'} {current_year}")
     elif entities:
-        queries.append(f"{entities[0]} AI news 2025")
+        queries.append(f"{entities[0]} AI news {current_year}")
     else:
         # Fallback: get proper nouns from text
         proper = re.findall(r'\b[A-Z][a-zA-Z]+(?:\s[A-Z][a-zA-Z]+)*\b', text_clean)
         if proper:
-            queries.append(" ".join(proper[:3]) + " AI 2025")
+            queries.append(" ".join(proper[:3]) + f" AI {current_year}")
         else:
             queries.append(text_clean[:60])
 
@@ -250,15 +251,15 @@ def research_topic(tweet_text: str, tweet_author: str = "",
     if progress_callback:
         progress_callback(f"Web araştırması: {search_queries[0][:50]}...")
 
-    for query in search_queries[:2]:
-        results = web_search(query, max_results=5)
+    for query in search_queries[:3]:
+        results = web_search(query, max_results=8)
         result.web_results.extend(results)
 
     # === STEP 4: News search ===
     if progress_callback:
         progress_callback("Son haberler aranıyor...")
 
-    news = web_search_news(search_queries[0], max_results=4)
+    news = web_search_news(search_queries[0], max_results=6)
     for n in news:
         result.web_results.append({
             "title": f"[HABER] {n['title']}",
@@ -332,10 +333,10 @@ def compile_research_summary(r: ResearchResult) -> str:
     # Section 2: What the web says about this topic
     if r.web_results:
         parts.append(f"\n## Web Araştırma Bulguları ({len(r.web_results)} kaynak):")
-        for i, wr in enumerate(r.web_results[:8], 1):
+        for i, wr in enumerate(r.web_results[:10], 1):
             src = f" ({wr['source']})" if wr.get("source") else ""
             parts.append(f"  {i}. {wr['title']}{src}")
-            parts.append(f"     {wr['body'][:250]}")
+            parts.append(f"     {wr['body'][:400]}")
 
     # Section 3: What others on X are saying
     if r.related_tweets:

@@ -587,8 +587,23 @@ class AIContentEngine:
             except Exception as e:
                 return False, f"❌ Hata: {str(e)[:50]}"
 
-        # Bird CLI yoksa hata döndür
-        return False, "❌ bird CLI yüklü değil. Kurulum: npm install -g @steipete/bird"
+        # 2. Bird CLI yoksa direct API ile test et
+        try:
+            url = "https://twitter.com/i/api/2/search/adaptive.json"
+            params = {"q": "test", "count": "1"}
+            response = self.session.get(url, params=params, headers=self.base_headers, timeout=10)
+
+            if response.status_code == 200:
+                return True, "✅ Bağlantı başarılı (Direct API)"
+            elif response.status_code == 401:
+                return False, "❌ Token geçersiz veya süresi dolmuş. Yeni token al."
+            elif response.status_code == 429:
+                return False, "⚠️ Rate limit - biraz bekle ve tekrar dene"
+            else:
+                return False, f"❌ API hatası: {response.status_code}"
+
+        except Exception as e:
+            return False, f"❌ Bağlantı hatası: {str(e)[:50]}"
 
     def update_tokens(self, auth_token: str, ct0: str):
         """Token'ları güncelle"""
@@ -1117,18 +1132,129 @@ Türkçe, doğal, insansı yaz. Sadece tweet metnini ver."""
     # ==========================================================================
 
     def _search_tweets(self, query: str, hours: int) -> Tuple[List[SourceTweet], str]:
-        """Tweet ara - SADECE bird CLI"""
-        if not BIRD_CLI_AVAILABLE:
-            return [], "bird CLI yüklü değil. Kurulum: npm install -g @steipete/bird"
-
-        return self._search_with_bird(query, hours)
+        """Tweet ara - bird CLI veya direct API"""
+        if BIRD_CLI_AVAILABLE:
+            return self._search_with_bird(query, hours)
+        else:
+            return self._search_with_api(query, hours)
 
     def _get_user_tweets(self, username: str, hours: int) -> Tuple[List[SourceTweet], str]:
-        """Kullanıcı tweetlerini çek - SADECE bird CLI"""
-        if not BIRD_CLI_AVAILABLE:
-            return [], "bird CLI yüklü değil. Kurulum: npm install -g @steipete/bird"
+        """Kullanıcı tweetlerini çek - bird CLI veya direct API"""
+        if BIRD_CLI_AVAILABLE:
+            return self._get_user_tweets_bird(username, hours)
+        else:
+            return self._get_user_tweets_api(username, hours)
 
-        return self._get_user_tweets_bird(username, hours)
+    def _search_with_api(self, query: str, hours: int) -> Tuple[List[SourceTweet], str]:
+        """Direct Twitter API ile arama (bird CLI olmadan)"""
+        tweets = []
+        error = None
+
+        try:
+            url = "https://twitter.com/i/api/2/search/adaptive.json"
+            params = {
+                "q": query,
+                "tweet_search_mode": "live",
+                "query_source": "typed_query",
+                "count": "20",
+                "result_filter": "top",
+            }
+
+            response = self.session.get(url, params=params, headers=self.base_headers, timeout=15)
+
+            if response.status_code == 200:
+                data = response.json()
+                tweets_data = data.get("globalObjects", {}).get("tweets", {})
+                users_data = data.get("globalObjects", {}).get("users", {})
+
+                for tweet_id, tweet_data in list(tweets_data.items())[:15]:
+                    text = tweet_data.get("full_text", "")
+
+                    # RT'leri atla
+                    if text.startswith("RT @"):
+                        continue
+
+                    user_id = tweet_data.get("user_id_str", "")
+                    user_info = users_data.get(user_id, {})
+
+                    tweet = SourceTweet(
+                        id=str(tweet_id),
+                        author=user_info.get("screen_name", ""),
+                        author_name=user_info.get("name", ""),
+                        text=text,
+                        url=f"https://twitter.com/i/status/{tweet_id}",
+                        likes=tweet_data.get("favorite_count", 0),
+                        retweets=tweet_data.get("retweet_count", 0),
+                        replies=tweet_data.get("reply_count", 0),
+                        created_at=tweet_data.get("created_at", ""),
+                    )
+                    tweets.append(tweet)
+            elif response.status_code == 401:
+                error = "Token geçersiz veya süresi dolmuş"
+            elif response.status_code == 429:
+                error = "Rate limit - biraz bekle"
+            else:
+                error = f"API hatası: {response.status_code}"
+
+        except Exception as e:
+            error = str(e)[:50]
+
+        return tweets, error
+
+    def _get_user_tweets_api(self, username: str, hours: int) -> Tuple[List[SourceTweet], str]:
+        """Direct Twitter API ile kullanıcı tweetleri (bird CLI olmadan)"""
+        tweets = []
+        error = None
+
+        try:
+            # from: ile kullanıcı tweetlerini ara
+            url = "https://twitter.com/i/api/2/search/adaptive.json"
+            params = {
+                "q": f"from:{username}",
+                "tweet_search_mode": "live",
+                "query_source": "typed_query",
+                "count": "15",
+            }
+
+            response = self.session.get(url, params=params, headers=self.base_headers, timeout=15)
+
+            if response.status_code == 200:
+                data = response.json()
+                tweets_data = data.get("globalObjects", {}).get("tweets", {})
+                users_data = data.get("globalObjects", {}).get("users", {})
+
+                cutoff = datetime.now() - timedelta(hours=hours)
+
+                for tweet_id, tweet_data in list(tweets_data.items())[:10]:
+                    text = tweet_data.get("full_text", "")
+
+                    # RT'leri atla
+                    if text.startswith("RT @"):
+                        continue
+
+                    user_id = tweet_data.get("user_id_str", "")
+                    user_info = users_data.get(user_id, {})
+
+                    tweet = SourceTweet(
+                        id=str(tweet_id),
+                        author=user_info.get("screen_name", username),
+                        author_name=user_info.get("name", username),
+                        text=text,
+                        url=f"https://twitter.com/{username}/status/{tweet_id}",
+                        likes=tweet_data.get("favorite_count", 0),
+                        retweets=tweet_data.get("retweet_count", 0),
+                        created_at=tweet_data.get("created_at", ""),
+                    )
+                    tweets.append(tweet)
+            elif response.status_code == 401:
+                error = "Token geçersiz"
+            else:
+                error = f"API hatası: {response.status_code}"
+
+        except Exception as e:
+            error = str(e)[:50]
+
+        return tweets, error
 
     def _search_with_bird(self, query: str, hours: int) -> Tuple[List[SourceTweet], str]:
         """Bird CLI ile arama"""

@@ -1152,7 +1152,7 @@ def render_discover_page():
 
     # Bağlantı testi butonu
     with st.expander("🔧 Bağlantı Testi", expanded=False):
-        if st.button("🧪 Bağlantıyı Test Et"):
+        if st.button("🧪 Bağlantıyı Test Et", key="discover_connection_test"):
             with st.spinner("Test ediliyor..."):
                 success, msg = engine.test_connection()
                 if success:

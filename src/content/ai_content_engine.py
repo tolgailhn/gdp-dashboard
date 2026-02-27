@@ -9,6 +9,7 @@ AI Content Engine v4 - XPatla Benzeri Viral Sistem
 - İçerik filtreleme (gm/hello atlama)
 - Format seçimi: Micro, Thunder (1500), Mega (2000)
 - Gelişmiş viral skor
+- Demo mod (test için)
 
 Kurulum: npm install -g @steipete/bird
 """
@@ -30,6 +31,62 @@ logger = logging.getLogger(__name__)
 
 # Bird CLI var mı kontrol et
 BIRD_CLI_AVAILABLE = shutil.which("bird") is not None
+
+# Demo mod - gerçek API çalışmadığında örnek veri göster
+DEMO_MODE = os.environ.get("DEMO_MODE", "").lower() in ("1", "true", "yes")
+
+
+# ==============================================================================
+# DEMO VERİLERİ - Test için örnek tweetler
+# ==============================================================================
+
+DEMO_TWEETS = [
+    {
+        "id": "demo_1",
+        "author": "OpenAI",
+        "author_name": "OpenAI",
+        "text": "Introducing GPT-5: Our most capable model yet. 2x faster, multimodal by default, and available today via API. Here's what's new...",
+        "likes": 125000,
+        "retweets": 45000,
+        "url": "https://twitter.com/OpenAI/status/demo1",
+    },
+    {
+        "id": "demo_2",
+        "author": "AnthropicAI",
+        "author_name": "Anthropic",
+        "text": "Claude 4 is here. Extended context to 500K tokens, improved reasoning, and new computer use capabilities. Try it now.",
+        "likes": 89000,
+        "retweets": 32000,
+        "url": "https://twitter.com/AnthropicAI/status/demo2",
+    },
+    {
+        "id": "demo_3",
+        "author": "GoogleAI",
+        "author_name": "Google AI",
+        "text": "Gemini 2.5 Pro: New benchmarks show significant improvements in coding, math, and multilingual tasks. Available in AI Studio.",
+        "likes": 67000,
+        "retweets": 21000,
+        "url": "https://twitter.com/GoogleAI/status/demo3",
+    },
+    {
+        "id": "demo_4",
+        "author": "karpathy",
+        "author_name": "Andrej Karpathy",
+        "text": "Just tested the new models. My quick take: GPT-5 excels at creative tasks, Claude 4 at reasoning, Gemini at multimodal. No clear winner yet.",
+        "likes": 45000,
+        "retweets": 12000,
+        "url": "https://twitter.com/karpathy/status/demo4",
+    },
+    {
+        "id": "demo_5",
+        "author": "sama",
+        "author_name": "Sam Altman",
+        "text": "AGI is closer than most people think. The progress in the last 6 months has been incredible. More announcements coming soon.",
+        "likes": 156000,
+        "retweets": 67000,
+        "url": "https://twitter.com/sama/status/demo5",
+    },
+]
 
 
 # ==============================================================================
@@ -490,6 +547,79 @@ class AIContentEngine:
         self.current_style = "samimi"
 
     # ==========================================================================
+    # BAĞLANTI TESTİ
+    # ==========================================================================
+
+    def test_connection(self) -> Tuple[bool, str]:
+        """
+        Twitter/X bağlantısını test et.
+
+        Returns:
+            (success, message)
+        """
+        # 1. Bird CLI ile dene
+        if BIRD_CLI_AVAILABLE:
+            try:
+                cmd = [
+                    "bird", "search", "test",
+                    "--auth-token", self.auth_token,
+                    "--ct0", self.ct0,
+                    "--count", "1",
+                    "--timeout", "10000"
+                ]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+
+                if result.returncode == 0:
+                    return True, "✅ Bağlantı başarılı (bird CLI)"
+
+                stderr = result.stderr.strip() if result.stderr else ""
+                if "401" in stderr or "Unauthorized" in stderr:
+                    return False, "❌ Token geçersiz veya süresi dolmuş. Yeni token al."
+                elif "rate" in stderr.lower():
+                    return False, "⚠️ Rate limit - biraz bekle ve tekrar dene"
+                elif "fetch failed" in stderr.lower():
+                    return False, "❌ Ağ bağlantısı başarısız. İnternet bağlantını kontrol et."
+                else:
+                    return False, f"❌ Hata: {stderr[:100]}"
+
+            except subprocess.TimeoutExpired:
+                return False, "❌ Bağlantı zaman aşımı (15s)"
+            except Exception as e:
+                return False, f"❌ Hata: {str(e)[:50]}"
+
+        # 2. API ile dene
+        try:
+            response = self.session.get(
+                "https://twitter.com/i/api/2/search/adaptive.json",
+                params={"q": "test", "count": "1"},
+                headers=self.base_headers,
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                return True, "✅ Bağlantı başarılı (API)"
+            elif response.status_code == 401:
+                return False, "❌ Token geçersiz. Yeni token al."
+            elif response.status_code == 429:
+                return False, "⚠️ Rate limit - biraz bekle"
+            else:
+                return False, f"❌ API hatası: {response.status_code}"
+
+        except requests.exceptions.ConnectionError:
+            return False, "❌ Ağ bağlantısı yok. İnternet bağlantını kontrol et."
+        except requests.exceptions.Timeout:
+            return False, "❌ Bağlantı zaman aşımı"
+        except Exception as e:
+            return False, f"❌ Hata: {str(e)[:50]}"
+
+    def update_tokens(self, auth_token: str, ct0: str):
+        """Token'ları güncelle"""
+        self.auth_token = auth_token
+        self.ct0 = ct0
+        self.base_headers["Cookie"] = f"auth_token={auth_token}; ct0={ct0}"
+        self.base_headers["X-Csrf-Token"] = ct0
+
+    # ==========================================================================
     # HESAP YÖNETİMİ
     # ==========================================================================
 
@@ -525,6 +655,7 @@ class AIContentEngine:
 
         gm, hello gibi tweetleri atlar.
         Sadece değerli içeriği gösterir.
+        Demo mod: API çalışmazsa örnek veri gösterir.
         """
         all_tweets = []
         seen_ids = set()
@@ -575,8 +706,38 @@ class AIContentEngine:
             reverse=True
         )
 
-        error_msg = errors[0] if not all_tweets and errors else None
-        return all_tweets[:limit], error_msg
+        # 4. Eğer hiç tweet bulunamadıysa ve hata varsa
+        if not all_tweets and errors:
+            # Demo mod veya tüm API'ler başarısız
+            if DEMO_MODE or all(
+                "bağlantı" in e.lower() or "connection" in e.lower() or
+                "fetch" in e.lower() or "timeout" in e.lower()
+                for e in errors[:3] if e
+            ):
+                # Demo verileri döndür
+                demo_tweets = self._get_demo_tweets()
+                return demo_tweets[:limit], "⚠️ Demo mod: Gerçek veriler alınamadı. Örnek veriler gösteriliyor."
+
+            return [], errors[0]
+
+        return all_tweets[:limit], None
+
+    def _get_demo_tweets(self) -> List[SourceTweet]:
+        """Demo tweetleri döndür"""
+        tweets = []
+        for item in DEMO_TWEETS:
+            tweet = SourceTweet(
+                id=item["id"],
+                author=item["author"],
+                author_name=item["author_name"],
+                text=item["text"],
+                url=item["url"],
+                likes=item["likes"],
+                retweets=item["retweets"],
+                is_valuable=True,
+            )
+            tweets.append(tweet)
+        return tweets
 
     def get_football_news(self, hours: int = 6, limit: int = 15) -> Tuple[List[SourceTweet], str]:
         """Futbol haberlerini bul - FİLTRELİ"""

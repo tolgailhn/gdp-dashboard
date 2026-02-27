@@ -1352,6 +1352,29 @@ def render_account_management(engine):
     st.markdown("### 👥 Takip Edilen Hesaplar")
     st.caption("Bu hesaplardan içerik çekilir. Hesap ekle/çıkar.")
 
+    # Bağlantı testi
+    st.markdown("**🔌 Bağlantı Durumu**")
+    col_test, col_result = st.columns([1, 2])
+
+    with col_test:
+        if st.button("🧪 Bağlantıyı Test Et"):
+            with st.spinner("Test ediliyor..."):
+                success, message = engine.test_connection()
+                st.session_state.connection_test_result = (success, message)
+            st.rerun()
+
+    with col_result:
+        if "connection_test_result" in st.session_state:
+            success, message = st.session_state.connection_test_result
+            if success:
+                st.success(message)
+            elif "Demo" in message or "demo" in message:
+                st.warning(message)
+            else:
+                st.error(message)
+
+    st.markdown("---")
+
     # Kategori seç
     category = st.selectbox(
         "Kategori:",

@@ -738,6 +738,11 @@ class AIContentEngine:
         Sadece değerli içeriği gösterir.
         Demo mod: API çalışmazsa örnek veri gösterir.
         """
+        # Token yoksa direkt demo moda düş
+        if not self.bearer_token and not (self.auth_token and self.ct0):
+            demo_tweets = self._get_demo_tweets()
+            return demo_tweets[:limit], "ℹ️ Demo mod: Bearer Token girilmemiş. Örnek içerikler gösteriliyor."
+
         all_tweets = []
         seen_ids = set()
         errors = []
@@ -787,19 +792,11 @@ class AIContentEngine:
             reverse=True
         )
 
-        # 4. Eğer hiç tweet bulunamadıysa ve hata varsa
-        if not all_tweets and errors:
-            # Demo mod veya tüm API'ler başarısız
-            if DEMO_MODE or all(
-                "bağlantı" in e.lower() or "connection" in e.lower() or
-                "fetch" in e.lower() or "timeout" in e.lower()
-                for e in errors[:3] if e
-            ):
-                # Demo verileri döndür
-                demo_tweets = self._get_demo_tweets()
-                return demo_tweets[:limit], "⚠️ Demo mod: Gerçek veriler alınamadı. Örnek veriler gösteriliyor."
-
-            return [], errors[0]
+        # 4. Eğer hiç tweet bulunamadıysa - demo moda düş
+        if not all_tweets:
+            demo_tweets = self._get_demo_tweets()
+            error_msg = errors[0] if errors else "API'den veri alınamadı"
+            return demo_tweets[:limit], f"⚠️ Demo mod: {error_msg}. Örnek içerikler gösteriliyor."
 
         return all_tweets[:limit], None
 
@@ -822,6 +819,11 @@ class AIContentEngine:
 
     def get_football_news(self, hours: int = 6, limit: int = 15) -> Tuple[List[SourceTweet], str]:
         """Futbol haberlerini bul - FİLTRELİ"""
+        # Token yoksa direkt demo moda düş
+        if not self.bearer_token and not (self.auth_token and self.ct0):
+            demo_tweets = self._get_demo_football_tweets()
+            return demo_tweets[:limit], "ℹ️ Demo mod: Bearer Token girilmemiş. Örnek içerikler gösteriliyor."
+
         all_tweets = []
         errors = []
 
@@ -850,8 +852,59 @@ class AIContentEngine:
 
         all_tweets.sort(key=lambda t: t.likes + t.retweets * 2, reverse=True)
 
-        error_msg = errors[0] if not all_tweets and errors else None
-        return all_tweets[:limit], error_msg
+        # Tweet bulunamadıysa demo moda düş
+        if not all_tweets:
+            demo_tweets = self._get_demo_football_tweets()
+            error_msg = errors[0] if errors else "API'den veri alınamadı"
+            return demo_tweets[:limit], f"⚠️ Demo mod: {error_msg}. Örnek içerikler gösteriliyor."
+
+        return all_tweets[:limit], None
+
+    def _get_demo_football_tweets(self) -> List[SourceTweet]:
+        """Demo futbol tweetleri döndür"""
+        demo_football = [
+            {
+                "id": "football_demo_1",
+                "author": "FabrizioRomano",
+                "author_name": "Fabrizio Romano",
+                "text": "🚨 BREAKING: Here we go! Major transfer confirmed. Deal done, medical tomorrow. Full agreement reached between clubs. Exclusive details coming soon.",
+                "likes": 89000,
+                "retweets": 34000,
+                "url": "https://twitter.com/FabrizioRomano/status/demo1",
+            },
+            {
+                "id": "football_demo_2",
+                "author": "David_Ornstein",
+                "author_name": "David Ornstein",
+                "text": "EXCL: Deal close to completion. Sources confirm advanced talks between parties. Player keen on move. More details to follow.",
+                "likes": 45000,
+                "retweets": 18000,
+                "url": "https://twitter.com/David_Ornstein/status/demo2",
+            },
+            {
+                "id": "football_demo_3",
+                "author": "Transfermarkt",
+                "author_name": "Transfermarkt",
+                "text": "📊 Transfer Update: Market values updated. Top 10 most valuable players this season. Check out the full list and analysis.",
+                "likes": 32000,
+                "retweets": 12000,
+                "url": "https://twitter.com/Transfermarkt/status/demo3",
+            },
+        ]
+        tweets = []
+        for item in demo_football:
+            tweet = SourceTweet(
+                id=item["id"],
+                author=item["author"],
+                author_name=item["author_name"],
+                text=item["text"],
+                url=item["url"],
+                likes=item["likes"],
+                retweets=item["retweets"],
+                is_valuable=True,
+            )
+            tweets.append(tweet)
+        return tweets
 
     # ==========================================================================
     # DERİN ARAŞTIRMA

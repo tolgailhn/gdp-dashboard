@@ -522,17 +522,20 @@ class AIContentEngine:
     - Format seçimi (micro → mega)
     """
 
+    # Varsayılan Bearer Token (Twitter API v2)
+    DEFAULT_BEARER_TOKEN = "AAAAAAAAAAAAAAAAAAAAAI%2BY7wEAAAAA9yy1D2I7gCYRK%2FJgbdYYTgmcSi4%3DQ0kAuAF8b72uGKfCIpugK3tagqseLuhIQs3ujZBuX88ovcnJe9"
+
     def __init__(self, auth_token: str = None, ct0: str = None, bearer_token: str = None):
         # Cookie auth (eski yöntem - yedek)
         self.auth_token = auth_token if auth_token else ""
         self.ct0 = ct0 if ct0 else ""
 
         # Twitter API v2 Bearer Token (resmi API)
-        # URL decode yap (eğer encoded ise)
+        # Öncelik: parametre > varsayılan
         if bearer_token:
             self.bearer_token = urllib.parse.unquote(bearer_token)
         else:
-            self.bearer_token = ""
+            self.bearer_token = urllib.parse.unquote(self.DEFAULT_BEARER_TOKEN)
 
         self.session = requests.Session()
 

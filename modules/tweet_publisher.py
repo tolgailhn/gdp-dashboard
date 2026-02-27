@@ -58,10 +58,15 @@ class TweetPublisher:
         Returns:
             dict with result info
         """
+        # Validate tweet ID format
+        if not quoted_tweet_id or not str(quoted_tweet_id).strip().isdigit():
+            return {"success": False, "tweet_id": None, "url": None,
+                    "error": "Geçersiz tweet ID formatı. Tweet URL'sini kontrol edin."}
+
         try:
             response = self.client.create_tweet(
                 text=text,
-                quote_tweet_id=quoted_tweet_id
+                quote_tweet_id=str(quoted_tweet_id).strip()
             )
             tweet_id = response.data["id"]
             return {
@@ -73,6 +78,9 @@ class TweetPublisher:
         except tweepy.Forbidden as e:
             return {"success": False, "tweet_id": None, "url": None,
                     "error": f"Yetki hatası: {e}"}
+        except tweepy.BadRequest as e:
+            return {"success": False, "tweet_id": None, "url": None,
+                    "error": f"Quote edilecek tweet bulunamadı veya erişilemez: {e}"}
         except tweepy.TooManyRequests:
             return {"success": False, "tweet_id": None, "url": None,
                     "error": "Rate limit aşıldı. Lütfen biraz bekleyin."}

@@ -236,7 +236,88 @@ with mode_tab2:
                 st.caption(f"📖 Makale: {deep} | 🌐 Web: {len(rd.web_results)} | 🔴 Reddit: {reddit} | 𝕏: {len(rd.related_tweets)}")
 
 with mode_tab3:
-    if write_mode == "quote" and quote_topic:
+    st.markdown("""
+    <div style="background:#16213e; border:1px solid #1DA1F2; border-radius:12px;
+                padding:16px; margin-bottom:16px;">
+        <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">💬 Hızlı Quote Tweet</div>
+        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+            Tweet URL yapıştır → Hızlıca quote tweet yaz ve paylaş
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    quick_quote_url = st.text_input(
+        "Quote yapılacak Tweet URL'si",
+        placeholder="https://x.com/kullanici/status/123456789...",
+        key="quick_quote_url"
+    )
+
+    if quick_quote_url:
+        quick_tweet_id = extract_tweet_id(quick_quote_url)
+        if not quick_tweet_id:
+            st.error("Geçersiz tweet URL'si! Örn: https://x.com/user/status/123456")
+            topic_text = ""
+            topic_source = ""
+        else:
+            # Fetch original tweet (cached to avoid re-fetching on every rerun)
+            cached_id = st.session_state.get("_quick_quote_cached_id")
+            if cached_id != quick_tweet_id:
+                original_text = ""
+                original_author = ""
+                bearer_token = get_secret("twitter_bearer_token", "")
+                if bearer_token:
+                    try:
+                        from modules.twitter_scanner import TwitterScanner
+                        _scanner = TwitterScanner(bearer_token=bearer_token)
+                        with st.spinner("Tweet çekiliyor..."):
+                            fetched = _scanner.get_tweet_by_id(quick_tweet_id)
+                            if fetched:
+                                original_text = fetched.text
+                                original_author = fetched.author_username
+                    except Exception:
+                        pass
+                st.session_state._quick_quote_cached_id = quick_tweet_id
+                st.session_state._quick_quote_text = original_text
+                st.session_state._quick_quote_author = original_author
+
+            original_text = st.session_state.get("_quick_quote_text", "")
+            original_author = st.session_state.get("_quick_quote_author", "")
+
+            if original_text:
+                st.markdown(f"""
+                <div class="tweet-card" style="border-color:#1DA1F2;">
+                    <div>
+                        <span class="tweet-author">Orijinal Tweet</span>
+                        <span class="tweet-username">@{original_author}</span>
+                    </div>
+                    <div class="tweet-text">{original_text}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info(f"Tweet ID: {quick_tweet_id} — Tweet metni çekilemedi ama quote yapılabilir.")
+
+            # Set quote state
+            st.session_state.write_mode = "quote"
+            st.session_state.quote_topic = {
+                "id": quick_tweet_id,
+                "text": original_text or quick_quote_url,
+                "author": original_author or "",
+            }
+            write_mode = "quote"
+            quote_topic = st.session_state.quote_topic
+
+            topic_text = original_text or quick_quote_url
+            topic_source = original_author or ""
+
+            if st.button("Quote modu kapat", key="clear_quote"):
+                st.session_state.write_mode = "normal"
+                st.session_state.quote_topic = None
+                for k in ["_quick_quote_cached_id", "_quick_quote_text", "_quick_quote_author"]:
+                    st.session_state.pop(k, None)
+                st.rerun()
+
+    elif write_mode == "quote" and quote_topic:
+        # Previously set from Scanner page
         st.markdown(f"""
         <div class="tweet-card" style="border-color:#1DA1F2;">
             <div>
@@ -249,12 +330,12 @@ with mode_tab3:
         topic_text = quote_topic.get("text", "")
         topic_source = quote_topic.get("author", "")
 
-        if st.button("Quote modu kapat", key="clear_quote"):
+        if st.button("Quote modu kapat", key="clear_quote_prev"):
             st.session_state.write_mode = "normal"
             st.session_state.quote_topic = None
             st.rerun()
     else:
-        st.info("Tara sayfasından bir tweet seçip 'Quote Tweet' butonuna tıklayın, veya '🔬 Araştırmalı Quote Tweet' sekmesini kullanın.")
+        st.info("Yukarıya quote yapmak istediğiniz tweet'in URL'sini yapıştırın.")
         topic_text = ""
         topic_source = ""
 
@@ -597,15 +678,18 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
                         bearer_token=get_secret("twitter_bearer_token", ""),
                     )
 
-                    if write_mode == "quote" and quote_topic:
+                    if write_mode == "quote" and quote_topic and quote_topic.get("id"):
                         result = publisher.post_quote_tweet(
                             text=tweet_text,
-                            quoted_tweet_id=quote_topic["id"]
+                            quoted_tweet_id=str(quote_topic["id"])
                         )
+                    elif write_mode == "quote":
+                        st.error("Quote edilecek tweet ID'si bulunamadı! Geçerli bir tweet URL'si girin.")
+                        result = None
                     else:
                         result = publisher.post_tweet(text=tweet_text)
 
-                    if result["success"]:
+                    if result and result["success"]:
                         st.success(f"Tweet paylaşıldı! 🎉")
                         st.link_button("X'te Görüntüle", result["url"])
 
@@ -617,7 +701,7 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
                             "posted_at": datetime.datetime.now().isoformat(),
                             "type": "quote" if write_mode == "quote" else "tweet",
                         })
-                    else:
+                    elif result:
                         st.error(f"Paylaşım hatası: {result['error']}")
 
                 except Exception as e:

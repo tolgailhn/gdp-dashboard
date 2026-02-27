@@ -289,28 +289,39 @@ class ContentGenerator:
             # Build length-aware instructions
             length_instructions = self._get_length_instructions(length_preference)
             # RESEARCH MODE: AI has full context, write analytical post
-            user_prompt = f"""Görevin: Aşağıdaki araştırma bilgilerini DERİNLEMESİNE oku. Tüm rakamları, ilişkileri, stratejik detayları anla. Sonra bu konu hakkında KENDİ ANALİZİNİ Türkçe yaz.
+            user_prompt = f"""## ORİJİNAL TWEET (BU TWEET HAKKINDA YAZIYORSUN — EN ÖNEMLİ KISIM):
+@{original_author} şunu yazmış:
+"{original_tweet}"
+
+YUKARIDAKI TWEET SENİN ANA KONUN. Bu tweet ne hakkındaysa, sen de o konu hakkında yazacaksın. Araştırma sonuçları sadece ek bilgi olarak kullan.
+
+---
+
+## ARAŞTIRMA SONUÇLARI (ek bilgi — ORİJİNAL TWEET'İN KONUSUNU DESTEKLEMELİ):
 
 {research_summary}
 
 {f"Kullanıcı notu: {additional_context}" if additional_context else ""}
 
+---
+
 ## GÖREV:
-Yukarıdaki TÜM bilgileri (thread, web araştırması, diğer yorumlar) derinlemesine analiz et.
-Araştırmadaki spesifik rakamları, isimleri, ilişkileri kullanarak analiz yaz.
+ORİJİNAL TWEET'İN KONUSU hakkında kendi analizini Türkçe yaz.
+Tweet'teki bilgileri (rakamlar, isimler, karşılaştırmalar) ANA KAYNAK olarak kullan.
+Araştırma sonuçlarından EK veri ve bağlam ekle.
+
+ÖNEMLİ: Orijinal tweet Kling 3.0 hakkındaysa Kling 3.0 hakkında yaz, GPT-5 hakkındaysa GPT-5 hakkında yaz.
+ASLA orijinal tweet'in konusundan SAPMA. Araştırmada alakasız bilgi varsa onu GÖRMEZDEN GEL.
 
 ## NASIL YAZMALISIN (ÇOK ÖNEMLİ):
 
-1. **RAKAM DAĞILIMI YAP**: Toplu rakamı parçalarına ayır. "110 milyar" deme, "Amazon 50, NVIDIA 30, SoftBank 30" de.
+1. **ORİJİNAL TWEET'İN VERİLERİNİ KULLAN**: Tweet'te rakamlar, benchmark sonuçları, fiyatlar varsa bunları direkt kullan.
 
-2. **PARADOKS VE ÇELİŞKİLERİ BUL**: İlişkilerdeki ilginçlikleri yakala.
-   Örnek: "NVIDIA hem çip satıyor hem de en büyük müşterisine yatırım yapıyor. Hem tedarikçisin hem ortaksın."
+2. **RAKAM DAĞILIMI YAP**: Toplu rakamı parçalarına ayır.
 
-3. **MAKRO KARŞILAŞTIRMALAR YAP**: Büyük rakamları somutlaştır.
-   Örnek: "OpenAI tek başına bazı G20 ülkelerinin yıllık bütçesinden büyük yatırım topladı."
+3. **PARADOKS VE ÇELİŞKİLERİ BUL**: İlişkilerdeki ilginçlikleri yakala.
 
 4. **STRATEJİK ANALİZ YAP**: Neden böyle olduğunu açıkla.
-   Örnek: "Asıl savaş model değil, altyapı. Kim compute sağlarsa o kazanır."
 
 5. **PROVOKATIF SORUYLA BİTİR**: Okuyucuyu düşündürecek bir soruyla kapat.
 
@@ -353,7 +364,8 @@ Bu kadar parayı gerçekten ürüne mi dönüştürecekler yoksa compute yarış
 #OpenAI #AI
 
 ## YAPMA:
-- Orijinal tweet'i Türkçeye çevirme veya özetleme
+- Orijinal tweet'in konusundan SAPMA (başka konulara geçme!)
+- Orijinal tweet'i Türkçeye çevirme veya birebir özetleme
 - "Heyecan verici", "çığır açan", "dikkat çekici gelişme" gibi klişeler kullanma
 - Orijinal tweet'teki cümleleri tekrarlama
 - Madde işareti veya numara listesi kullanma
@@ -362,15 +374,17 @@ Bu kadar parayı gerçekten ürüne mi dönüştürecekler yoksa compute yarış
 
 Sadece tweet metnini yaz, başka bir şey yazma."""
         else:
-            # NO RESEARCH: simple quote tweet
+            # NO RESEARCH: simple quote tweet — use original tweet content directly
             user_prompt = f"""@{original_author} şunu yazmış:
 "{original_tweet}"
 
-Bu konu hakkında KENDİ YORUMUNU yaz. Orijinal tweet'i çevirme veya tekrarlama.
+Bu tweet ne hakkındaysa O KONU hakkında KENDİ YORUMUNU yaz.
+Tweet'teki verileri (rakamlar, isimler, benchmark sonuçları, fiyatlar varsa) kullanarak kendi analizini ekle.
+Orijinal tweet'i birebir çevirme veya tekrarlama, ama içindeki bilgilerden yararlan.
 Kendi bakış açını ekle, doğal Türkçe yaz.
 {f"Not: {additional_context}" if additional_context else ""}
 
-FORMAT: Paragraflar arası boş satır bırak. İlk satır dikkat çekici. Son satır soru veya görüş. En sona 1-2 hashtag.
+FORMAT: İlk satır = hook (konuyu tanıt, merak uyandır). Paragraflar arası boş satır bırak. Son satır soru veya görüş. En sona 1-2 hashtag.
 
 Sadece tweet metnini yaz."""
 
@@ -504,8 +518,15 @@ Sadece yeni tweet metnini yaz."""
 ## ARAŞTIRMA MODU:
 Araştırma verilerini kullanarak {length_desc.get(length_preference, length_desc['orta'])} yazıyorsun.
 
-KURALLAR:
-- Araştırmadan SPESİFİK rakamlar, isimler ve veriler kullan
+KRİTİK KURAL — KONUDAN SAPMA:
+- Sana verilen ORİJİNAL TWEET ne hakkındaysa, SEN DE O KONU hakkında yazacaksın
+- Orijinal tweet Kling 3.0 hakkındaysa Kling 3.0 hakkında yaz, GPT-5 hakkındaysa GPT-5 hakkında yaz
+- Araştırma sonuçlarında orijinal tweet'le ALAKASIZ bilgiler olabilir — bunları GÖRMEZDEN GEL
+- Orijinal tweet'teki veriler (rakamlar, benchmark sonuçları, fiyatlar) ANA KAYNAĞINDIR
+- Araştırma sonuçları sadece EK BİLGİ olarak kullan
+
+DİĞER KURALLAR:
+- Orijinal tweet'ten ve araştırmadan SPESİFİK rakamlar, isimler ve veriler kullan
 - Paradoksları, çelişkileri ve ilginç ilişkileri yakala
 - Stratejik analiz yap - "neden" sorusunu cevapla
 - Doğal Türkçe yaz, teknik terimler İngilizce kalabilir

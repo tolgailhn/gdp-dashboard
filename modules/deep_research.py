@@ -533,6 +533,9 @@ def research_topic(tweet_text: str, tweet_author: str = "",
             provider=ai_provider,
         )
 
+    # Always run regex extraction for entity info (needed for Twitter search)
+    topic_info = extract_topic_from_text(result.full_thread_text)
+
     if ai_topic and ai_topic.get("search_queries"):
         # AI understood the tweet — use its queries
         result.topic = ai_topic["topic"]
@@ -541,7 +544,6 @@ def research_topic(tweet_text: str, tweet_author: str = "",
             progress_callback(f"Konu: {result.topic}")
     else:
         # Fallback to regex extraction
-        topic_info = extract_topic_from_text(result.full_thread_text)
         result.topic = topic_info["topic"]
         search_queries = topic_info["search_queries"]
 
@@ -716,19 +718,23 @@ def compile_research_summary(r: ResearchResult) -> str:
     """
     Build the research context that will be sent to the AI.
     Now includes FULL ARTICLE CONTENT, not just snippets.
+    Original tweet content is prominently placed at the top.
     """
     parts = []
 
-    # Section 1: Original tweet/thread
-    parts.append(f"# KONU: {r.topic}")
+    # Section 1: Original tweet/thread — MOST IMPORTANT
+    parts.append(f"# ANA KONU: {r.topic}")
+    parts.append("(Aşağıdaki orijinal tweet YAZI KONUNUN TEMELIDIR — bu tweet ne hakkındaysa o konu hakkında yaz!)")
 
     if len(r.thread_texts) > 1:
-        parts.append(f"\n## Orijinal Thread (@{r.original_tweet_author}) - {len(r.thread_texts)} tweet:")
+        parts.append(f"\n## ORİJİNAL THREAD (@{r.original_tweet_author}) - {len(r.thread_texts)} tweet:")
         for i, t in enumerate(r.thread_texts, 1):
             parts.append(f"  {i}/ {t}")
     else:
-        parts.append(f"\n## Orijinal Tweet (@{r.original_tweet_author}):")
+        parts.append(f"\n## ORİJİNAL TWEET (@{r.original_tweet_author}):")
         parts.append(f"  {r.original_tweet_text}")
+
+    parts.append("\n(Yukarıdaki tweet'teki veriler, rakamlar ve bilgiler ANA KAYNAĞINDIR. Aşağıdaki araştırma sadece EK bilgidir.)")
 
     # Section 2: DEEP ARTICLES — Full content from fetched pages
     if r.deep_articles:

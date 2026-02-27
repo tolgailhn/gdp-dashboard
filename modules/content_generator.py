@@ -7,20 +7,38 @@ import anthropic
 import openai
 import json
 
-# X Algorithm optimization guidelines
+# X Algorithm optimization guidelines — based on real algorithm data (2025-2026)
 X_ALGORITHM_RULES = """
-## X/Twitter Algoritma Kuralları ve Optimizasyon:
+## X/Twitter Algoritma Kuralları (Gerçek Veriler, 2025-2026):
 
-1. **İlk satır hook olmalı** - Dikkat çekici, merak uyandıran bir açılış
-2. **Kısa paragraflar** - Her cümle ayrı satırda, okunması kolay
-3. **Emoji kullanımı dengeli** - Fazla değil, 2-3 emoji yeterli
-4. **Hashtag kuralları** - En fazla 2-3 hashtag, tweet sonunda
-5. **Thread formatı** - Uzun içerikler thread olarak, her tweet 280 karakter
-6. **Engagement tetikleyiciler** - Soru sorma, görüş belirtme, tartışma açma
-7. **Zamanlama** - Hook ile başla, bilgi ver, sonuç/görüş ile bitir
-8. **Görsel referans** - Eğer görsel varsa referans ver
-9. **Kişisel dokunuş** - Robotik değil, gerçek bir insanın yazdığı gibi
-10. **Call to action** - "Ne düşünüyorsunuz?", "Siz ne dersiniz?" gibi
+### Engagement Puanlama (Algoritma ağırlıkları):
+- Retweet = 20x puan (en değerli!)
+- Reply = 13.5x puan
+- Profil tıklaması = 12x puan
+- Link tıklaması = 11x puan
+- Bookmark = 10x puan
+- Like = 1x puan (en düşük!)
+
+### Dwell Time (Okuma Süresi):
+- Algoritma kullanıcının tweet'te ne kadar süre harcadığını ölçer
+- Uzun süre okunan tweet'ler daha fazla gösterilir
+- Bu yüzden: merak uyandır, paragrafları kısa tut, okumaya teşvik et
+
+### FORMAT KURALLARI (ÇOK ÖNEMLİ):
+1. İLK SATIR = HOOK: Dikkat çekici, şok edici veya merak uyandıran bir açılış
+2. SATIR ARALIK BIRAK: Her düşünce/paragraf arasında boş satır bırak (\\n\\n)
+3. KISA PARAGRAFLAR: Her paragraf 1-3 cümle. Metin duvarı YASAK
+4. SCANNABLE: Göz gezdirince bile ana fikir anlaşılmalı
+5. HASHTAG: En sona 1-2 alakalı hashtag koy (#AI #OpenAI gibi)
+6. EMOJİ: Stratejik kullan (0-2 tane), spam yapma
+7. KAPANIŞ: Soru veya güçlü bir görüşle bitir (reply tetikler, 13.5x puan)
+8. EXTERNAL LINK KOYMA: X linke ceza veriyor, link paylaşma
+
+### NEDEN BU FORMAT?
+- Retweet en değerli → İnsanların paylaşmak isteyeceği cesur fikirler yaz
+- Reply 13.5x → Sonunda soru sor, tartışma aç
+- Dwell time → Paragrafları kısa tut, merak uyandır, okuttur
+- Profil tıklaması 12x → Bilgili ve ilginç yaz, "bu kim?" dedirt
 """
 
 # Base system prompt for natural writing
@@ -49,17 +67,45 @@ Adın Tolga. AI ve teknoloji konularında tutkulu, güncel gelişmeleri takip ed
 - Duygularını göster - şaşkınlık, heyecan, eleştiri, şüphe
 - Spesifik ol - "bu model çok iyi" yerine "bu modelin reasoning'i GPT-4'ü geçmiş coding benchmark'larında"
 
-## GERÇEK İNSAN TWEET ÖRNEKLERİ (bu tarz ve tonlamada yaz):
+## GERÇEK İNSAN TWEET ÖRNEKLERİ (bu tarz, tonlama VE formatta yaz):
 
-Örnek 1: "Qwen'in yeni modeli çıkmış ya, ben bi baktım - coding'de GPT-4o seviyesine gelmiş. Özellikle function calling kısmı çok iyi olmuş, açık kaynak olması da cabası"
+Örnek 1 (kısa, vurucu):
+"Qwen'in yeni modeli çıkmış ya, ben bi baktım - coding'de GPT-4o seviyesine gelmiş.
 
-Örnek 2: "Anthropic sessizce Claude'un context window'unu 200K'ya çıkarmış. Test ettim, uzun dökümanları gerçekten anlıyor, önceki gibi hallucination yapmıyor ortalarında"
+Özellikle function calling kısmı çok iyi olmuş, açık kaynak olması da cabası.
 
-Örnek 3: "ya bu Llama 4'ü gördünüz mü, Meta ciddi ciddi open-source'da liderliği almaya çalışıyor. Fine-tuning maliyeti de düşmüş epey, küçük takımlar için güzel haber"
+#AI #Qwen"
 
-Örnek 4: "Google DeepMind'ın yeni paper'ı var reasoning üzerine - kısaca: chain-of-thought'u model seviyesinde entegre etmişler, MATH benchmark'ta %15+ artış. Bu yaklaşım bence önümüzdeki 6 ayda standart olur"
+Örnek 2 (orta, bilgilendirici):
+"Anthropic sessizce Claude'un context window'unu 200K'ya çıkarmış.
 
-Örnek 5: "Hızlı bir karşılaştırma yaptım:\n\nClaude Sonnet: hızlı, coding'de iyi\nGPT-4o: genel amaçlı, stabil\nGemini Pro: multimodal'da güçlü\n\nGünlük kullanım için hala Claude tercihim ama proje bazlı değişiyor"
+Test ettim, uzun dökümanları gerçekten anlıyor. Önceki gibi hallucination yapmıyor ortalarında.
+
+Asıl ilginç olan: fiyat aynı kalmış. Yani 2x daha uzun context, aynı maliyet. Enterprise kullanım için ciddi avantaj.
+
+#Claude #Anthropic"
+
+Örnek 3 (detaylı analiz):
+"110 milyar dolar tek turda. Amazon 50, NVIDIA 30, SoftBank 30. Ön değerleme 730 milyar.
+
+Bu artık bir yapay zeka şirketi değil, küçük bir ülke ekonomisi. OpenAI tek başına bazı G20 ülkelerinin yıllık bütçesinden büyük yatırım topladı.
+
+Bir düşün, NVIDIA hem çip satıyor hem de en büyük müşterisine yatırım yapıyor. Yani hem tedarikçisin hem ortaksın. Bu ilişki yapısı klasik iş modellerine sığmıyor.
+
+Amazon tarafı da ilginç. AWS zaten Anthropic'e milyarlar dökmüştü, şimdi OpenAI'a da 50 milyar. İki rakibe birden yatırım yapıyorsun çünkü asıl savaş model değil, altyapı.
+
+Bu kadar parayı gerçekten ürüne mi dönüştürecekler yoksa compute yarışında buharlaşıp mı gidecek?
+
+#OpenAI #AI"
+
+Örnek 4 (karşılaştırma):
+"Google DeepMind'ın yeni paper'ı var reasoning üzerine.
+
+Kısaca: chain-of-thought'u model seviyesinde entegre etmişler, MATH benchmark'ta %15+ artış.
+
+Bu yaklaşım bence önümüzdeki 6 ayda standart olur. OpenAI zaten o1'de bunu yapıyordu ama Google'ın yaklaşımı daha verimli görünüyor.
+
+#DeepMind #AI"
 """
 
 # Writing style definitions
@@ -247,22 +293,36 @@ Araştırmadaki spesifik rakamları, isimleri, ilişkileri kullanarak analiz yaz
 
 {length_instructions}
 
-## ÖRNEK ÇIKTI TARZI:
-"110 milyar dolar tek turda. Amazon 50, nvidia 30, softbank 30. Ön değerleme 730 milyar.
+## ÇIKTI FORMATI (KRİTİK - BUNA UYMAZSAN BAŞARISIZ OLURSUN):
+Tweet'i şu formatta yaz:
+- Her paragraf arasında BİR BOŞ SATIR bırak
+- Her paragraf 1-3 cümle olsun
+- İlk satır = HOOK (dikkat çekici giriş)
+- Son satır = SORU veya GÜÇLÜ GÖRÜŞ
+- En sona 1-2 hashtag ekle (#AI #OpenAI #Qwen gibi)
+- METIN DUVARI yazma! Paragraflar arasında mutlaka boşluk olacak!
 
-Bu artık bir yapay zeka şirketi değil, küçük bir ülke ekonomisi. Openai tek başına bazı G20 ülkelerinin yıllık bütçesinden büyük yatırım topladı.
+## ÖRNEK ÇIKTI (paragraf ve hashtag formatına dikkat et):
 
-Bir düşün, nvidia hem çip satıyor hem de en büyük müşterisine yatırım yapıyor. Yani hem tedarikçisin hem ortaksın. Bu ilişki yapısı klasik iş modellerine sığmıyor.
+110 milyar dolar tek turda. Amazon 50, NVIDIA 30, SoftBank 30. Ön değerleme 730 milyar.
 
-Amazon tarafı da ilginç. Aws zaten anthropice milyarlar dökmüştü, şimdi openaia da 50 milyar. İki rakibe birden yatırım yapıyorsun çünkü asıl savaş model değil, altyapı.
+Bu artık bir yapay zeka şirketi değil, küçük bir ülke ekonomisi. OpenAI tek başına bazı G20 ülkelerinin yıllık bütçesinden büyük yatırım topladı.
 
-Sama şükran mesajı yazmış ama ben şunu merak ediyorum: bu kadar parayı gerçekten ürüne mi dönüştürecekler yoksa compute yarışında buharlaşıp mı gidecek?"
+Bir düşün, NVIDIA hem çip satıyor hem de en büyük müşterisine yatırım yapıyor. Yani hem tedarikçisin hem ortaksın. Bu ilişki yapısı klasik iş modellerine sığmıyor.
+
+Amazon tarafı da ilginç. AWS zaten Anthropic'e milyarlar dökmüştü, şimdi OpenAI'a da 50 milyar. İki rakibe birden yatırım yapıyorsun çünkü asıl savaş model değil, altyapı.
+
+Bu kadar parayı gerçekten ürüne mi dönüştürecekler yoksa compute yarışında buharlaşıp mı gidecek?
+
+#OpenAI #AI #Investment
 
 ## YAPMA:
 - Orijinal tweet'i Türkçeye çevirme veya özetleme
 - "Heyecan verici", "çığır açan", "dikkat çekici gelişme" gibi klişeler kullanma
 - Orijinal tweet'teki cümleleri tekrarlama
-- Madde işareti, numara listesi kullanma - düz paragraflar halinde yaz
+- Madde işareti veya numara listesi kullanma
+- Metin duvarı (paragraflar arası boşluk olmadan) yazma
+- Hashtag'siz bırakma
 
 Sadece tweet metnini yaz, başka bir şey yazma."""
         else:
@@ -271,8 +331,10 @@ Sadece tweet metnini yaz, başka bir şey yazma."""
 "{original_tweet}"
 
 Bu konu hakkında KENDİ YORUMUNU yaz. Orijinal tweet'i çevirme veya tekrarlama.
-Kendi bakış açını ekle, kısa tut (1-3 cümle), doğal Türkçe yaz.
+Kendi bakış açını ekle, doğal Türkçe yaz.
 {f"Not: {additional_context}" if additional_context else ""}
+
+FORMAT: Paragraflar arası boş satır bırak. İlk satır dikkat çekici. Son satır soru veya görüş. En sona 1-2 hashtag.
 
 Sadece tweet metnini yaz."""
 
@@ -364,23 +426,29 @@ Sadece yeni tweet metnini yaz."""
         """Return length-specific instructions for the prompt"""
         if length_preference == "kisa":
             return """## UZUNLUK: KISA (100-280 karakter)
-- Tek paragraf, vurucu ve öz yaz
+- 1-2 kısa paragraf, aralarında boş satır
 - En önemli 1 insight'ı seç ve onu vur
 - Araştırmadan en çarpıcı tek bir veriyi kullan
-- Provokatif bir cümleyle bitir"""
+- Provokatif bir cümleyle bitir
+- Sona 1-2 hashtag ekle"""
         elif length_preference == "uzun":
             return """## UZUNLUK: UZUN (501-1000 karakter)
-- Minimum 4-5 paragraf yaz, detaylı analiz istiyorum
-- Her paragraf farklı bir açıdan konuyu ele alsın
+- Minimum 4-5 paragraf yaz, her paragraf arasında BOŞ SATIR bırak
+- Her paragraf 1-3 cümle, farklı bir açıdan konuyu ele alsın
+- İlk paragraf = hook (dikkat çekici giriş)
+- Ortadaki paragraflar = analiz, rakamlar, paradokslar
+- Son paragraf = soru veya güçlü görüş
 - Araştırmadan bulduğun SPESİFİK rakamları, isimleri, tarihleri bol bol kullan
-- Düz metin yaz, madde işareti veya liste formatı kullanma
-- KISA YAZMA - yüzeysel yorum değil, DERİNLEMESİNE analiz yaz"""
+- KISA YAZMA - yüzeysel yorum değil, DERİNLEMESİNE analiz yaz
+- En sona konuyla ilgili 1-2 hashtag ekle"""
         else:  # orta
             return """## UZUNLUK: ORTA (281-500 karakter)
-- 2-3 paragraf yaz
-- Ana insight + destekleyici bir veri + kişisel yorum
+- 2-3 paragraf yaz, aralarında BOŞ SATIR bırak
+- İlk paragraf = hook + ana bilgi
+- İkinci paragraf = analiz/yorum
+- Son paragraf = kişisel görüş veya soru
 - Araştırmadan en önemli 2-3 veriyi kullan
-- Düz metin yaz, madde işareti kullanma"""
+- Sona 1-2 hashtag ekle"""
 
     def _build_research_system_prompt(self, user_samples: list = None,
                                       length_preference: str = "orta") -> str:
@@ -395,6 +463,8 @@ Sadece yeni tweet metnini yaz."""
 
         prompt = f"""{persona}
 
+{X_ALGORITHM_RULES}
+
 ## ARAŞTIRMA MODU:
 Araştırma verilerini kullanarak {length_desc.get(length_preference, length_desc['orta'])} yazıyorsun.
 
@@ -402,9 +472,16 @@ KURALLAR:
 - Araştırmadan SPESİFİK rakamlar, isimler ve veriler kullan
 - Paradoksları, çelişkileri ve ilginç ilişkileri yakala
 - Stratejik analiz yap - "neden" sorusunu cevapla
-- Düz paragraflar halinde yaz, liste/madde işareti kullanma
 - Doğal Türkçe yaz, teknik terimler İngilizce kalabilir
 - Robotik AI kalıpları YASAK
+
+## YAZIYI FORMATLA (KRİTİK):
+- Her düşünce/paragraf arasında BOŞ SATIR bırak (\\n\\n ile ayır)
+- Her paragraf 1-3 cümle olsun. METIN DUVARI yazma!
+- İlk satır HOOK olmalı - dikkat çekici açılış
+- Son satır SORU veya GÜÇLÜ GÖRÜŞ olmalı
+- En sona konuyla ilgili 1-2 hashtag ekle (#AI #OpenAI gibi)
+- Liste/madde işareti kullanma, doğal paragraflar halinde yaz
 """
 
         if user_samples:
@@ -476,7 +553,14 @@ KURALLAR:
 - Klişe açılışlar YASAK (Heyecan verici gelişme!, Yapay zeka dünyasında... vs.)
 - Kendi bakış açını ve yorumunu ekle
 - Teknik detayları doğru ver
-- X algoritmasına uygun formatla
+
+FORMAT:
+- Paragraflar arasında boş satır bırak
+- Her paragraf 1-3 cümle
+- İlk satır dikkat çekici hook olsun
+- Son satır soru veya güçlü görüş
+- En sona 1-2 hashtag ekle (#AI #model gibi)
+- Metin duvarı YAZMA
 
 Sadece tweet metnini yaz, başka bir şey yazma. Tırnak işareti kullanma."""
 

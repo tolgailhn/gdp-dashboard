@@ -4,6 +4,7 @@ AI ile doğal tweet üretir, düzenler ve paylaşır
 """
 import streamlit as st
 import datetime
+import re
 from urllib.parse import quote as url_quote
 from modules.ui_components import (inject_custom_css, check_password,
                                    render_generated_tweet, render_thread_preview,
@@ -711,8 +712,19 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
     with col2:
         # Build X intent URL — opens X app/website with pre-filled text
         if write_mode == "quote" and quote_topic and quote_topic.get("id"):
-            quote_url = f"https://x.com/i/status/{quote_topic['id']}"
-            intent_url = f"https://x.com/intent/tweet?text={url_quote(tweet_text)}&url={url_quote(quote_url)}"
+            tid = str(quote_topic['id'])
+            quote_url = f"https://x.com/i/status/{tid}"
+            # Strip the quoted tweet URL from text (AI sometimes appends it)
+            clean_text = re.sub(
+                r'https?://(?:twitter\.com|x\.com)/\S+/status/' + re.escape(tid) + r'\S*',
+                '', tweet_text
+            ).strip()
+            # attachment_url creates a proper quote tweet in X (not just a link)
+            intent_url = (
+                f"https://x.com/intent/tweet"
+                f"?text={url_quote(clean_text)}"
+                f"&attachment_url={url_quote(quote_url)}"
+            )
         else:
             intent_url = f"https://x.com/intent/tweet?text={url_quote(tweet_text)}"
         st.link_button("📱 X'te Aç", intent_url, use_container_width=True)

@@ -4,6 +4,7 @@ AI ile doğal tweet üretir, düzenler ve paylaşır
 """
 import streamlit as st
 import datetime
+from urllib.parse import quote as url_quote
 from modules.ui_components import (inject_custom_css, check_password,
                                    render_generated_tweet, render_thread_preview,
                                    get_secret)
@@ -656,10 +657,10 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
     st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
 
     # Action buttons
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
-        if st.button("🚀 Paylaş", type="primary", use_container_width=True, key="publish_btn"):
+        if st.button("🚀 API Paylaş", type="primary", use_container_width=True, key="publish_btn"):
             # Check Twitter API
             api_key = get_secret("twitter_api_key", "")
             api_secret = get_secret("twitter_api_secret", "")
@@ -708,6 +709,16 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
                     st.error(f"Hata: {e}")
 
     with col2:
+        # Build X intent URL — opens X app/website with pre-filled text
+        if write_mode == "quote" and quote_topic and quote_topic.get("id"):
+            quote_url = f"https://x.com/i/status/{quote_topic['id']}"
+            intent_url = f"https://x.com/intent/tweet?text={url_quote(tweet_text)}&url={url_quote(quote_url)}"
+        else:
+            intent_url = f"https://x.com/intent/tweet?text={url_quote(tweet_text)}"
+        st.link_button("📱 X'te Aç", intent_url, use_container_width=True)
+        st.caption("Görsel ekleyebilirsin")
+
+    with col3:
         if st.button("💾 Taslak Kaydet", use_container_width=True, key="save_draft_btn"):
             add_draft(
                 text=tweet_text,
@@ -716,12 +727,12 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
             )
             st.success("Taslak kaydedildi!")
 
-    with col3:
+    with col4:
         if st.button("📋 Kopyala", use_container_width=True, key="copy_btn"):
             st.code(tweet_text, language=None)
             st.info("Yukarıdaki metni kopyalayabilirsiniz")
 
-    with col4:
+    with col5:
         if st.button("🔄 Yeniden Yaz", use_container_width=True, key="rewrite_btn"):
             try:
                 ai_provider = st.session_state.get("ai_provider", "minimax")

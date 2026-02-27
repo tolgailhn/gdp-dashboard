@@ -1,19 +1,18 @@
 """
-AI Content Engine - X İçerik Keşif ve Viral Rewriter
-=====================================================
+AI Content Engine v2 - Gerçek AI Haber Keşfi
+=============================================
 
-Takip ettiğin AI hesaplarının tweetlerini çeker,
-viral formatta senin gibi yeniden yazar.
+X'ten gerçek AI haberlerini bulur:
+- Yeni model duyuruları (GPT-5, Claude 4, Gemini 2 vs.)
+- Özellik güncellemeleri
+- Benchmark sonuçları
+- Araştırma makaleleri
 
-Özellikler:
-- Belirli AI hesaplarını takip
-- Son X saat içindeki tweetleri çek
-- Viral tweet kuralları ile yeniden yaz
-- Hook + Teknik anlatım + CTA formatı
+Araştırma yapıp, seçtiğin tonda yeniden yazar.
 """
 
 import requests
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
@@ -25,86 +24,131 @@ logger = logging.getLogger(__name__)
 
 
 # ==============================================================================
-# TAKİP EDİLECEK AI HESAPLARI
+# AI HABER ARAMA SORGULARI (Hesap yerine konuya odaklan)
 # ==============================================================================
 
-AI_ACCOUNTS = {
-    # Şirket hesapları
-    "OpenAI": "OpenAI",
-    "Anthropic": "AnthropicAI",
-    "Google DeepMind": "GoogleDeepMind",
-    "Google AI": "GoogleAI",
-    "Meta AI": "MetaAI",
-    "Mistral AI": "MistralAI",
-    "xAI": "xaboratory",
-    "Hugging Face": "huggingface",
-    "Stability AI": "StabilityAI",
-    "Midjourney": "midaboratory",
-    "Runway": "runwayml",
-    "Perplexity": "peraboratority_ai",
+AI_SEARCH_QUERIES = [
+    # Model duyuruları
+    "GPT-5 OR GPT5 OR GPT-4.5 announcement",
+    "Claude 4 OR Claude 3.5 Opus release",
+    "Gemini 2 OR Gemini Ultra new",
+    "Llama 4 OR Llama 3.1 Meta release",
 
-    # Önemli kişiler
-    "Sam Altman": "sama",
-    "Elon Musk": "elonmusk",
-    "Andrej Karpathy": "karpathy",
-    "Yann LeCun": "ylecun",
-    "Jim Fan": "DrJimFan",
-    "Emad Mostaque": "EMostaque",
-    "Dario Amodei": "DarioAmodei",
+    # Önemli gelişmeler
+    "AI breakthrough announcement",
+    "new AI model release 2024",
+    "OpenAI announcement new",
+    "Anthropic Claude update",
+    "Google AI Gemini news",
 
-    # AI haber/içerik
-    "AI Breakfast": "aiaboratorteakfast",
-    "The AI Daily": "theaidaily",
-}
+    # Türkçe aramalar
+    "yapay zeka yeni model",
+    "ChatGPT güncelleme",
+    "AI Türkiye",
+]
+
+# Güvenilir AI hesapları (sadece bunlardan çek)
+TRUSTED_AI_ACCOUNTS = [
+    "OpenAI",
+    "AnthropicAI",
+    "GoogleAI",
+    "GoogleDeepMind",
+    "MetaAI",
+    "MistralAI",
+    "huggingface",
+    "sama",  # Sam Altman
+    "karpathy",  # Andrej Karpathy
+    "ylecun",  # Yann LeCun
+    "DrJimFan",  # Jim Fan
+]
 
 # Futbol hesapları
 FOOTBALL_ACCOUNTS = {
     "Fabrizio Romano": "FabrizioRomano",
-    "Yağız Sabuncuoğlu": "yaboratorgaboratorsaboratornc",
-    "Sercan Hamzaoğlu": "seraboratorcanhamzaogl",
-    "Nexus": "NexusTransfer",
+    "Transfer News": "TransferNewsCen",
 }
 
 # ==============================================================================
-# VİRAL TWEET KURALLARI
+# YAZI TONLARI / STİLLERİ
 # ==============================================================================
 
-VIRAL_RULES = {
-    "hook_templates": [
-        "🚨 BREAKING: {topic}",
-        "Bu büyük bir gelişme: {topic}",
-        "{topic} - ve bu her şeyi değiştirecek",
-        "Dikkat: {topic} açıklandı",
-        "🔥 {topic} hakkında bilmeniz gereken her şey:",
-        "Herkes {topic}'dan bahsediyor. İşte neden önemli:",
-        "{topic} geldi. İşte detaylar:",
-        "⚡ Az önce {topic} duyuruldu",
-    ],
-
-    "structure": {
-        "hook": "İlk cümle dikkat çekmeli - şok edici, merak uyandıran",
-        "context": "Neden önemli? Bağlam ver",
-        "details": "Teknik detaylar - ama basit anlat",
-        "impact": "Bu seni nasıl etkiler?",
-        "cta": "Etkileşim çağrısı - soru sor veya düşünce iste",
+WRITING_STYLES = {
+    "samimi": {
+        "name": "🗣️ Samimi (Varsayılan)",
+        "description": "Arkadaşına anlatır gibi, doğal",
+        "rules": [
+            "küçük harfle yaz",
+            "kısa cümleler kur",
+            "ya şimdi, bence, aslında gibi bağlaçlar kullan",
+            "emoji az kullan (max 1-2)",
+            "soru sor sonunda",
+        ],
+        "example": "ya şimdi openai bi şey duyurdu. gpt-5 geliyor gibi görünüyor. bence büyük iş bu, sizce?"
     },
-
-    "formatting": {
-        "use_emojis": True,  # Ama abartma
-        "line_breaks": True,  # Her cümle ayrı satır
-        "bullet_points": True,  # Listeler kullan
-        "max_length": 2000,  # X Premium
-        "hashtag_count": 2,  # Max 2-3 hashtag
+    "profesyonel": {
+        "name": "💼 Profesyonel",
+        "description": "Ciddi, bilgilendirici ton",
+        "rules": [
+            "düzgün cümle yapısı",
+            "teknik terimler kullan",
+            "emoji kullanma",
+            "kaynak belirt",
+            "analiz ekle",
+        ],
+        "example": "OpenAI, GPT-5 modelini duyurdu. Yeni model, önceki versiyona göre %40 daha hızlı çalışıyor. Detaylar için kaynak linkine bakabilirsiniz."
     },
+    "heyecanli": {
+        "name": "🔥 Heyecanlı",
+        "description": "Enerjik, dikkat çekici",
+        "rules": [
+            "BÜYÜK HARF başlık",
+            "emoji bol kullan",
+            "kısa ve vurgulu cümleler",
+            "ünlem işaretleri",
+            "aciliyet hissi ver",
+        ],
+        "example": "🚨 BREAKING: GPT-5 DUYURULDU! 🔥\n\nBu DEVASA bir gelişme!\n\nİşte bilmeniz gerekenler:\n• Daha hızlı\n• Daha akıllı\n• Daha ucuz\n\nRT yapın herkes görsün! 🚀"
+    },
+    "analist": {
+        "name": "📊 Analist",
+        "description": "Derinlemesine analiz, karşılaştırma",
+        "rules": [
+            "veri ve rakamlar ekle",
+            "karşılaştırma yap",
+            "artı ve eksileri listele",
+            "gelecek tahmini yap",
+            "profesyonel ton",
+        ],
+        "example": "GPT-5 vs Claude 3.5 karşılaştırması:\n\n📈 Benchmark sonuçları:\n• MMLU: GPT-5 %94, Claude %91\n• Kod: Yaklaşık eşit\n• Hız: GPT-5 %20 önde\n\nSonuç: Her ikisi de güçlü, kullanım amacına göre seçim yapılmalı."
+    },
+}
 
-    "engagement_triggers": [
-        "Ne düşünüyorsunuz?",
-        "Siz bu konuda ne düşünüyorsunuz?",
-        "Yorumlarda tartışalım",
-        "Bu sizi nasıl etkileyecek?",
-        "Katılıyor musunuz?",
-        "RT'leyin herkes görsün",
-    ],
+# ==============================================================================
+# MODEL BİLGİSİ
+# ==============================================================================
+
+AVAILABLE_MODELS = {
+    "claude-sonnet": {
+        "id": "claude-sonnet-4-20250514",
+        "name": "Claude Sonnet 4",
+        "provider": "Anthropic",
+        "description": "Hızlı ve dengeli (varsayılan)",
+        "cost": "Orta",
+    },
+    "claude-opus": {
+        "id": "claude-opus-4-20250514",
+        "name": "Claude Opus 4",
+        "provider": "Anthropic",
+        "description": "En güçlü, en detaylı",
+        "cost": "Yüksek",
+    },
+    "claude-haiku": {
+        "id": "claude-haiku-4-5-20251001",
+        "name": "Claude Haiku 4.5",
+        "provider": "Anthropic",
+        "description": "En hızlı, basit işler için",
+        "cost": "Düşük",
+    },
 }
 
 
@@ -120,7 +164,18 @@ class SourceTweet:
     retweets: int = 0
     replies: int = 0
     created_at: str = ""
-    media_urls: List[str] = field(default_factory=list)
+    is_ai_news: bool = False  # Gerçek AI haberi mi?
+    topic_summary: str = ""  # Konu özeti
+
+
+@dataclass
+class ResearchResult:
+    """Araştırma sonucu"""
+    topic: str
+    summary: str
+    key_points: List[str]
+    sources: List[str]
+    related_tweets: List[str]
 
 
 @dataclass
@@ -128,22 +183,22 @@ class ViralTweet:
     """Viral formatta yeniden yazılmış tweet"""
     original: SourceTweet
     rewritten_text: str
-    hook: str
-    body: str
-    cta: str
-    hashtags: List[str] = field(default_factory=list)
+    style_used: str
+    model_used: str
+    research: Optional[ResearchResult] = None
     char_count: int = 0
-    viral_score: float = 0.0  # 0-100 arası tahmin
+    viral_score: float = 0.0
 
 
 class AIContentEngine:
     """
-    AI içerik keşif ve viral rewriter motoru.
+    AI içerik keşif ve viral rewriter motoru v2.
 
-    Kullanım:
-    >>> engine = AIContentEngine(auth_token, ct0)
-    >>> tweets = engine.get_ai_content(hours=12)
-    >>> viral = engine.rewrite_viral(tweets[0])
+    Özellikler:
+    - AI haber araması (hesap yerine konu bazlı)
+    - Araştırma yapıp yazma
+    - Ton/stil seçimi
+    - Model seçimi
     """
 
     def __init__(self, auth_token: str = None, ct0: str = None):
@@ -163,207 +218,70 @@ class AIContentEngine:
             "Accept": "*/*",
         }
 
-        # AI generator (lazy load)
-        self._ai_generator = None
+        # Varsayılan model
+        self.current_model = "claude-sonnet"
 
-    @property
-    def ai_generator(self):
-        """Lazy load AI generator"""
-        if self._ai_generator is None:
-            try:
-                from src.content.tweet_generator import TweetGenerator
-                self._ai_generator = TweetGenerator()
-            except:
-                pass
-        return self._ai_generator
-
-    # ==========================================================================
-    # TWEET ÇEKME
-    # ==========================================================================
-
-    def get_ai_content(self, hours: int = 12, limit: int = 20) -> List[SourceTweet]:
+    def get_ai_news(self, hours: int = 12, limit: int = 15) -> List[SourceTweet]:
         """
-        AI hesaplarından son X saat içindeki tweetleri çek.
+        AI haberlerini bul - KONU BAZLI ARAMA
 
-        Args:
-            hours: Kaç saat geriye git
-            limit: Max kaç tweet
-
-        Returns:
-            SourceTweet listesi, engagement'a göre sıralı
+        Hesap takibi yerine AI konularını arar:
+        - Model duyuruları
+        - Güncellemeler
+        - Önemli gelişmeler
         """
         all_tweets = []
-
-        # 1. Önce takip edilen hesapların tweetlerini çek
-        for name, username in list(AI_ACCOUNTS.items())[:15]:  # İlk 15 hesap
-            tweets = self._get_user_tweets(username, hours)
-            all_tweets.extend(tweets)
-
-        # 2. AI arama sorguları
-        search_queries = [
-            "GPT-5 OR GPT5 OR Claude OR Gemini",
-            "AI model release OR announcement",
-            "yapay zeka yeni model",
-            "ChatGPT update OR feature",
-            "LLM benchmark OR breakthrough",
-        ]
-
-        for query in search_queries:
-            tweets = self._search_tweets(query, hours)
-            all_tweets.extend(tweets)
-
-        # Duplicate'leri kaldır
         seen_ids = set()
-        unique_tweets = []
-        for tweet in all_tweets:
-            if tweet.id not in seen_ids:
-                seen_ids.add(tweet.id)
-                unique_tweets.append(tweet)
 
-        # Engagement'a göre sırala
-        unique_tweets.sort(
-            key=lambda t: t.likes + t.retweets * 2 + t.replies * 3,
+        # 1. AI arama sorguları ile ara
+        for query in AI_SEARCH_QUERIES[:6]:  # İlk 6 sorgu
+            tweets = self._search_ai_tweets(query, hours)
+            for tweet in tweets:
+                if tweet.id not in seen_ids:
+                    seen_ids.add(tweet.id)
+                    all_tweets.append(tweet)
+
+        # 2. Güvenilir hesaplardan da kontrol et
+        for username in TRUSTED_AI_ACCOUNTS[:5]:
+            tweets = self._get_user_recent_tweets(username, hours)
+            for tweet in tweets:
+                if tweet.id not in seen_ids:
+                    seen_ids.add(tweet.id)
+                    # AI konusu mu kontrol et
+                    if self._is_ai_related(tweet.text):
+                        tweet.is_ai_news = True
+                        all_tweets.append(tweet)
+
+        # 3. AI haberi olmayanları filtrele
+        ai_tweets = [t for t in all_tweets if t.is_ai_news or self._is_ai_related(t.text)]
+
+        # 4. Engagement + AI relevance'a göre sırala
+        ai_tweets.sort(
+            key=lambda t: (t.likes + t.retweets * 2) * (2 if t.is_ai_news else 1),
             reverse=True
         )
 
-        return unique_tweets[:limit]
+        return ai_tweets[:limit]
 
-    def get_football_content(self, hours: int = 6, limit: int = 15) -> List[SourceTweet]:
-        """Futbol hesaplarından içerik çek"""
-        all_tweets = []
+    def _is_ai_related(self, text: str) -> bool:
+        """Metin AI ile ilgili mi?"""
+        text_lower = text.lower()
 
-        for name, username in FOOTBALL_ACCOUNTS.items():
-            tweets = self._get_user_tweets(username, hours)
-            all_tweets.extend(tweets)
-
-        # Transfer aramaları
-        queries = [
-            "transfer news OR imza",
-            "Galatasaray OR Fenerbahçe OR Beşiktaş transfer",
+        ai_keywords = [
+            "gpt", "claude", "gemini", "llama", "mistral",
+            "ai", "artificial intelligence", "yapay zeka",
+            "machine learning", "deep learning", "neural",
+            "chatgpt", "openai", "anthropic", "google ai",
+            "model", "benchmark", "training", "inference",
+            "llm", "language model", "transformer",
         ]
 
-        for query in queries:
-            tweets = self._search_tweets(query, hours)
-            all_tweets.extend(tweets)
+        # En az 2 keyword geçmeli
+        matches = sum(1 for kw in ai_keywords if kw in text_lower)
+        return matches >= 2
 
-        # Sırala
-        all_tweets.sort(key=lambda t: t.likes + t.retweets * 2, reverse=True)
-        return all_tweets[:limit]
-
-    def _get_user_tweets(self, username: str, hours: int = 12) -> List[SourceTweet]:
-        """Belirli bir kullanıcının son tweetlerini çek"""
-        tweets = []
-
-        try:
-            # User timeline endpoint
-            # Önce user_id'yi bul
-            user_id = self._get_user_id(username)
-            if not user_id:
-                return []
-
-            url = "https://twitter.com/i/api/graphql/V7H0Ap3_Hh2FyS75OCDO3Q/UserTweets"
-
-            variables = {
-                "userId": user_id,
-                "count": 20,
-                "includePromotedContent": False,
-                "withQuickPromoteEligibilityTweetFields": True,
-                "withVoice": True,
-                "withV2Timeline": True,
-            }
-
-            features = {
-                "rweb_lists_timeline_redesign_enabled": True,
-                "responsive_web_graphql_exclude_directive_enabled": True,
-                "verified_phone_label_enabled": False,
-                "creator_subscriptions_tweet_preview_api_enabled": True,
-                "responsive_web_graphql_timeline_navigation_enabled": True,
-                "responsive_web_graphql_skip_user_profile_image_extensions_enabled": False,
-                "tweetypie_unmention_optimization_enabled": True,
-                "responsive_web_edit_tweet_api_enabled": True,
-                "graphql_is_translatable_rweb_tweet_is_translatable_enabled": True,
-                "view_counts_everywhere_api_enabled": True,
-                "longform_notetweets_consumption_enabled": True,
-                "responsive_web_twitter_article_tweet_consumption_enabled": False,
-                "tweet_awards_web_tipping_enabled": False,
-                "freedom_of_speech_not_reach_fetch_enabled": True,
-                "standardized_nudges_misinfo": True,
-                "tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": True,
-                "longform_notetweets_rich_text_read_enabled": True,
-                "longform_notetweets_inline_media_enabled": True,
-                "responsive_web_media_download_video_enabled": False,
-                "responsive_web_enhance_cards_enabled": False,
-            }
-
-            params = {
-                "variables": json.dumps(variables),
-                "features": json.dumps(features),
-            }
-
-            response = self.session.get(
-                url,
-                params=params,
-                headers=self.base_headers,
-                timeout=15
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                tweets = self._parse_timeline_tweets(data, username, hours)
-                logger.info(f"@{username}'dan {len(tweets)} tweet alındı")
-
-        except Exception as e:
-            logger.debug(f"@{username} tweet çekme hatası: {e}")
-
-        return tweets
-
-    def _get_user_id(self, username: str) -> Optional[str]:
-        """Username'den user_id bul"""
-        try:
-            url = "https://twitter.com/i/api/graphql/G3KGOASz96M-Qu0nwmGXNg/UserByScreenName"
-
-            variables = {
-                "screen_name": username,
-                "withSafetyModeUserFields": True,
-            }
-
-            features = {
-                "hidden_profile_likes_enabled": True,
-                "hidden_profile_subscriptions_enabled": True,
-                "responsive_web_graphql_exclude_directive_enabled": True,
-                "verified_phone_label_enabled": False,
-                "subscriptions_verification_info_is_identity_verified_enabled": True,
-                "subscriptions_verification_info_verified_since_enabled": True,
-                "highlights_tweets_tab_ui_enabled": True,
-                "creator_subscriptions_tweet_preview_api_enabled": True,
-                "responsive_web_graphql_skip_user_profile_image_extensions_enabled": False,
-                "responsive_web_graphql_timeline_navigation_enabled": True,
-            }
-
-            params = {
-                "variables": json.dumps(variables),
-                "features": json.dumps(features),
-            }
-
-            response = self.session.get(
-                url,
-                params=params,
-                headers=self.base_headers,
-                timeout=10
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                user_data = data.get("data", {}).get("user", {}).get("result", {})
-                return user_data.get("rest_id")
-
-        except Exception as e:
-            logger.debug(f"User ID bulunamadı @{username}: {e}")
-
-        return None
-
-    def _search_tweets(self, query: str, hours: int = 12) -> List[SourceTweet]:
-        """Twitter'da arama yap"""
+    def _search_ai_tweets(self, query: str, hours: int) -> List[SourceTweet]:
+        """AI konulu tweet ara"""
         tweets = []
 
         try:
@@ -373,7 +291,8 @@ class AIContentEngine:
             since_time = datetime.now() - timedelta(hours=hours)
             since_str = since_time.strftime("%Y-%m-%d")
 
-            full_query = f"{query} since:{since_str} min_faves:100"
+            # Min engagement filtresi
+            full_query = f"{query} min_faves:50 since:{since_str} -filter:replies"
 
             params = {
                 "q": full_query,
@@ -395,232 +314,323 @@ class AIContentEngine:
                 tweets_data = data.get("globalObjects", {}).get("tweets", {})
                 users_data = data.get("globalObjects", {}).get("users", {})
 
-                for tweet_id, tweet_info in list(tweets_data.items())[:15]:
+                for tweet_id, tweet_info in list(tweets_data.items())[:10]:
                     user_id = tweet_info.get("user_id_str", "")
                     user_info = users_data.get(user_id, {})
+
+                    text = tweet_info.get("full_text", "")
+
+                    # RT'leri atla
+                    if text.startswith("RT @"):
+                        continue
 
                     tweet = SourceTweet(
                         id=tweet_id,
                         author=user_info.get("screen_name", "unknown"),
                         author_name=user_info.get("name", "Unknown"),
-                        text=tweet_info.get("full_text", ""),
+                        text=text,
                         url=f"https://twitter.com/i/status/{tweet_id}",
                         likes=tweet_info.get("favorite_count", 0),
                         retweets=tweet_info.get("retweet_count", 0),
                         replies=tweet_info.get("reply_count", 0),
                         created_at=tweet_info.get("created_at", ""),
+                        is_ai_news=True,
                     )
                     tweets.append(tweet)
+
+                logger.info(f"'{query}' aramasından {len(tweets)} tweet bulundu")
 
         except Exception as e:
             logger.debug(f"Arama hatası '{query}': {e}")
 
         return tweets
 
-    def _parse_timeline_tweets(self, data: dict, username: str, hours: int) -> List[SourceTweet]:
-        """GraphQL timeline response'unu parse et"""
+    def _get_user_recent_tweets(self, username: str, hours: int) -> List[SourceTweet]:
+        """Kullanıcının son tweetlerini çek"""
         tweets = []
-        cutoff_time = datetime.now() - timedelta(hours=hours)
 
         try:
-            instructions = (
-                data.get("data", {})
-                .get("user", {})
-                .get("result", {})
-                .get("timeline_v2", {})
-                .get("timeline", {})
-                .get("instructions", [])
+            # Basit search ile kullanıcı tweetlerini bul
+            url = "https://twitter.com/i/api/2/search/adaptive.json"
+
+            since_time = datetime.now() - timedelta(hours=hours)
+            since_str = since_time.strftime("%Y-%m-%d")
+
+            params = {
+                "q": f"from:{username} since:{since_str}",
+                "tweet_search_mode": "live",
+                "count": "10",
+            }
+
+            response = self.session.get(
+                url,
+                params=params,
+                headers=self.base_headers,
+                timeout=10
             )
 
-            for instruction in instructions:
-                entries = instruction.get("entries", [])
+            if response.status_code == 200:
+                data = response.json()
+                tweets_data = data.get("globalObjects", {}).get("tweets", {})
+                users_data = data.get("globalObjects", {}).get("users", {})
 
-                for entry in entries:
-                    content = entry.get("content", {})
-                    item_content = content.get("itemContent", {})
-                    tweet_results = item_content.get("tweet_results", {})
-                    result = tweet_results.get("result", {})
+                for tweet_id, tweet_info in list(tweets_data.items())[:5]:
+                    user_id = tweet_info.get("user_id_str", "")
+                    user_info = users_data.get(user_id, {})
 
-                    # Tweet verisini çıkar
-                    legacy = result.get("legacy", {})
-                    if not legacy:
+                    text = tweet_info.get("full_text", "")
+
+                    if text.startswith("RT @"):
                         continue
 
-                    # Zaman kontrolü
-                    created_at_str = legacy.get("created_at", "")
-                    if created_at_str:
-                        try:
-                            created_at = datetime.strptime(
-                                created_at_str,
-                                "%a %b %d %H:%M:%S %z %Y"
-                            )
-                            if created_at.replace(tzinfo=None) < cutoff_time:
-                                continue
-                        except:
-                            pass
-
                     tweet = SourceTweet(
-                        id=legacy.get("id_str", ""),
-                        author=username,
-                        author_name=result.get("core", {}).get("user_results", {}).get("result", {}).get("legacy", {}).get("name", username),
-                        text=legacy.get("full_text", ""),
-                        url=f"https://twitter.com/{username}/status/{legacy.get('id_str', '')}",
-                        likes=legacy.get("favorite_count", 0),
-                        retweets=legacy.get("retweet_count", 0),
-                        replies=legacy.get("reply_count", 0),
-                        created_at=created_at_str,
+                        id=tweet_id,
+                        author=user_info.get("screen_name", username),
+                        author_name=user_info.get("name", username),
+                        text=text,
+                        url=f"https://twitter.com/i/status/{tweet_id}",
+                        likes=tweet_info.get("favorite_count", 0),
+                        retweets=tweet_info.get("retweet_count", 0),
+                        created_at=tweet_info.get("created_at", ""),
                     )
                     tweets.append(tweet)
 
         except Exception as e:
-            logger.debug(f"Timeline parse hatası: {e}")
+            logger.debug(f"@{username} hatası: {e}")
 
         return tweets
+
+    def get_football_content(self, hours: int = 6, limit: int = 15) -> List[SourceTweet]:
+        """Futbol haberlerini bul"""
+        all_tweets = []
+
+        queries = [
+            "transfer news breaking",
+            "Galatasaray OR Fenerbahçe OR Beşiktaş transfer",
+            "Premier League transfer",
+        ]
+
+        for query in queries:
+            tweets = self._search_ai_tweets(query, hours)
+            all_tweets.extend(tweets)
+
+        all_tweets.sort(key=lambda t: t.likes + t.retweets * 2, reverse=True)
+        return all_tweets[:limit]
+
+    # ==========================================================================
+    # ARAŞTIRMA
+    # ==========================================================================
+
+    def research_topic(self, tweet: SourceTweet) -> ResearchResult:
+        """
+        Tweet konusunu araştır.
+        - Konu ne hakkında?
+        - Önemli noktalar neler?
+        - Bağlam nedir?
+        """
+        topic = self._extract_topic(tweet.text)
+
+        # AI ile araştırma yap
+        try:
+            from anthropic import Anthropic
+            client = Anthropic()
+
+            prompt = f"""Bu tweet hakkında kısa bir araştırma özeti yap:
+
+Tweet: {tweet.text}
+Yazar: @{tweet.author}
+
+Şunları bul:
+1. Konu ne hakkında? (1 cümle)
+2. Neden önemli? (1 cümle)
+3. Teknik detaylar (varsa, 2-3 madde)
+4. Bağlam (bu gelişme neyin parçası?)
+
+Kısa ve öz yaz, Türkçe."""
+
+            response = client.messages.create(
+                model=AVAILABLE_MODELS[self.current_model]["id"],
+                max_tokens=500,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            summary = response.content[0].text.strip()
+
+            # Key points çıkar
+            key_points = []
+            for line in summary.split('\n'):
+                line = line.strip()
+                if line and (line.startswith('-') or line.startswith('•') or line[0].isdigit()):
+                    key_points.append(line.lstrip('-•0123456789. '))
+
+            return ResearchResult(
+                topic=topic,
+                summary=summary,
+                key_points=key_points[:5],
+                sources=[tweet.url],
+                related_tweets=[],
+            )
+
+        except Exception as e:
+            logger.error(f"Araştırma hatası: {e}")
+
+            # Fallback - basit özet
+            return ResearchResult(
+                topic=topic,
+                summary=f"@{tweet.author} bu konuda paylaşım yaptı.",
+                key_points=[tweet.text[:200]],
+                sources=[tweet.url],
+                related_tweets=[],
+            )
+
+    def _extract_topic(self, text: str) -> str:
+        """Tweet'ten ana konuyu çıkar"""
+        # İlk cümleyi al
+        sentences = re.split(r'[.!?\n]', text)
+        if sentences:
+            return sentences[0].strip()[:100]
+        return text[:100]
 
     # ==========================================================================
     # VİRAL REWRITER
     # ==========================================================================
 
-    def rewrite_viral(self, source: SourceTweet, style: str = "informative") -> ViralTweet:
+    def rewrite_viral(
+        self,
+        tweet: SourceTweet,
+        style: str = "samimi",
+        do_research: bool = True,
+        model: str = None
+    ) -> ViralTweet:
         """
-        Kaynak tweet'i viral formatta yeniden yaz.
+        Tweet'i seçilen stilde yeniden yaz.
 
         Args:
-            source: Orijinal tweet
-            style: "informative", "opinion", "thread"
-
-        Returns:
-            ViralTweet objesi
+            tweet: Kaynak tweet
+            style: Yazım stili (samimi, profesyonel, heyecanli, analist)
+            do_research: Önce araştırma yap mı?
+            model: Kullanılacak model (None = varsayılan)
         """
+        # Model seç
+        model_key = model or self.current_model
+        model_info = AVAILABLE_MODELS.get(model_key, AVAILABLE_MODELS["claude-sonnet"])
+
+        # Stil bilgisi
+        style_info = WRITING_STYLES.get(style, WRITING_STYLES["samimi"])
+
+        # Araştırma yap
+        research = None
+        if do_research:
+            research = self.research_topic(tweet)
+
         # AI ile yeniden yaz
-        if self.ai_generator:
-            return self._rewrite_with_ai(source, style)
-        else:
-            return self._rewrite_template(source, style)
-
-    def _rewrite_with_ai(self, source: SourceTweet, style: str) -> ViralTweet:
-        """AI kullanarak viral tweet oluştur"""
-
-        prompt = f"""Sen bir viral tweet yazarısın. Aşağıdaki tweet'i kendi dilinde yeniden yaz.
-
-KAYNAK TWEET:
-@{source.author}: {source.text}
-
-VİRAL TWEET KURALLARI:
-1. HOOK: İlk cümle dikkat çekmeli (🚨, ⚡, 🔥 gibi emoji ile başlayabilir)
-2. BAĞLAM: Neden önemli olduğunu açıkla
-3. DETAYLAR: Teknik bilgileri basit anlat
-4. ETKİ: Bu gelişme insanları nasıl etkiler
-5. CTA: Sonunda etkileşim çağrısı (soru sor)
-
-FORMAT:
-- Her önemli nokta yeni satırda
-- Bullet point kullan (•)
-- 1-2 hashtag ekle
-- Max 2000 karakter (X Premium)
-
-STİL: {style}
-- informative: Bilgilendirici, nesnel
-- opinion: Yorum ekle, düşünceni söyle
-- thread: Uzun, detaylı anlatım
-
-Sadece tweet metnini yaz, başka bir şey yazma."""
-
         try:
             from anthropic import Anthropic
             client = Anthropic()
 
+            # Stil kurallarını formatla
+            rules = "\n".join([f"- {r}" for r in style_info["rules"]])
+
+            research_context = ""
+            if research:
+                research_context = f"""
+ARAŞTIRMA SONUCU:
+{research.summary}
+
+ÖNEMLİ NOKTALAR:
+{chr(10).join(['- ' + p for p in research.key_points])}
+"""
+
+            prompt = f"""Bu tweet'i kendi tarzımda yeniden yaz.
+
+ORİJİNAL TWEET:
+@{tweet.author}: {tweet.text}
+
+{research_context}
+
+YAZIM STİLİ: {style_info['name']}
+{style_info['description']}
+
+KURALLAR:
+{rules}
+
+ÖRNEK:
+{style_info['example']}
+
+ÖNEMLİ:
+- Türkçe yaz
+- İngilizce kelime kullanma (teknik terimler hariç)
+- Orijinal tweet'in bilgisini kullan ama KOPYALAMA
+- İnsansı, doğal bir dil kullan
+- 800-1500 karakter arası
+
+Sadece tweet metnini yaz, başka bir şey ekleme."""
+
             response = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=model_info["id"],
                 max_tokens=1000,
                 messages=[{"role": "user", "content": prompt}]
             )
 
             rewritten = response.content[0].text.strip()
 
-            # Parse et
-            lines = rewritten.split('\n')
-            hook = lines[0] if lines else ""
-            body = '\n'.join(lines[1:-1]) if len(lines) > 2 else rewritten
-            cta = lines[-1] if len(lines) > 1 else ""
-
-            # Hashtag'leri çıkar
-            hashtags = re.findall(r'#\w+', rewritten)
+            # Tırnak işaretlerini temizle
+            rewritten = rewritten.strip('"\'')
 
             return ViralTweet(
-                original=source,
+                original=tweet,
                 rewritten_text=rewritten,
-                hook=hook,
-                body=body,
-                cta=cta,
-                hashtags=hashtags,
+                style_used=style,
+                model_used=model_info["name"],
+                research=research,
                 char_count=len(rewritten),
-                viral_score=self._calculate_viral_score(rewritten, source),
+                viral_score=self._calculate_viral_score(rewritten, tweet),
             )
 
         except Exception as e:
-            logger.error(f"AI rewrite hatası: {e}")
-            return self._rewrite_template(source, style)
+            logger.error(f"Rewrite hatası: {e}")
 
-    def _rewrite_template(self, source: SourceTweet, style: str) -> ViralTweet:
-        """Template ile viral tweet oluştur (AI yoksa)"""
-
-        # Basit template
-        hook = f"🚨 {source.author_name}'dan önemli paylaşım:"
-        body = f"\n\n{source.text[:500]}"
-        cta = "\n\nNe düşünüyorsunuz? 👇"
-
-        # Hashtag ekle
-        hashtags = ["#AI", "#Teknoloji"]
-        hashtag_str = " ".join(hashtags)
-
-        full_text = f"{hook}{body}{cta}\n\n{hashtag_str}"
-
-        return ViralTweet(
-            original=source,
-            rewritten_text=full_text,
-            hook=hook,
-            body=body,
-            cta=cta,
-            hashtags=hashtags,
-            char_count=len(full_text),
-            viral_score=50.0,  # Default
-        )
+            # Fallback
+            return ViralTweet(
+                original=tweet,
+                rewritten_text=f"📢 {tweet.text[:500]}",
+                style_used=style,
+                model_used="Template",
+                research=research,
+                char_count=len(tweet.text),
+                viral_score=30.0,
+            )
 
     def _calculate_viral_score(self, text: str, source: SourceTweet) -> float:
-        """Viral potansiyel skoru hesapla"""
-        score = 50.0  # Base
+        """Viral potansiyel skoru"""
+        score = 50.0
 
         # Hook varsa +10
-        if text.startswith(('🚨', '⚡', '🔥', 'BREAKING', 'Bu büyük')):
+        if text.startswith(('🚨', '⚡', '🔥', 'ya ', 'Ya ')):
             score += 10
 
         # Soru varsa +10
         if '?' in text:
             score += 10
 
-        # Emoji varsa +5
-        if re.search(r'[\U0001F300-\U0001F9FF]', text):
-            score += 5
-
-        # Line break varsa +5
+        # Satır atlama varsa +5
         if '\n\n' in text:
             score += 5
 
-        # Kaynak engagement yüksekse +15
+        # Kaynak yüksek engagement'lı ise +15
         if source.likes > 1000:
             score += 15
         elif source.likes > 100:
             score += 10
 
-        # Hashtag varsa +5
-        if '#' in text:
-            score += 5
+        # Uygun uzunluk (500-1500 arası) +10
+        if 500 <= len(text) <= 1500:
+            score += 10
 
         return min(score, 100.0)
 
     # ==========================================================================
-    # GÜNDEM (TRENDING)
+    # GÜNDEM
     # ==========================================================================
 
     def get_trending_topics(self) -> List[dict]:
@@ -629,11 +639,7 @@ Sadece tweet metnini yaz, başka bir şey yazma."""
 
         try:
             url = "https://twitter.com/i/api/2/guide.json"
-
-            params = {
-                "include_profile_interstitial_type": "1",
-                "count": "20",
-            }
+            params = {"count": "20"}
 
             response = self.session.get(
                 url,
@@ -666,9 +672,13 @@ Sadece tweet metnini yaz, başka bir şey yazma."""
                                 })
 
         except Exception as e:
-            logger.debug(f"Trending çekme hatası: {e}")
+            logger.debug(f"Trending hatası: {e}")
 
         return topics[:20]
+
+
+# Export için
+AI_ACCOUNTS = {name: name for name in TRUSTED_AI_ACCOUNTS}
 
 
 # ==============================================================================
@@ -680,15 +690,17 @@ if __name__ == "__main__":
 
     engine = AIContentEngine()
 
-    print("=== AI İçerikleri (son 12 saat) ===")
-    tweets = engine.get_ai_content(hours=12, limit=5)
+    print("=== AI Haberleri (son 12 saat) ===")
+    tweets = engine.get_ai_news(hours=12, limit=5)
 
     for i, tweet in enumerate(tweets, 1):
         print(f"\n{i}. @{tweet.author}: {tweet.text[:100]}...")
         print(f"   ❤️ {tweet.likes} | 🔄 {tweet.retweets}")
 
     if tweets:
-        print("\n=== Viral Rewrite ===")
-        viral = engine.rewrite_viral(tweets[0])
+        print("\n=== Araştırma + Viral Rewrite ===")
+        viral = engine.rewrite_viral(tweets[0], style="samimi", do_research=True)
+        print(f"Model: {viral.model_used}")
+        print(f"Stil: {viral.style_used}")
         print(viral.rewritten_text)
         print(f"\nViral Score: {viral.viral_score}/100")

@@ -1141,9 +1141,24 @@ def render_discover_page():
     model_info = AVAILABLE_MODELS.get(engine.current_model, {})
     st.caption(f"🤖 Model: **{model_info.get('name', 'Claude Sonnet')}** | 🔧 XPatla v4")
 
-    # Token kontrolü
+    # Token kontrolü ve debug
     if not auth_token or not ct0_token:
-        st.warning("⚠️ X/Twitter token'ları ayarlanmamış. Sidebar'dan X Credentials'a git ve token'ları gir!")
+        st.error("❌ X/Twitter token'ları ayarlanmamış! Sidebar'dan X Credentials'a git ve token'ları gir!")
+        st.info("💡 Token'lar: X.com > F12 > Application > Cookies > auth_token ve ct0")
+        return
+    else:
+        # Debug: Token özeti göster
+        st.success(f"✅ Token'lar ayarlı: auth={auth_token[:8]}... ct0={ct0_token[:8]}...")
+
+    # Bağlantı testi butonu
+    with st.expander("🔧 Bağlantı Testi", expanded=False):
+        if st.button("🧪 Bağlantıyı Test Et"):
+            with st.spinner("Test ediliyor..."):
+                success, msg = engine.test_connection()
+                if success:
+                    st.success(msg)
+                else:
+                    st.error(msg)
 
     # Tab'lar: Keşfet | Hesaplar
     tab1, tab2 = st.tabs(["🔍 Keşfet", "👥 Takip Edilen Hesaplar"])

@@ -206,7 +206,8 @@ class ContentGenerator:
                              style: str = "quote_tweet",
                              additional_context: str = "",
                              user_samples: list = None,
-                             research_summary: str = "") -> str:
+                             research_summary: str = "",
+                             length_preference: str = "orta") -> str:
         """Generate a quote tweet with optional deep research context"""
         if not self.client:
             raise ValueError("API client not initialized. Check your API key.")
@@ -214,10 +215,12 @@ class ContentGenerator:
         system_prompt = self._build_system_prompt(style, user_samples)
 
         if research_summary:
-            # Override system prompt for research mode - remove "KISA YAZ" constraints
-            system_prompt = self._build_research_system_prompt(user_samples)
-            # RESEARCH MODE: AI has full context, write detailed analytical post
-            user_prompt = f"""Görevin: Aşağıdaki araştırma bilgilerini DERİNLEMESİNE oku. Tüm rakamları, ilişkileri, stratejik detayları anla. Sonra bu konu hakkında DETAYLİ ANALİTİK bir Türkçe tweet/thread yaz.
+            # Override system prompt for research mode
+            system_prompt = self._build_research_system_prompt(user_samples, length_preference)
+            # Build length-aware instructions
+            length_instructions = self._get_length_instructions(length_preference)
+            # RESEARCH MODE: AI has full context, write analytical post
+            user_prompt = f"""Görevin: Aşağıdaki araştırma bilgilerini DERİNLEMESİNE oku. Tüm rakamları, ilişkileri, stratejik detayları anla. Sonra bu konu hakkında KENDİ ANALİZİNİ Türkçe yaz.
 
 {research_summary}
 
@@ -225,7 +228,7 @@ class ContentGenerator:
 
 ## GÖREV:
 Yukarıdaki TÜM bilgileri (thread, web araştırması, diğer yorumlar) derinlemesine analiz et.
-Araştırmadaki spesifik rakamları, isimleri, ilişkileri kullanarak UZUN ve DETAYLİ bir analiz yaz.
+Araştırmadaki spesifik rakamları, isimleri, ilişkileri kullanarak analiz yaz.
 
 ## NASIL YAZMALISIN (ÇOK ÖNEMLİ):
 
@@ -233,26 +236,18 @@ Araştırmadaki spesifik rakamları, isimleri, ilişkileri kullanarak UZUN ve DE
 
 2. **PARADOKS VE ÇELİŞKİLERİ BUL**: İlişkilerdeki ilginçlikleri yakala.
    Örnek: "NVIDIA hem çip satıyor hem de en büyük müşterisine yatırım yapıyor. Hem tedarikçisin hem ortaksın."
-   Örnek: "Amazon hem Anthropic'e hem OpenAI'a yatırım yapıyor. İki rakibe birden para döküyorsun."
 
 3. **MAKRO KARŞILAŞTIRMALAR YAP**: Büyük rakamları somutlaştır.
    Örnek: "OpenAI tek başına bazı G20 ülkelerinin yıllık bütçesinden büyük yatırım topladı."
-   Örnek: "Bu para ile X tane startup fonlanabilirdi."
 
 4. **STRATEJİK ANALİZ YAP**: Neden böyle olduğunu açıkla.
    Örnek: "Asıl savaş model değil, altyapı. Kim compute sağlarsa o kazanır."
 
 5. **PROVOKATIF SORUYLA BİTİR**: Okuyucuyu düşündürecek bir soruyla kapat.
-   Örnek: "Bu kadar parayı gerçekten ürüne mi dönüştürecekler yoksa compute yarışında buharlaşıp mı gidecek?"
 
-## UZUNLUK VE FORMAT:
-- KISA YAZMA! Minimum 4-5 paragraf yaz. Detaylı analiz istiyorum.
-- Her paragraf farklı bir açıdan konuyu ele alsın
-- Araştırmadan bulduğun SPESİFİK rakamları, isimleri, tarihleri kullan
-- Düz metin yaz, madde işareti veya liste formatı kullanma
-- Doğal Türkçe günlük dil kullan, teknik terimler İngilizce kalabilir
+{length_instructions}
 
-## ÖRNEK ÇIKTI (bu tarz ve uzunlukta yaz):
+## ÖRNEK ÇIKTI TARZI:
 "110 milyar dolar tek turda. Amazon 50, nvidia 30, softbank 30. Ön değerleme 730 milyar.
 
 Bu artık bir yapay zeka şirketi değil, küçük bir ülke ekonomisi. Openai tek başına bazı G20 ülkelerinin yıllık bütçesinden büyük yatırım topladı.
@@ -267,7 +262,6 @@ Sama şükran mesajı yazmış ama ben şunu merak ediyorum: bu kadar parayı ge
 - Orijinal tweet'i Türkçeye çevirme veya özetleme
 - "Heyecan verici", "çığır açan", "dikkat çekici gelişme" gibi klişeler kullanma
 - Orijinal tweet'teki cümleleri tekrarlama
-- KISA YAZMA - 1-3 cümlelik yüzeysel yorum yazma, DERİNLEMESİNE analiz yaz
 - Madde işareti, numara listesi kullanma - düz paragraflar halinde yaz
 
 Sadece tweet metnini yaz, başka bir şey yazma."""
@@ -366,22 +360,48 @@ Sadece yeni tweet metnini yaz."""
         else:
             return self._generate_openai(system_prompt, user_prompt)
 
-    def _build_research_system_prompt(self, user_samples: list = None) -> str:
+    def _get_length_instructions(self, length_preference: str) -> str:
+        """Return length-specific instructions for the prompt"""
+        if length_preference == "kisa":
+            return """## UZUNLUK: KISA (100-280 karakter)
+- Tek paragraf, vurucu ve öz yaz
+- En önemli 1 insight'ı seç ve onu vur
+- Araştırmadan en çarpıcı tek bir veriyi kullan
+- Provokatif bir cümleyle bitir"""
+        elif length_preference == "uzun":
+            return """## UZUNLUK: UZUN (501-1000 karakter)
+- Minimum 4-5 paragraf yaz, detaylı analiz istiyorum
+- Her paragraf farklı bir açıdan konuyu ele alsın
+- Araştırmadan bulduğun SPESİFİK rakamları, isimleri, tarihleri bol bol kullan
+- Düz metin yaz, madde işareti veya liste formatı kullanma
+- KISA YAZMA - yüzeysel yorum değil, DERİNLEMESİNE analiz yaz"""
+        else:  # orta
+            return """## UZUNLUK: ORTA (281-500 karakter)
+- 2-3 paragraf yaz
+- Ana insight + destekleyici bir veri + kişisel yorum
+- Araştırmadan en önemli 2-3 veriyi kullan
+- Düz metin yaz, madde işareti kullanma"""
+
+    def _build_research_system_prompt(self, user_samples: list = None,
+                                      length_preference: str = "orta") -> str:
         """Build system prompt optimized for research-based detailed analysis"""
         persona = self.custom_persona or BASE_SYSTEM_PROMPT
 
+        length_desc = {
+            "kisa": "KISA ve vurucu bir tweet (100-280 karakter)",
+            "orta": "ORTA uzunlukta detaylı bir tweet (281-500 karakter)",
+            "uzun": "UZUN ve DERİNLEMESİNE bir analiz (501-1000 karakter)",
+        }
+
         prompt = f"""{persona}
 
-## ARAŞTIRMA MODU - DETAYLİ ANALİZ:
-Bu modda KISA tweet yazmıyorsun. Araştırma verilerini kullanarak DETAYLİ ANALİTİK bir yazı yazıyorsun.
+## ARAŞTIRMA MODU:
+Araştırma verilerini kullanarak {length_desc.get(length_preference, length_desc['orta'])} yazıyorsun.
 
 KURALLAR:
-- Minimum 4-5 paragraf yaz, detaylı ol
 - Araştırmadan SPESİFİK rakamlar, isimler ve veriler kullan
 - Paradoksları, çelişkileri ve ilginç ilişkileri yakala
-- Makro karşılaştırmalar yap (ülke bütçeleri, piyasa değerleri vs.)
 - Stratejik analiz yap - "neden" sorusunu cevapla
-- Provokatif bir soruyla bitir
 - Düz paragraflar halinde yaz, liste/madde işareti kullanma
 - Doğal Türkçe yaz, teknik terimler İngilizce kalabilir
 - Robotik AI kalıpları YASAK

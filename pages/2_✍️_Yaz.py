@@ -277,6 +277,39 @@ for i, (key, label) in enumerate(zip(style_options, style_labels)):
             st.session_state.selected_style = key
             st.rerun()
 
+# --- Tweet Length ---
+st.markdown("### 📏 Uzunluk")
+
+length_options = {
+    "kisa": {"label": "Kısa", "range": "100-280", "desc": "Tek tweet, vurucu", "icon": "📝"},
+    "orta": {"label": "Orta", "range": "281-500", "desc": "Detaylı tek tweet", "icon": "📄"},
+    "uzun": {"label": "Uzun", "range": "501-1000", "desc": "Derinlemesine analiz", "icon": "📑"},
+}
+
+selected_length = st.session_state.get("selected_length", "orta")
+
+len_cols = st.columns(len(length_options))
+for i, (lkey, linfo) in enumerate(length_options.items()):
+    with len_cols[i]:
+        is_sel = selected_length == lkey
+        border = "2px solid #1DA1F2" if is_sel else "1px solid #2a2a4a"
+        bg = "#16213e" if is_sel else "#1a1a2e"
+
+        st.markdown(f"""
+        <div style="background:{bg}; border:{border}; border-radius:12px;
+                    padding:12px; text-align:center; min-height:70px;">
+            <div style="color:#f0f0f0; font-weight:bold; font-size:14px;">{linfo['icon']} {linfo['label']}</div>
+            <div style="color:#1DA1F2; font-size:13px;">{linfo['range']} karakter</div>
+            <div style="color:#8899a6; font-size:11px; margin-top:2px;">{linfo['desc']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if st.button("Seç" if not is_sel else "✓ Seçili",
+                     key=f"length_{lkey}", use_container_width=True,
+                     type="primary" if is_sel else "secondary"):
+            st.session_state.selected_length = lkey
+            st.rerun()
+
 st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
 
 # --- Additional Options ---
@@ -411,6 +444,19 @@ if generate_clicked or regenerate_clicked:
             additional = st.session_state.get("additional_instructions", "")
             max_length = 0 if st.session_state.get("use_premium", True) else 280
 
+            # Add length preference to additional context
+            sel_len = st.session_state.get("selected_length", "orta")
+            length_map = {
+                "kisa": "UZUNLUK: 100-280 karakter arası yaz. Kısa, vurucu, tek tweet.",
+                "orta": "UZUNLUK: 281-500 karakter arası yaz. Detaylı ama öz.",
+                "uzun": "UZUNLUK: 501-1000 karakter arası yaz. Derinlemesine analiz, birden fazla paragraf.",
+            }
+            length_instruction = length_map.get(sel_len, length_map["orta"])
+            if additional:
+                additional = f"{length_instruction}\n{additional}"
+            else:
+                additional = length_instruction
+
             if write_mode == "quote" and quote_topic:
                 # Quote tweet mode (with or without research)
                 result = generator.generate_quote_tweet(
@@ -420,6 +466,7 @@ if generate_clicked or regenerate_clicked:
                     additional_context=additional,
                     user_samples=user_samples if user_samples else None,
                     research_summary=research_summary,
+                    length_preference=sel_len,
                 )
                 st.session_state.generated_tweet = result
                 st.session_state.generated_thread = None

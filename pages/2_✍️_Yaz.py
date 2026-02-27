@@ -155,17 +155,33 @@ with mode_tab2:
             with st.expander("📊 Araştırma Sonuçları", expanded=True):
                 st.markdown(f"**Tespit edilen konu:** `{research.topic}`")
 
-                if research.web_results:
-                    st.markdown(f"**Web ({len(research.web_results)} kaynak):**")
-                    for wr in research.web_results[:6]:
-                        st.markdown(f"- **{wr['title']}**\n  _{wr['body'][:180]}_")
+                # Deep articles (full content fetched)
+                if research.deep_articles:
+                    st.markdown(f"**📖 Okunan Makaleler ({len(research.deep_articles)}):**")
+                    for article in research.deep_articles:
+                        st.markdown(f"- **{article['title']}**")
+                        st.caption(f"  {article['content'][:300]}...")
 
+                # Reddit
+                if research.reddit_results:
+                    st.markdown(f"**🔴 Reddit ({len(research.reddit_results)}):**")
+                    for rr in research.reddit_results[:3]:
+                        st.markdown(f"- **{rr['title']}**\n  _{rr['body'][:150]}_")
+
+                # Web snippets
+                if research.web_results:
+                    remaining = len(research.web_results)
+                    st.markdown(f"**🌐 Web ({remaining} kaynak):**")
+                    for wr in research.web_results[:4]:
+                        st.markdown(f"- **{wr['title']}**\n  _{wr['body'][:150]}_")
+
+                # X opinions
                 if research.related_tweets:
-                    st.markdown(f"**X'te Yorumlar ({len(research.related_tweets)}):**")
+                    st.markdown(f"**𝕏 Yorumlar ({len(research.related_tweets)}):**")
                     for rt in research.related_tweets[:3]:
                         st.markdown(f"- @{rt['author']} ({rt['likes']} ❤️): _{rt['text'][:140]}_")
 
-                if not research.web_results and not research.related_tweets:
+                if not research.web_results and not research.deep_articles and not research.related_tweets:
                     st.warning("Bu konu için web'de yeterli bilgi bulunamadı.")
 
             # Set state for generation
@@ -186,7 +202,9 @@ with mode_tab2:
                 st.caption(f"Konu: {rd.topic}")
                 if len(rd.thread_texts) > 1:
                     st.caption(f"Thread: {len(rd.thread_texts)} tweet okundu")
-                st.caption(f"Web: {len(rd.web_results)} kaynak | X: {len(rd.related_tweets)} yorum")
+                deep = len(rd.deep_articles) if hasattr(rd, 'deep_articles') else 0
+                reddit = len(rd.reddit_results) if hasattr(rd, 'reddit_results') else 0
+                st.caption(f"📖 Makale: {deep} | 🌐 Web: {len(rd.web_results)} | 🔴 Reddit: {reddit} | 𝕏: {len(rd.related_tweets)}")
 
 with mode_tab3:
     if write_mode == "quote" and quote_topic:

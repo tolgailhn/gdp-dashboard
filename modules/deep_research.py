@@ -1,14 +1,31 @@
 """
 Deep Research Module
-Full research pipeline: Tweet URL → Fetch thread → Extract topic → Web search → Compile → Generate
+Full research pipeline: Tweet URL → Fetch thread → Extract topic → Multi-platform search
+→ Fetch full article content → Compile → Generate
 
-The goal: When user gives a tweet URL, understand the FULL context (thread, topic, details)
-then research it from web sources, and provide all this to the AI so it writes an informed tweet.
+Key difference from basic search: We don't just get snippets.
+We actually VISIT and READ the top articles, blogs, Reddit posts to extract
+real data (numbers, specs, analysis) that the AI can use.
 """
 import re
 import datetime
+import requests
 from dataclasses import dataclass, field
 from duckduckgo_search import DDGS
+from bs4 import BeautifulSoup
+
+
+# --- Constants ---
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+FETCH_TIMEOUT = 10
+MAX_ARTICLE_CHARS = 3000
+SKIP_DOMAINS = {
+    "twitter.com", "x.com", "t.co", "youtube.com", "youtu.be",
+    "facebook.com", "instagram.com", "tiktok.com",
+}
 
 
 @dataclass
@@ -21,6 +38,8 @@ class ResearchResult:
     full_thread_text: str = ""
     topic: str = ""
     web_results: list = field(default_factory=list)
+    deep_articles: list = field(default_factory=list)
+    reddit_results: list = field(default_factory=list)
     related_tweets: list = field(default_factory=list)
     summary: str = ""
 
@@ -33,6 +52,10 @@ def extract_tweet_id(url_or_id: str) -> str | None:
     match = re.search(r'(?:twitter\.com|x\.com)/\w+/status/(\d+)', url_or_id)
     return match.group(1) if match else None
 
+
+# ========================================================================
+# SEARCH FUNCTIONS
+# ========================================================================
 
 def web_search(query: str, max_results: int = 8) -> list[dict]:
     """Search the web using DuckDuckGo"""
@@ -50,7 +73,7 @@ def web_search(query: str, max_results: int = 8) -> list[dict]:
     return results
 
 
-def web_search_news(query: str, max_results: int = 5) -> list[dict]:
+def web_search_news(query: str, max_results: int = 6) -> list[dict]:
     """Search recent news"""
     results = []
     try:
@@ -67,11 +90,124 @@ def web_search_news(query: str, max_results: int = 5) -> list[dict]:
     return results
 
 
+# ========================================================================
+# ARTICLE CONTENT FETCHER — the key missing piece
+# ========================================================================
+
+def fetch_article_content(url: str) -> dict | None:
+    """
+    Fetch and extract the main text content from a web page.
+    Returns clean article text that the AI can use for analysis.
+    """
+    # Skip social media / video sites
+    try:
+        from urllib.parse import urlparse
+        domain = urlparse(url).netloc.replace("www.", "")
+        if domain in SKIP_DOMAINS:
+            return None
+    except Exception:
+        return None
+
+    try:
+        resp = requests.get(
+            url,
+            headers={"User-Agent": USER_AGENT},
+            timeout=FETCH_TIMEOUT,
+            allow_redirects=True,
+        )
+        resp.raise_for_status()
+
+        # Only parse HTML
+        content_type = resp.headers.get("Content-Type", "")
+        if "text/html" not in content_type:
+            return None
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # Remove noise elements
+        for tag in soup.find_all(["script", "style", "nav", "header", "footer",
+                                   "aside", "iframe", "form", "noscript",
+                                   "button", "svg", "img"]):
+            tag.decompose()
+
+        # Try to find the main article content
+        article_text = ""
+
+        # Strategy 1: Look for <article> tag
+        article_tag = soup.find("article")
+        if article_tag:
+            article_text = article_tag.get_text(separator="\n", strip=True)
+
+        # Strategy 2: Look for main content div
+        if not article_text or len(article_text) < 200:
+            for selector in ["main", "[role='main']", ".post-content",
+                             ".article-content", ".entry-content",
+                             ".post-body", "#content", ".content"]:
+                main = soup.select_one(selector)
+                if main:
+                    candidate = main.get_text(separator="\n", strip=True)
+                    if len(candidate) > len(article_text):
+                        article_text = candidate
+
+        # Strategy 3: Reddit-specific
+        if "reddit.com" in url:
+            comments = []
+            # Post body
+            post_body = soup.select_one("[data-test-id='post-content']")
+            if post_body:
+                comments.append(post_body.get_text(separator="\n", strip=True))
+            # Also get top comments
+            for comment_div in soup.select(".comment, [data-testid='comment']")[:10]:
+                text = comment_div.get_text(separator=" ", strip=True)
+                if len(text) > 30:
+                    comments.append(text[:500])
+            if comments:
+                article_text = "\n\n".join(comments)
+
+        # Strategy 4: Fallback to all paragraphs
+        if not article_text or len(article_text) < 200:
+            paragraphs = []
+            for p in soup.find_all("p"):
+                text = p.get_text(strip=True)
+                if len(text) > 40:
+                    paragraphs.append(text)
+            article_text = "\n\n".join(paragraphs)
+
+        if not article_text or len(article_text) < 100:
+            return None
+
+        # Clean up
+        article_text = re.sub(r'\n{3,}', '\n\n', article_text)
+        article_text = re.sub(r' {2,}', ' ', article_text)
+        article_text = article_text[:MAX_ARTICLE_CHARS]
+
+        # Extract title
+        title = ""
+        title_tag = soup.find("title")
+        if title_tag:
+            title = title_tag.get_text(strip=True)[:150]
+
+        return {
+            "url": url,
+            "title": title,
+            "content": article_text,
+            "length": len(article_text),
+        }
+
+    except Exception as e:
+        print(f"Article fetch error ({url[:60]}): {e}")
+        return None
+
+
+# ========================================================================
+# TOPIC EXTRACTION
+# ========================================================================
+
 def extract_topic_from_text(full_text: str) -> dict:
     """
     Smart topic extraction from tweet/thread text.
     Finds actual product names, companies, and what happened.
-    Returns targeted search queries.
+    Returns targeted search queries for multiple platforms.
     """
     current_year = str(datetime.datetime.now().year)
     text = re.sub(r'https?://\S+', '', full_text).strip()
@@ -103,6 +239,8 @@ def extract_topic_from_text(full_text: str) -> dict:
         r'\bNotebookLM\b': 'NotebookLM',
         r'\bWindsurf\b': 'Windsurf',
         r'\bDevin\b': 'Devin',
+        r'\bNIM\b': 'NIM',
+        r'\bNeMo\b': 'NeMo',
     }
 
     company_patterns = {
@@ -114,7 +252,8 @@ def extract_topic_from_text(full_text: str) -> dict:
         r'\bStability\s*AI\b': 'Stability AI',
         r'\bRunway\b': 'Runway', r'\bMistral\s*AI\b': 'Mistral AI',
         r'\bMiniMax\b': 'MiniMax', r'\bSamsung\b': 'Samsung',
-        r'\bSoftBank\b': 'SoftBank',
+        r'\bSoftBank\b': 'SoftBank', r'\bAlibaba\b': 'Alibaba',
+        r'\bBaidu\b': 'Baidu', r'\bHuawei\b': 'Huawei',
     }
 
     found_products = list({name for pat, name in product_patterns.items()
@@ -134,6 +273,7 @@ def extract_topic_from_text(full_text: str) -> dict:
         r'(?i)(agent|autono|tool.?use)': 'agents',
         r'(?i)(ban|regulat|safety|alignment)': 'regulation',
         r'(?i)(partner|deal|collaborat|agreement)': 'partnership',
+        r'(?i)(deploy|production|inference|endpoint|API)': 'deployment',
     }
 
     action = None
@@ -142,43 +282,70 @@ def extract_topic_from_text(full_text: str) -> dict:
             action = act
             break
 
-    # --- Also find dollar amounts, percentages, numbers ---
+    # --- Dollar amounts, percentages, big numbers ---
     amounts = re.findall(r'\$[\d,.]+\s*[BMKbmk](?:illion)?', text)
     percentages = re.findall(r'\d+(?:\.\d+)?%', text)
+    big_numbers = re.findall(r'\b\d+[BMK]\b|\b\d{3,}B\b', text)
 
-    # --- Build search queries ---
-    queries = []
+    # --- Build DIVERSE search queries ---
+    queries = {
+        "general": [],
+        "technical": [],
+        "reddit": [],
+        "news": [],
+    }
 
-    # Strategy: specific queries about what actually happened
     entities = found_products + found_companies
 
     if entities and action:
         main = entities[0]
+        # General search
         if action == 'investment' and amounts:
-            queries.append(f"{main} {amounts[0]} investment funding {current_year}")
+            queries["general"].append(f"{main} {amounts[0]} investment funding {current_year}")
         elif action == 'release':
-            queries.append(f"{main} release announcement features {current_year}")
+            queries["general"].append(f"{main} release announcement features {current_year}")
         elif action == 'benchmark' and percentages:
-            queries.append(f"{main} benchmark results {percentages[0]} {current_year}")
+            queries["general"].append(f"{main} benchmark results {percentages[0]} {current_year}")
+        elif action == 'deployment':
+            queries["general"].append(f"{main} deployment API production {current_year}")
         else:
-            queries.append(f"{main} {action} {current_year}")
+            queries["general"].append(f"{main} {action} {current_year}")
 
-        # Second query: combine companies + products
         if len(entities) > 1:
-            queries.append(f"{entities[0]} {entities[1]} {action or 'AI'} {current_year}")
+            queries["general"].append(f"{entities[0]} {entities[1]} {action or 'AI'} {current_year}")
+
+        # Technical deep search
+        queries["technical"].append(f"{main} technical details specs parameters architecture {current_year}")
+        if found_products:
+            queries["technical"].append(f"{found_products[0]} benchmark comparison performance {current_year}")
+
+        # Reddit search
+        queries["reddit"].append(f"site:reddit.com {' '.join(entities[:2])} {action or 'AI'} {current_year}")
+        queries["reddit"].append(f"site:reddit.com {main} {current_year}")
+
+        # News search
+        queries["news"].append(f"{main} {action or ''} {current_year}")
+        if len(entities) > 1:
+            queries["news"].append(f"{' '.join(entities[:3])} news")
+
     elif entities:
-        queries.append(f"{entities[0]} AI news {current_year}")
+        queries["general"].append(f"{entities[0]} AI news {current_year}")
+        queries["technical"].append(f"{entities[0]} technical details {current_year}")
+        queries["reddit"].append(f"site:reddit.com {entities[0]} {current_year}")
+        queries["news"].append(f"{entities[0]} latest {current_year}")
     else:
-        # Fallback: get proper nouns from text
         proper = re.findall(r'\b[A-Z][a-zA-Z]+(?:\s[A-Z][a-zA-Z]+)*\b', text_clean)
         if proper:
-            queries.append(" ".join(proper[:3]) + f" AI {current_year}")
+            base = " ".join(proper[:3])
+            queries["general"].append(f"{base} AI {current_year}")
+            queries["reddit"].append(f"site:reddit.com {base} AI")
+            queries["news"].append(f"{base} news {current_year}")
         else:
-            queries.append(text_clean[:60])
+            queries["general"].append(text_clean[:60])
 
-    # Add a news-specific query
+    # Always add a latest-news query
     if entities:
-        queries.append(f"{' '.join(entities[:2])} latest news")
+        queries["general"].append(f"{' '.join(entities[:2])} latest news {current_year}")
 
     topic_str = " ".join(filter(None, [
         " ".join(found_companies[:2]),
@@ -194,22 +361,28 @@ def extract_topic_from_text(full_text: str) -> dict:
         "action": action,
         "amounts": amounts,
         "percentages": percentages,
-        "search_queries": queries[:3],
+        "big_numbers": big_numbers,
+        "search_queries": queries,
     }
 
+
+# ========================================================================
+# MAIN RESEARCH PIPELINE
+# ========================================================================
 
 def research_topic(tweet_text: str, tweet_author: str = "",
                    tweet_id: str = "", scanner=None,
                    progress_callback=None) -> ResearchResult:
     """
-    Full research pipeline.
+    Full deep research pipeline:
 
     1. Fetch thread (if scanner available)
     2. Extract topic from full thread text
-    3. Web search with targeted queries
+    3. Web search with diverse queries (general + technical + reddit)
     4. News search
-    5. Twitter search for other opinions
-    6. Compile everything
+    5. DEEP FETCH: Read full article content from top URLs
+    6. Twitter search for other opinions
+    7. Compile everything into rich context
     """
     result = ResearchResult(
         original_tweet_text=tweet_text,
@@ -244,40 +417,76 @@ def research_topic(tweet_text: str, tweet_author: str = "",
     result.topic = topic_info["topic"]
     search_queries = topic_info["search_queries"]
 
-    if not search_queries:
-        search_queries = [tweet_text[:60]]
-
-    # === STEP 3: Web search ===
+    # === STEP 3: General + Technical web search ===
     if progress_callback:
-        progress_callback(f"Web araştırması: {search_queries[0][:50]}...")
+        progress_callback("Web'de araştırma yapılıyor...")
 
-    for query in search_queries[:3]:
-        results = web_search(query, max_results=8)
-        result.web_results.extend(results)
+    all_urls = set()
+
+    # General search
+    for query in search_queries.get("general", [])[:3]:
+        results = web_search(query, max_results=6)
+        for r in results:
+            if r["url"] not in all_urls:
+                all_urls.add(r["url"])
+                result.web_results.append(r)
+
+    # Technical deep search
+    if progress_callback:
+        progress_callback("Teknik detaylar araştırılıyor...")
+    for query in search_queries.get("technical", [])[:2]:
+        results = web_search(query, max_results=5)
+        for r in results:
+            if r["url"] not in all_urls:
+                all_urls.add(r["url"])
+                r["title"] = f"[TEKNİK] {r['title']}"
+                result.web_results.append(r)
+
+    # Reddit search
+    if progress_callback:
+        progress_callback("Reddit araştırılıyor...")
+    for query in search_queries.get("reddit", [])[:2]:
+        results = web_search(query, max_results=4)
+        for r in results:
+            if r["url"] not in all_urls:
+                all_urls.add(r["url"])
+                result.reddit_results.append(r)
 
     # === STEP 4: News search ===
     if progress_callback:
         progress_callback("Son haberler aranıyor...")
 
-    news = web_search_news(search_queries[0], max_results=6)
-    for n in news:
-        result.web_results.append({
-            "title": f"[HABER] {n['title']}",
-            "url": n["url"],
-            "body": n["body"],
-            "source": n.get("source", ""),
-        })
+    for query in search_queries.get("news", [])[:2]:
+        news = web_search_news(query, max_results=5)
+        for n in news:
+            if n["url"] not in all_urls:
+                all_urls.add(n["url"])
+                result.web_results.append({
+                    "title": f"[HABER] {n['title']}",
+                    "url": n["url"],
+                    "body": n["body"],
+                    "source": n.get("source", ""),
+                })
 
-    # Deduplicate
-    seen = set()
-    unique = []
-    for wr in result.web_results:
-        if wr["url"] not in seen:
-            seen.add(wr["url"])
-            unique.append(wr)
-    result.web_results = unique
+    # === STEP 5: DEEP FETCH — Read full article content ===
+    if progress_callback:
+        progress_callback("Makaleler okunuyor (derin araştırma)...")
 
-    # === STEP 5: Twitter search ===
+    # Pick the most promising URLs to fetch
+    urls_to_fetch = _pick_best_urls(result.web_results + result.reddit_results)
+
+    fetched_count = 0
+    for url in urls_to_fetch:
+        if fetched_count >= 5:
+            break
+        if progress_callback:
+            progress_callback(f"Makale okunuyor ({fetched_count + 1}/5)...")
+        article = fetch_article_content(url)
+        if article and article["content"] and len(article["content"]) > 200:
+            result.deep_articles.append(article)
+            fetched_count += 1
+
+    # === STEP 6: Twitter search ===
     if scanner:
         if progress_callback:
             progress_callback("X'te ilgili yorumlar aranıyor...")
@@ -286,7 +495,8 @@ def research_topic(tweet_text: str, tweet_author: str = "",
             if parts:
                 twitter_q = f"({' OR '.join(parts)}) -is:retweet lang:en"
             else:
-                twitter_q = f"({search_queries[0][:50]}) -is:retweet"
+                general_q = search_queries.get("general", ["AI"])[0][:50]
+                twitter_q = f"({general_q}) -is:retweet"
 
             start = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=48)
             related = scanner._search_tweets(twitter_q, start, 10)
@@ -304,7 +514,7 @@ def research_topic(tweet_text: str, tweet_author: str = "",
         except Exception as e:
             print(f"Twitter search error: {e}")
 
-    # === STEP 6: Compile ===
+    # === STEP 7: Compile ===
     if progress_callback:
         progress_callback("Araştırma derleniyor...")
 
@@ -312,14 +522,76 @@ def research_topic(tweet_text: str, tweet_author: str = "",
     return result
 
 
+def _pick_best_urls(results: list[dict], max_urls: int = 8) -> list[str]:
+    """
+    Pick the best URLs to deep-fetch based on relevance signals.
+    Prioritize: tech blogs, official announcements, Reddit discussions.
+    """
+    scored = []
+    for r in results:
+        url = r.get("url", "")
+        title = r.get("title", "").lower()
+        body = r.get("body", "").lower()
+
+        score = 0
+
+        # Skip social media
+        try:
+            from urllib.parse import urlparse
+            domain = urlparse(url).netloc.replace("www.", "")
+            if domain in SKIP_DOMAINS:
+                continue
+        except Exception:
+            continue
+
+        # Boost tech sites
+        tech_domains = ["techcrunch.com", "theverge.com", "arstechnica.com",
+                        "wired.com", "venturebeat.com", "huggingface.co",
+                        "reddit.com", "arxiv.org", "github.com",
+                        "nvidia.com", "blog.google", "openai.com",
+                        "anthropic.com", "microsoft.com", "meta.com",
+                        "towardsdatascience.com", "semianalysis.com"]
+        for td in tech_domains:
+            if td in url:
+                score += 3
+                break
+
+        # Boost Reddit
+        if "reddit.com" in url:
+            score += 2
+
+        # Boost articles with numbers/data
+        if re.search(r'\d+[BMK%]|\$\d', body):
+            score += 2
+
+        # Boost detailed content
+        if len(body) > 150:
+            score += 1
+
+        # Boost if title has key signals
+        for signal in ["benchmark", "review", "analysis", "comparison",
+                        "specs", "details", "announced", "released"]:
+            if signal in title:
+                score += 1
+
+        scored.append((score, url))
+
+    scored.sort(reverse=True)
+    return [url for _, url in scored[:max_urls]]
+
+
+# ========================================================================
+# RESEARCH SUMMARY COMPILER
+# ========================================================================
+
 def compile_research_summary(r: ResearchResult) -> str:
     """
     Build the research context that will be sent to the AI.
-    This is the most important part - it determines what the AI knows.
+    Now includes FULL ARTICLE CONTENT, not just snippets.
     """
     parts = []
 
-    # Section 1: What was the original tweet/thread about
+    # Section 1: Original tweet/thread
     parts.append(f"# KONU: {r.topic}")
 
     if len(r.thread_texts) > 1:
@@ -330,18 +602,43 @@ def compile_research_summary(r: ResearchResult) -> str:
         parts.append(f"\n## Orijinal Tweet (@{r.original_tweet_author}):")
         parts.append(f"  {r.original_tweet_text}")
 
-    # Section 2: What the web says about this topic
-    if r.web_results:
-        parts.append(f"\n## Web Araştırma Bulguları ({len(r.web_results)} kaynak):")
-        for i, wr in enumerate(r.web_results[:10], 1):
-            src = f" ({wr['source']})" if wr.get("source") else ""
-            parts.append(f"  {i}. {wr['title']}{src}")
-            parts.append(f"     {wr['body'][:400]}")
+    # Section 2: DEEP ARTICLES — Full content from fetched pages
+    if r.deep_articles:
+        parts.append(f"\n## DERİN ARAŞTIRMA — Okunan Makaleler ({len(r.deep_articles)} kaynak):")
+        parts.append("(Bu makalelerdeki spesifik verileri, rakamları ve detayları kullan!)\n")
+        for i, article in enumerate(r.deep_articles, 1):
+            parts.append(f"### Kaynak {i}: {article['title']}")
+            parts.append(f"URL: {article['url']}")
+            parts.append(f"{article['content']}")
+            parts.append("")  # blank line
 
-    # Section 3: What others on X are saying
+    # Section 3: Web search snippets (for results we couldn't deep-fetch)
+    if r.web_results:
+        # Only show snippets for results NOT in deep_articles
+        deep_urls = {a["url"] for a in r.deep_articles}
+        remaining = [wr for wr in r.web_results if wr["url"] not in deep_urls]
+
+        if remaining:
+            parts.append(f"\n## Ek Web Bulguları ({len(remaining)} kaynak):")
+            for i, wr in enumerate(remaining[:8], 1):
+                src = f" ({wr['source']})" if wr.get("source") else ""
+                parts.append(f"  {i}. {wr['title']}{src}")
+                parts.append(f"     {wr['body'][:400]}")
+
+    # Section 4: Reddit discussions
+    if r.reddit_results:
+        deep_urls = {a["url"] for a in r.deep_articles}
+        remaining_reddit = [rr for rr in r.reddit_results if rr["url"] not in deep_urls]
+        if remaining_reddit:
+            parts.append(f"\n## Reddit Tartışmaları:")
+            for i, rr in enumerate(remaining_reddit[:4], 1):
+                parts.append(f"  {i}. {rr['title']}")
+                parts.append(f"     {rr['body'][:300]}")
+
+    # Section 5: X/Twitter opinions
     if r.related_tweets:
         parts.append(f"\n## X'te Diğer Yorumlar:")
         for i, rt in enumerate(r.related_tweets[:5], 1):
-            parts.append(f"  {i}. @{rt['author']} ({rt['likes']} beğeni): {rt['text'][:180]}")
+            parts.append(f"  {i}. @{rt['author']} ({rt['likes']} beğeni): {rt['text'][:200]}")
 
     return "\n".join(parts)

@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import math
 from pathlib import Path
+from twitter_automation import generate_gdp_tweet, post_tweet
 
 # Set the title and favicon that appear in the Browser's tab bar.
 st.set_page_config(
@@ -149,3 +150,46 @@ for i, country in enumerate(selected_countries):
             delta=growth,
             delta_color=delta_color
         )
+
+''
+''
+
+# -----------------------------------------------------------------------------
+# Twitter Automation Section
+
+st.header('Share on Twitter / X', divider='gray')
+
+''
+
+tweet_text = generate_gdp_tweet(
+    countries=selected_countries if selected_countries else None,
+    year=to_year,
+)
+
+st.subheader('Tweet Preview')
+st.code(tweet_text, language=None)
+st.caption(f'{len(tweet_text)}/280 characters')
+
+col_post, col_info = st.columns([1, 2])
+
+with col_post:
+    post_button = st.button('Post to Twitter / X', type='primary', icon='🐦')
+
+with col_info:
+    st.info(
+        'Twitter API credentials must be configured as environment variables '
+        'or Streamlit Secrets (TWITTER_API_KEY, TWITTER_API_SECRET, '
+        'TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET).',
+        icon='ℹ️',
+    )
+
+if post_button:
+    try:
+        result = post_tweet(tweet_text)
+        st.success(f'Tweet posted successfully! [View tweet]({result["url"]})', icon='✅')
+    except ImportError:
+        st.error('tweepy is not installed. Run: pip install tweepy', icon='❌')
+    except ValueError as e:
+        st.error(f'Missing credentials: {e}', icon='🔑')
+    except Exception as e:
+        st.error(f'Failed to post tweet: {e}', icon='❌')

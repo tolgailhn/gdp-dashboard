@@ -1110,14 +1110,14 @@ def render_trending_page():
 
 
 def render_discover_page():
-    """AI/Futbol içerik keşfet - Ton seçimi + Araştırma + Model bilgisi"""
+    """AI/Futbol içerik keşfet - XPatla benzeri sistem v4"""
     st.markdown("## 🔍 AI Haber Keşfet")
 
     # AI Content Engine'i yükle
     try:
         from src.content.ai_content_engine import (
-            AIContentEngine, AI_ACCOUNTS, FOOTBALL_ACCOUNTS,
-            WRITING_STYLES, AVAILABLE_MODELS
+            AIContentEngine, WRITING_STYLES, AVAILABLE_MODELS,
+            CONTENT_FORMATS, DEFAULT_AI_ACCOUNTS
         )
         engine = AIContentEngine()
         engine_available = True
@@ -1128,227 +1128,430 @@ def render_discover_page():
 
     # Üst bilgi - Model bilgisi
     model_info = AVAILABLE_MODELS.get(engine.current_model, {})
-    st.caption(f"🤖 Model: **{model_info.get('name', 'Claude Sonnet')}** ({model_info.get('provider', 'Anthropic')})")
+    st.caption(f"🤖 Model: **{model_info.get('name', 'Claude Sonnet')}** | 🔧 XPatla v4")
 
-    # Kategori seçimi
-    st.markdown("### 📂 Kategori")
-    col1, col2 = st.columns(2)
+    # Tab'lar: Keşfet | Hesaplar
+    tab1, tab2 = st.tabs(["🔍 Keşfet", "👥 Takip Edilen Hesaplar"])
 
-    with col1:
-        ai_selected = st.session_state.get("discover_category", "ai") == "ai"
-        if st.button("🤖 AI Haberleri", type="primary" if ai_selected else "secondary", use_container_width=True):
-            st.session_state.discover_category = "ai"
-            st.session_state.discover_tweets = []
-            st.rerun()
+    with tab2:
+        # Hesap yönetimi
+        render_account_management(engine)
 
-    with col2:
-        football_selected = st.session_state.get("discover_category", "ai") == "football"
-        if st.button("⚽ Futbol", type="primary" if football_selected else "secondary", use_container_width=True):
-            st.session_state.discover_category = "football"
-            st.session_state.discover_tweets = []
-            st.rerun()
+    with tab1:
+        # Kategori seçimi
+        st.markdown("### 📂 Kategori")
+        col1, col2 = st.columns(2)
 
-    # Zaman aralığı
-    hours = st.select_slider(
-        "⏰ Zaman Aralığı",
-        options=[6, 12, 24, 48],
-        value=12,
-        format_func=lambda x: f"Son {x} saat"
-    )
-
-    # Yazım stili seçimi
-    st.markdown("### ✍️ Yazım Stili")
-    style_options = list(WRITING_STYLES.keys())
-    style_names = [WRITING_STYLES[s]["name"] for s in style_options]
-
-    selected_style_idx = st.selectbox(
-        "Ton seç:",
-        range(len(style_options)),
-        format_func=lambda i: style_names[i],
-        index=0,
-        label_visibility="collapsed"
-    )
-    selected_style = style_options[selected_style_idx]
-    style_info = WRITING_STYLES[selected_style]
-
-    # Stil açıklaması
-    st.caption(f"_{style_info['description']}_")
-
-    with st.expander("📝 Stil Örneği"):
-        st.code(style_info["example"], language=None)
-
-    st.markdown("---")
-
-    # İçerik yükle butonu
-    category = st.session_state.get("discover_category", "ai")
-
-    if st.button("🔄 AI Haberlerini Tara", type="primary", use_container_width=True):
-        with st.spinner(f"🔍 {category.upper()} haberleri aranıyor (son {hours} saat)..."):
-            try:
-                if category == "ai":
-                    tweets, error = engine.get_ai_news(hours=hours, limit=15)
-                else:
-                    tweets, error = engine.get_football_content(hours=hours, limit=15)
-
-                st.session_state.discover_tweets = tweets
-                st.session_state.selected_style = selected_style
-                st.session_state.discover_error = error
-            except Exception as e:
-                tweets = []
+        with col1:
+            ai_selected = st.session_state.get("discover_category", "ai") == "ai"
+            if st.button("🤖 AI Haberleri", type="primary" if ai_selected else "secondary", use_container_width=True):
+                st.session_state.discover_category = "ai"
                 st.session_state.discover_tweets = []
-                st.session_state.discover_error = str(e)
+                st.rerun()
+
+        with col2:
+            football_selected = st.session_state.get("discover_category", "ai") == "football"
+            if st.button("⚽ Futbol", type="primary" if football_selected else "secondary", use_container_width=True):
+                st.session_state.discover_category = "football"
+                st.session_state.discover_tweets = []
+                st.rerun()
+
+        # Zaman aralığı
+        hours = st.select_slider(
+            "⏰ Zaman Aralığı",
+            options=[6, 12, 24, 48],
+            value=12,
+            format_func=lambda x: f"Son {x} saat"
+        )
+
+        # Ayarlar - Stil ve Format
+        with st.expander("⚙️ Yazım Ayarları", expanded=False):
+            # Yazım stili
+            st.markdown("**✍️ Yazım Stili**")
+            style_options = list(WRITING_STYLES.keys())
+            style_names = [WRITING_STYLES[s]["name"] for s in style_options]
+
+            selected_style_idx = st.selectbox(
+                "Ton seç:",
+                range(len(style_options)),
+                format_func=lambda i: style_names[i],
+                index=0,
+                label_visibility="collapsed"
+            )
+            selected_style = style_options[selected_style_idx]
+            style_info = WRITING_STYLES[selected_style]
+            st.caption(f"_{style_info['description']}_")
+
+            # Format seçimi (XPatla benzeri)
+            st.markdown("**📏 İçerik Formatı**")
+            format_options = list(CONTENT_FORMATS.keys())
+            format_names = {
+                "micro": "📱 Micro (280 kar) - Kısa ve öz",
+                "standard": "📝 Standard (500 kar) - Normal tweet",
+                "extended": "📄 Extended (1000 kar) - Uzun tweet",
+                "thunder": "⚡ Thunder (1500 kar) - Derinlemesine",
+                "mega": "🔥 Mega (2000 kar) - Kapsamlı içerik",
+            }
+
+            selected_format = st.selectbox(
+                "Format:",
+                format_options,
+                format_func=lambda x: format_names.get(x, x),
+                index=3,  # thunder varsayılan
+                label_visibility="collapsed"
+            )
+
+            with st.expander("📝 Stil Örneği"):
+                st.code(style_info["example"], language=None)
+
+        st.markdown("---")
+
+        # İçerik yükle butonu
+        category = st.session_state.get("discover_category", "ai")
+
+        if st.button("🔄 Haberleri Tara", type="primary", use_container_width=True):
+            with st.spinner(f"🔍 {category.upper()} haberleri aranıyor (son {hours} saat)...\n\n⚡ gm/hello gibi tweetler filtreleniyor"):
+                try:
+                    if category == "ai":
+                        tweets, error = engine.get_ai_news(hours=hours, limit=15)
+                    else:
+                        tweets, error = engine.get_football_news(hours=hours, limit=15)
+
+                    st.session_state.discover_tweets = tweets
+                    st.session_state.selected_style = selected_style
+                    st.session_state.selected_format = selected_format
+                    st.session_state.discover_error = error
+                except Exception as e:
+                    tweets = []
+                    st.session_state.discover_tweets = []
+                    st.session_state.discover_error = str(e)
+
+            if tweets:
+                st.success(f"✅ {len(tweets)} değerli haber bulundu! (boş tweetler filtrelendi)")
+            else:
+                error_msg = st.session_state.get("discover_error", "")
+                if error_msg:
+                    st.error(f"❌ Hata: {error_msg}")
+                st.warning("Haber bulunamadı. Token'ları kontrol et veya zaman aralığını artır.")
+            st.rerun()
+
+        # Sonuçları göster
+        tweets = st.session_state.get("discover_tweets", [])
+        current_style = st.session_state.get("selected_style", "samimi")
+        current_format = st.session_state.get("selected_format", "thunder")
 
         if tweets:
-            st.success(f"✅ {len(tweets)} AI haberi bulundu!")
-        else:
-            error_msg = st.session_state.get("discover_error", "")
-            if error_msg:
-                st.error(f"❌ Hata: {error_msg}")
-            st.warning("Haber bulunamadı. Token'ları kontrol et veya zaman aralığını artır.")
-        st.rerun()
+            st.markdown(f"### 📰 Haberler ({len(tweets)})")
+            st.caption("💡 gm, hello gibi içerikler otomatik filtrelendi")
 
-    # Sonuçları göster
-    tweets = st.session_state.get("discover_tweets", [])
-    current_style = st.session_state.get("selected_style", "samimi")
+            for i, tweet in enumerate(tweets):
+                with st.container():
+                    # Tweet kartı
+                    engagement = f"❤️ {tweet.likes:,} | 🔄 {tweet.retweets:,}"
 
-    if tweets:
-        st.markdown(f"### 📰 AI Haberleri ({len(tweets)})")
+                    # Değerli içerik badge
+                    valuable_badge = "⭐ Değerli" if getattr(tweet, 'is_valuable', False) else ""
 
-        for i, tweet in enumerate(tweets):
-            with st.container():
-                # Tweet kartı
-                engagement = f"❤️ {tweet.likes:,} | 🔄 {tweet.retweets:,}"
-
-                # AI haberi badge
-                ai_badge = "🔥 AI Haberi" if getattr(tweet, 'is_ai_news', False) else ""
-
-                st.markdown(f"""
-                <div style="
-                    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-                    border-left: 4px solid {'#10B981' if ai_badge else '#1DA1F2'};
-                    padding: 15px;
-                    margin: 10px 0;
-                    border-radius: 0 12px 12px 0;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-                ">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #657786; margin-bottom: 8px;">
-                        <span><strong>@{tweet.author}</strong></span>
-                        <span style="color: #10B981;">{ai_badge}</span>
+                    st.markdown(f"""
+                    <div style="
+                        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+                        border-left: 4px solid {'#10B981' if valuable_badge else '#1DA1F2'};
+                        padding: 15px;
+                        margin: 10px 0;
+                        border-radius: 0 12px 12px 0;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                    ">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #657786; margin-bottom: 8px;">
+                            <span><strong>@{tweet.author}</strong></span>
+                            <span style="color: #10B981;">{valuable_badge}</span>
+                        </div>
+                        <p style="font-size: 1rem; margin-bottom: 10px; line-height: 1.5;">{tweet.text[:400]}{'...' if len(tweet.text) > 400 else ''}</p>
+                        <div style="color: #17bf63; font-size: 0.85rem;">{engagement}</div>
                     </div>
-                    <p style="font-size: 1rem; margin-bottom: 10px; line-height: 1.5;">{tweet.text[:400]}{'...' if len(tweet.text) > 400 else ''}</p>
-                    <div style="color: #17bf63; font-size: 0.85rem;">{engagement}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
 
-                col1, col2, col3 = st.columns(3)
+                    # Butonlar - 4 sütun
+                    col1, col2, col3, col4 = st.columns(4)
 
-                with col1:
-                    if st.button("✨ Araştır & Yaz", key=f"viral_{i}", use_container_width=True):
-                        with st.spinner("🔍 Konu araştırılıyor..."):
-                            # Araştırma + Yazma
-                            viral = engine.rewrite_viral(
-                                tweet,
-                                style=current_style,
-                                do_research=True
-                            )
-                            st.session_state.pending_viral = viral
-                            st.session_state.pending_tweet_idx = i
-                        st.rerun()
-
-                with col2:
-                    if st.button("⚡ Hızlı Yaz", key=f"quick_{i}", use_container_width=True):
-                        with st.spinner("✍️ Yazılıyor..."):
-                            # Araştırma olmadan hızlı yaz
-                            viral = engine.rewrite_viral(
-                                tweet,
-                                style=current_style,
-                                do_research=False
-                            )
-                            st.session_state.pending_viral = viral
-                            st.session_state.pending_tweet_idx = i
-                        st.rerun()
-
-                with col3:
-                    st.markdown(f"[🔗 Kaynak]({tweet.url})")
-
-                # Viral preview göster
-                if st.session_state.get("pending_tweet_idx") == i and st.session_state.get("pending_viral"):
-                    viral = st.session_state.pending_viral
-
-                    st.markdown("---")
-                    st.markdown("#### ✅ Yeniden Yazıldı")
-
-                    # Model ve stil bilgisi
-                    st.caption(f"🤖 Model: **{viral.model_used}** | ✍️ Stil: **{WRITING_STYLES.get(viral.style_used, {}).get('name', viral.style_used)}**")
-
-                    # Araştırma sonucu göster
-                    if viral.research:
-                        with st.expander("🔍 Araştırma Özeti", expanded=False):
-                            st.markdown(viral.research.summary)
-                            if viral.research.key_points:
-                                st.markdown("**Önemli Noktalar:**")
-                                for point in viral.research.key_points[:3]:
-                                    st.markdown(f"• {point}")
-
-                    # Düzenlenebilir alan
-                    edited_text = st.text_area(
-                        "Tweet metni (düzenleyebilirsin):",
-                        value=viral.rewritten_text,
-                        height=250,
-                        key=f"edit_viral_{i}"
-                    )
-
-                    # Karakter sayısı
-                    char_count = len(edited_text)
-                    char_color = "green" if char_count <= 2000 else "red"
-                    st.caption(f"Karakter: :{char_color}[{char_count}] / 2000")
-
-                    # Viral skor
-                    col_score, col_info = st.columns([1, 2])
-                    with col_score:
-                        st.progress(viral.viral_score / 100)
-                    with col_info:
-                        st.caption(f"Viral Potansiyel: **{viral.viral_score:.0f}/100**")
-
-                    # Butonlar
-                    approve_col, regen_col, reject_col = st.columns(3)
-
-                    with approve_col:
-                        if st.button("✅ Onayla", key=f"approve_{i}", type="primary", use_container_width=True):
-                            st.session_state.current_tweet = edited_text
-                            st.session_state.pending_viral = None
-                            st.session_state.pending_tweet_idx = None
-                            st.session_state.page = "main"
+                    with col1:
+                        if st.button("💬 Quote Tweet", key=f"quote_{i}", use_container_width=True):
+                            with st.spinner("🔍 Araştırılıyor + Quote yazılıyor..."):
+                                quote = engine.generate_quote_tweet(
+                                    tweet,
+                                    style=current_style,
+                                    format_key=current_format,
+                                    do_research=True
+                                )
+                                st.session_state.pending_quote = quote
+                                st.session_state.pending_tweet_idx = i
+                                st.session_state.pending_type = "quote"
                             st.rerun()
 
-                    with regen_col:
-                        if st.button("🔄 Yeniden Yaz", key=f"regen_{i}", use_container_width=True):
-                            with st.spinner("Yeniden yazılıyor..."):
+                    with col2:
+                        if st.button("✨ Yeniden Yaz", key=f"viral_{i}", use_container_width=True):
+                            with st.spinner("🔍 Araştırılıyor + Yazılıyor..."):
                                 viral = engine.rewrite_viral(
                                     tweet,
                                     style=current_style,
+                                    format_key=current_format,
                                     do_research=True
                                 )
                                 st.session_state.pending_viral = viral
+                                st.session_state.pending_tweet_idx = i
+                                st.session_state.pending_type = "viral"
                             st.rerun()
 
-                    with reject_col:
-                        if st.button("❌ İptal", key=f"reject_{i}", use_container_width=True):
-                            st.session_state.pending_viral = None
-                            st.session_state.pending_tweet_idx = None
+                    with col3:
+                        if st.button("⚡ Hızlı", key=f"quick_{i}", use_container_width=True):
+                            with st.spinner("✍️ Yazılıyor..."):
+                                viral = engine.rewrite_viral(
+                                    tweet,
+                                    style=current_style,
+                                    format_key=current_format,
+                                    do_research=False
+                                )
+                                st.session_state.pending_viral = viral
+                                st.session_state.pending_tweet_idx = i
+                                st.session_state.pending_type = "viral"
                             st.rerun()
 
-                st.markdown("---")
+                    with col4:
+                        st.markdown(f"[🔗]({tweet.url})")
 
+                    # Quote Tweet Preview
+                    if st.session_state.get("pending_tweet_idx") == i and st.session_state.get("pending_type") == "quote":
+                        quote = st.session_state.get("pending_quote")
+                        if quote:
+                            render_quote_preview(quote, i, engine, current_style, current_format, WRITING_STYLES, CONTENT_FORMATS)
+
+                    # Viral Rewrite Preview
+                    if st.session_state.get("pending_tweet_idx") == i and st.session_state.get("pending_type") == "viral":
+                        viral = st.session_state.get("pending_viral")
+                        if viral:
+                            render_viral_preview(viral, i, engine, current_style, current_format, WRITING_STYLES, CONTENT_FORMATS, tweet)
+
+                    st.markdown("---")
+
+        else:
+            st.info("👆 'Haberleri Tara' butonuna tıkla!")
+            st.markdown("""
+            **Ne aranacak:**
+            - 🚀 Yeni model duyuruları (GPT-5, Claude 4, Gemini 2...)
+            - 📊 Benchmark sonuçları
+            - 🔧 Özellik güncellemeleri
+            - 📰 AI şirketlerinden haberler
+
+            **Otomatik filtreleme:**
+            - ❌ gm, hello, günaydın gibi boş tweetler atlanır
+            - ✅ Sadece değerli içerik gösterilir
+            """)
+
+
+def render_account_management(engine):
+    """Takip edilen hesapları yönet"""
+    st.markdown("### 👥 Takip Edilen Hesaplar")
+    st.caption("Bu hesaplardan içerik çekilir. Hesap ekle/çıkar.")
+
+    # Kategori seç
+    category = st.selectbox(
+        "Kategori:",
+        ["ai", "football"],
+        format_func=lambda x: "🤖 AI Hesapları" if x == "ai" else "⚽ Futbol Hesapları"
+    )
+
+    # Mevcut hesapları göster
+    accounts = engine.get_tracked_accounts(category=category)
+
+    if accounts:
+        for acc in accounts:
+            col1, col2, col3 = st.columns([3, 1, 1])
+
+            with col1:
+                status = "✓" if acc.enabled else "✗"
+                color = "green" if acc.enabled else "gray"
+                st.markdown(f":{color}[{status}] **@{acc.username}** - {acc.description}")
+
+            with col2:
+                if st.button("🔄", key=f"toggle_{acc.username}", help="Aç/Kapat"):
+                    engine.toggle_account(acc.username)
+                    st.rerun()
+
+            with col3:
+                if st.button("🗑️", key=f"remove_{acc.username}", help="Kaldır"):
+                    engine.remove_account(acc.username)
+                    st.success(f"@{acc.username} kaldırıldı")
+                    st.rerun()
     else:
-        st.info("👆 'AI Haberlerini Tara' butonuna tıkla!")
-        st.markdown("""
-        **Ne aranacak:**
-        - 🚀 Yeni model duyuruları (GPT-5, Claude 4, Gemini 2...)
-        - 📊 Benchmark sonuçları
-        - 🔧 Özellik güncellemeleri
-        - 📰 AI şirketlerinden haberler
-        """)
+        st.info("Bu kategoride hesap yok")
+
+    # Yeni hesap ekle
+    st.markdown("---")
+    st.markdown("**➕ Yeni Hesap Ekle**")
+
+    new_username = st.text_input("Kullanıcı adı (@olmadan):", placeholder="OpenAI")
+    new_description = st.text_input("Açıklama (opsiyonel):", placeholder="GPT modelleri")
+
+    if st.button("➕ Ekle", type="primary"):
+        if new_username:
+            acc = engine.add_account(
+                username=new_username,
+                category=category,
+                description=new_description
+            )
+            st.success(f"✅ @{acc.username} eklendi!")
+            st.rerun()
+        else:
+            st.warning("Kullanıcı adı gir")
+
+
+def render_quote_preview(quote, idx, engine, current_style, current_format, WRITING_STYLES, CONTENT_FORMATS):
+    """Quote tweet preview"""
+    st.markdown("---")
+    st.markdown("#### 💬 Quote Tweet Oluşturuldu")
+
+    # Meta bilgiler
+    format_info = CONTENT_FORMATS.get(quote.format_used)
+    max_chars = format_info.max_chars if format_info else 1500
+
+    st.caption(f"🤖 **{quote.model_used}** | ✍️ **{WRITING_STYLES.get(quote.style_used, {}).get('name', quote.style_used)}** | 📏 **{quote.format_used.upper()}**")
+
+    # Araştırma sonucu
+    if quote.research:
+        with st.expander("🔍 Araştırma Detayları", expanded=True):
+            st.markdown(quote.research.summary[:500])
+            if quote.research.technical_details:
+                st.markdown("**Teknik Detaylar:**")
+                for detail in quote.research.technical_details[:3]:
+                    st.markdown(f"• {detail}")
+            if quote.research.key_points:
+                st.markdown("**Önemli Noktalar:**")
+                for point in quote.research.key_points[:3]:
+                    st.markdown(f"• {point}")
+
+    # Quote tweet metni
+    edited_quote = st.text_area(
+        "Quote Tweet (düzenleyebilirsin):",
+        value=quote.quote_text,
+        height=200,
+        key=f"edit_quote_{idx}"
+    )
+
+    # Karakter ve skor
+    char_count = len(edited_quote)
+    char_color = "green" if char_count <= max_chars else "red"
+    st.caption(f"Karakter: :{char_color}[{char_count}] / {max_chars}")
+
+    col_score, col_info = st.columns([1, 2])
+    with col_score:
+        st.progress(quote.viral_score / 100)
+    with col_info:
+        st.caption(f"Viral Skor: **{quote.viral_score:.0f}/100**")
+
+    # Orijinal tweet bilgisi
+    st.caption(f"📎 Quote edilecek: @{quote.original.author}")
+
+    # Butonlar
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if st.button("✅ Onayla", key=f"approve_quote_{idx}", type="primary", use_container_width=True):
+            st.session_state.current_tweet = edited_quote
+            st.session_state.quote_url = quote.original.url
+            st.session_state.pending_quote = None
+            st.session_state.pending_tweet_idx = None
+            st.session_state.pending_type = None
+            st.session_state.page = "main"
+            st.rerun()
+
+    with col2:
+        if st.button("🔄 Yeniden", key=f"regen_quote_{idx}", use_container_width=True):
+            with st.spinner("Yeniden yazılıyor..."):
+                new_quote = engine.generate_quote_tweet(
+                    quote.original,
+                    style=current_style,
+                    format_key=current_format,
+                    do_research=True
+                )
+                st.session_state.pending_quote = new_quote
+            st.rerun()
+
+    with col3:
+        if st.button("❌ İptal", key=f"reject_quote_{idx}", use_container_width=True):
+            st.session_state.pending_quote = None
+            st.session_state.pending_tweet_idx = None
+            st.session_state.pending_type = None
+            st.rerun()
+
+
+def render_viral_preview(viral, idx, engine, current_style, current_format, WRITING_STYLES, CONTENT_FORMATS, original_tweet):
+    """Viral tweet preview"""
+    st.markdown("---")
+    st.markdown("#### ✨ Yeniden Yazıldı")
+
+    # Meta bilgiler
+    format_info = CONTENT_FORMATS.get(viral.format_used)
+    max_chars = format_info.max_chars if format_info else 1500
+
+    st.caption(f"🤖 **{viral.model_used}** | ✍️ **{WRITING_STYLES.get(viral.style_used, {}).get('name', viral.style_used)}** | 📏 **{viral.format_used.upper()}**")
+
+    # Araştırma sonucu
+    if viral.research:
+        with st.expander("🔍 Araştırma Özeti", expanded=False):
+            st.markdown(viral.research.summary[:400])
+            if viral.research.key_points:
+                st.markdown("**Önemli Noktalar:**")
+                for point in viral.research.key_points[:3]:
+                    st.markdown(f"• {point}")
+
+    # Tweet metni
+    edited_text = st.text_area(
+        "Tweet metni (düzenleyebilirsin):",
+        value=viral.rewritten_text,
+        height=250,
+        key=f"edit_viral_{idx}"
+    )
+
+    # Karakter ve skor
+    char_count = len(edited_text)
+    char_color = "green" if char_count <= max_chars else "red"
+    st.caption(f"Karakter: :{char_color}[{char_count}] / {max_chars}")
+
+    col_score, col_info = st.columns([1, 2])
+    with col_score:
+        st.progress(viral.viral_score / 100)
+    with col_info:
+        st.caption(f"Viral Skor: **{viral.viral_score:.0f}/100**")
+
+    # Butonlar
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if st.button("✅ Onayla", key=f"approve_viral_{idx}", type="primary", use_container_width=True):
+            st.session_state.current_tweet = edited_text
+            st.session_state.pending_viral = None
+            st.session_state.pending_tweet_idx = None
+            st.session_state.pending_type = None
+            st.session_state.page = "main"
+            st.rerun()
+
+    with col2:
+        if st.button("🔄 Yeniden", key=f"regen_viral_{idx}", use_container_width=True):
+            with st.spinner("Yeniden yazılıyor..."):
+                new_viral = engine.rewrite_viral(
+                    original_tweet,
+                    style=current_style,
+                    format_key=current_format,
+                    do_research=True
+                )
+                st.session_state.pending_viral = new_viral
+            st.rerun()
+
+    with col3:
+        if st.button("❌ İptal", key=f"reject_viral_{idx}", use_container_width=True):
+            st.session_state.pending_viral = None
+            st.session_state.pending_tweet_idx = None
+            st.session_state.pending_type = None
+            st.rerun()
 
 
 def render_xpatla_page():

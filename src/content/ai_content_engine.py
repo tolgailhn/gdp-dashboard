@@ -11,7 +11,9 @@ AI Content Engine v4 - XPatla Benzeri Viral Sistem
 - Gelişmiş viral skor
 - Demo mod (test için)
 
-Kurulum: npm install -g @steipete/bird
+API Seçenekleri:
+- Twitter API v2 (Bearer Token) - Önerilen
+- Cookie Auth (auth_token + ct0) - Yedek
 """
 
 import requests
@@ -520,12 +522,21 @@ class AIContentEngine:
     - Format seçimi (micro → mega)
     """
 
-    def __init__(self, auth_token: str = None, ct0: str = None):
-        # Token'lar boş string olabilir, None kontrolü yap
+    def __init__(self, auth_token: str = None, ct0: str = None, bearer_token: str = None):
+        # Cookie auth (eski yöntem - yedek)
         self.auth_token = auth_token if auth_token else ""
         self.ct0 = ct0 if ct0 else ""
 
+        # Twitter API v2 Bearer Token (resmi API)
+        # URL decode yap (eğer encoded ise)
+        if bearer_token:
+            self.bearer_token = urllib.parse.unquote(bearer_token)
+        else:
+            self.bearer_token = ""
+
         self.session = requests.Session()
+
+        # Cookie auth headers (yedek)
         self.base_headers = {
             "Authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs=1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA",
             "Cookie": f"auth_token={self.auth_token}; ct0={self.ct0}",
@@ -537,6 +548,13 @@ class AIContentEngine:
             "Accept": "*/*",
         }
 
+        # Twitter API v2 headers (resmi)
+        self.api_v2_headers = {
+            "Authorization": f"Bearer {self.bearer_token}",
+            "User-Agent": "GDP-Dashboard/1.0",
+            "Accept": "application/json",
+        }
+
         # Hesap yöneticisi
         self.account_manager = AccountManager()
 
@@ -545,50 +563,85 @@ class AIContentEngine:
         self.current_format = "thunder"
         self.current_style = "samimi"
 
+        # API modu: "v2" (resmi) veya "cookie" (yedek)
+        self.api_mode = "v2" if self.bearer_token else "cookie"
+
     # ==========================================================================
     # BAĞLANTI TESTİ
     # ==========================================================================
 
     def test_connection(self) -> Tuple[bool, str]:
         """
-        Twitter/X bağlantısını test et (Direct API).
+        Twitter/X bağlantısını test et.
 
         Returns:
             (success, message)
         """
-        # Token kontrolü
-        if not self.auth_token or not self.ct0:
-            return False, "❌ Token'lar ayarlanmamış. X Credentials'dan token gir."
+        # 1. Önce Twitter API v2 ile dene (resmi API)
+        if self.bearer_token:
+            try:
+                url = "https://api.twitter.com/2/tweets/search/recent"
+                params = {"query": "AI", "max_results": "10"}
+                response = self.session.get(
+                    url,
+                    params=params,
+                    headers=self.api_v2_headers,
+                    timeout=10
+                )
 
-        try:
-            url = "https://twitter.com/i/api/2/search/adaptive.json"
-            params = {"q": "test", "count": "1"}
-            response = self.session.get(url, params=params, headers=self.base_headers, timeout=10)
+                if response.status_code == 200:
+                    self.api_mode = "v2"
+                    return True, "✅ Twitter API v2 bağlantısı başarılı!"
+                elif response.status_code == 401:
+                    return False, "❌ Bearer Token geçersiz. Developer Portal'dan kontrol et."
+                elif response.status_code == 403:
+                    return False, "❌ API erişimi reddedildi. App ayarlarını kontrol et."
+                elif response.status_code == 429:
+                    return False, "⚠️ Rate limit - biraz bekle (15 dk)"
+                else:
+                    # v2 başarısız, cookie auth dene
+                    pass
 
-            if response.status_code == 200:
-                return True, "✅ Bağlantı başarılı!"
-            elif response.status_code == 401:
-                return False, "❌ Token geçersiz veya süresi dolmuş. Yeni token al."
-            elif response.status_code == 429:
-                return False, "⚠️ Rate limit - biraz bekle ve tekrar dene"
-            elif response.status_code == 403:
-                return False, "❌ Erişim reddedildi. Token'ları kontrol et."
-            else:
-                return False, f"❌ API hatası: {response.status_code}"
+            except Exception as e:
+                logger.warning(f"API v2 test failed: {e}")
 
-        except requests.exceptions.Timeout:
-            return False, "❌ Bağlantı zaman aşımı"
-        except requests.exceptions.ConnectionError:
-            return False, "❌ Bağlantı hatası - internet bağlantını kontrol et"
-        except Exception as e:
-            return False, f"❌ Hata: {str(e)[:50]}"
+        # 2. Cookie auth ile dene (yedek)
+        if self.auth_token and self.ct0:
+            try:
+                url = "https://twitter.com/i/api/2/search/adaptive.json"
+                params = {"q": "test", "count": "1"}
+                response = self.session.get(url, params=params, headers=self.base_headers, timeout=10)
 
-    def update_tokens(self, auth_token: str, ct0: str):
+                if response.status_code == 200:
+                    self.api_mode = "cookie"
+                    return True, "✅ Cookie auth bağlantısı başarılı!"
+                elif response.status_code == 401:
+                    return False, "❌ Cookie token geçersiz veya süresi dolmuş."
+                elif response.status_code == 429:
+                    return False, "⚠️ Rate limit - biraz bekle"
+                elif response.status_code == 403:
+                    return False, "❌ Erişim reddedildi."
+                else:
+                    return False, f"❌ API hatası: {response.status_code}"
+
+            except Exception as e:
+                return False, f"❌ Cookie auth hatası: {str(e)[:50]}"
+
+        return False, "❌ Token ayarlanmamış. Bearer Token veya Cookie Token gir."
+
+    def update_tokens(self, auth_token: str = None, ct0: str = None, bearer_token: str = None):
         """Token'ları güncelle"""
-        self.auth_token = auth_token
-        self.ct0 = ct0
-        self.base_headers["Cookie"] = f"auth_token={auth_token}; ct0={ct0}"
-        self.base_headers["X-Csrf-Token"] = ct0
+        if auth_token:
+            self.auth_token = auth_token
+            self.base_headers["Cookie"] = f"auth_token={auth_token}; ct0={self.ct0}"
+        if ct0:
+            self.ct0 = ct0
+            self.base_headers["Cookie"] = f"auth_token={self.auth_token}; ct0={ct0}"
+            self.base_headers["X-Csrf-Token"] = ct0
+        if bearer_token:
+            self.bearer_token = urllib.parse.unquote(bearer_token)
+            self.api_v2_headers["Authorization"] = f"Bearer {self.bearer_token}"
+            self.api_mode = "v2"
 
     # ==========================================================================
     # HESAP YÖNETİMİ
@@ -1110,12 +1163,128 @@ Türkçe, doğal, insansı yaz. Sadece tweet metnini ver."""
     # ==========================================================================
 
     def _search_tweets(self, query: str, hours: int) -> Tuple[List[SourceTweet], str]:
-        """Tweet ara - Direct API"""
+        """Tweet ara - API v2 öncelikli"""
+        if self.api_mode == "v2" and self.bearer_token:
+            return self._search_with_api_v2(query, hours)
         return self._search_with_api(query, hours)
 
     def _get_user_tweets(self, username: str, hours: int) -> Tuple[List[SourceTweet], str]:
-        """Kullanıcı tweetlerini çek - Direct API"""
+        """Kullanıcı tweetlerini çek - API v2 öncelikli"""
+        if self.api_mode == "v2" and self.bearer_token:
+            return self._get_user_tweets_api_v2(username, hours)
         return self._get_user_tweets_api(username, hours)
+
+    def _search_with_api_v2(self, query: str, hours: int) -> Tuple[List[SourceTweet], str]:
+        """Twitter API v2 ile arama (resmi API)"""
+        tweets = []
+        error = None
+
+        try:
+            url = "https://api.twitter.com/2/tweets/search/recent"
+            params = {
+                "query": f"{query} -is:retweet lang:en OR lang:tr",
+                "max_results": "20",
+                "tweet.fields": "created_at,public_metrics,author_id",
+                "expansions": "author_id",
+                "user.fields": "username,name",
+            }
+
+            response = self.session.get(url, params=params, headers=self.api_v2_headers, timeout=15)
+
+            if response.status_code == 200:
+                data = response.json()
+                tweets_data = data.get("data", [])
+                users_data = {u["id"]: u for u in data.get("includes", {}).get("users", [])}
+
+                for tweet_data in tweets_data[:15]:
+                    author_id = tweet_data.get("author_id", "")
+                    user_info = users_data.get(author_id, {})
+                    metrics = tweet_data.get("public_metrics", {})
+
+                    tweet = SourceTweet(
+                        id=tweet_data.get("id", ""),
+                        author=user_info.get("username", ""),
+                        author_name=user_info.get("name", ""),
+                        text=tweet_data.get("text", ""),
+                        url=f"https://twitter.com/i/status/{tweet_data.get('id', '')}",
+                        likes=metrics.get("like_count", 0),
+                        retweets=metrics.get("retweet_count", 0),
+                        replies=metrics.get("reply_count", 0),
+                        created_at=tweet_data.get("created_at", ""),
+                    )
+                    tweets.append(tweet)
+
+            elif response.status_code == 401:
+                error = "Bearer Token geçersiz"
+            elif response.status_code == 403:
+                error = "API erişimi reddedildi"
+            elif response.status_code == 429:
+                error = "Rate limit - 15 dk bekle"
+            else:
+                error = f"API v2 hatası: {response.status_code}"
+
+        except Exception as e:
+            error = str(e)[:50]
+
+        return tweets, error
+
+    def _get_user_tweets_api_v2(self, username: str, hours: int) -> Tuple[List[SourceTweet], str]:
+        """Twitter API v2 ile kullanıcı tweetleri"""
+        tweets = []
+        error = None
+
+        try:
+            # Önce user ID al
+            user_url = f"https://api.twitter.com/2/users/by/username/{username}"
+            user_response = self.session.get(user_url, headers=self.api_v2_headers, timeout=10)
+
+            if user_response.status_code != 200:
+                return [], f"Kullanıcı bulunamadı: {username}"
+
+            user_data = user_response.json().get("data", {})
+            user_id = user_data.get("id")
+
+            if not user_id:
+                return [], f"User ID alınamadı: {username}"
+
+            # Tweetleri çek
+            url = f"https://api.twitter.com/2/users/{user_id}/tweets"
+            params = {
+                "max_results": "15",
+                "tweet.fields": "created_at,public_metrics",
+                "exclude": "retweets,replies",
+            }
+
+            response = self.session.get(url, params=params, headers=self.api_v2_headers, timeout=15)
+
+            if response.status_code == 200:
+                data = response.json()
+                tweets_data = data.get("data", [])
+
+                for tweet_data in tweets_data[:10]:
+                    metrics = tweet_data.get("public_metrics", {})
+
+                    tweet = SourceTweet(
+                        id=tweet_data.get("id", ""),
+                        author=username,
+                        author_name=user_data.get("name", username),
+                        text=tweet_data.get("text", ""),
+                        url=f"https://twitter.com/{username}/status/{tweet_data.get('id', '')}",
+                        likes=metrics.get("like_count", 0),
+                        retweets=metrics.get("retweet_count", 0),
+                        created_at=tweet_data.get("created_at", ""),
+                    )
+                    tweets.append(tweet)
+
+            elif response.status_code == 429:
+                error = "Rate limit"
+            else:
+                error = f"API v2 hatası: {response.status_code}"
+
+        except Exception as e:
+            error = str(e)[:50]
+
+        return tweets, error
 
     def _search_with_api(self, query: str, hours: int) -> Tuple[List[SourceTweet], str]:
         """Direct Twitter API ile arama (bird CLI olmadan)"""

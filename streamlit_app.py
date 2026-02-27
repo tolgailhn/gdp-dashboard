@@ -712,57 +712,107 @@ def render_profile_page():
     # Twitter/X API Ayarları
     st.markdown("---")
     st.markdown("### 🔑 X/Twitter Bağlantısı")
-    st.caption("X'ten trend çekmek için auth token'larını gir")
+    st.caption("X Developer API veya Cookie Auth ile bağlan")
 
-    with st.expander("🔧 X Auth Token Ayarları", expanded=False):
-        st.markdown("""
-        **Token'ları nasıl bulursun:**
-        1. twitter.com'a giriş yap
-        2. F12 ile DevTools aç
-        3. Application > Cookies > twitter.com
-        4. `auth_token` ve `ct0` değerlerini kopyala
-        """)
+    with st.expander("🔧 X API Ayarları", expanded=False):
+        # Tab'lar: API v2 (önerilen) | Cookie Auth (yedek)
+        api_tab1, api_tab2 = st.tabs(["🚀 API v2 (Önerilen)", "🍪 Cookie Auth (Yedek)"])
 
-        auth_token = st.text_input(
-            "Auth Token",
-            type="password",
-            placeholder="auth_token cookie değeri",
-            help="twitter.com cookies'den auth_token"
-        )
+        with api_tab1:
+            st.markdown("""
+            **Twitter API v2 - Resmi Yöntem:**
+            1. [developer.twitter.com](https://developer.twitter.com) > Projects & Apps
+            2. App oluştur veya seç
+            3. Keys and Tokens > Bearer Token kopyala
+            """)
 
-        ct0_token = st.text_input(
-            "CT0 Token",
-            type="password",
-            placeholder="ct0 cookie değeri",
-            help="twitter.com cookies'den ct0 (CSRF token)"
-        )
+            bearer_token = st.text_input(
+                "Bearer Token",
+                type="password",
+                placeholder="AAAAAAAAAAAAA...",
+                help="X Developer Portal'dan Bearer Token",
+                key="bearer_token_input"
+            )
 
-        if st.button("💾 Token'ları Kaydet", use_container_width=True):
-            if auth_token and ct0_token:
-                # Environment variable olarak kaydet (session için)
-                import os
-                os.environ["TWITTER_AUTH_TOKEN"] = auth_token
-                os.environ["TWITTER_CT0"] = ct0_token
+            if st.button("💾 Bearer Token Kaydet", use_container_width=True, key="save_bearer"):
+                if bearer_token:
+                    import urllib.parse
+                    # URL decode yap
+                    decoded_token = urllib.parse.unquote(bearer_token)
+                    os.environ["TWITTER_BEARER_TOKEN"] = decoded_token
+                    st.success("✅ Bearer Token kaydedildi! API v2 kullanılacak.")
+                    st.rerun()
+                else:
+                    st.warning("Bearer Token gir")
 
-                # trending_discovery'yi güncelle
-                trending_discovery.twitter_auth_token = auth_token
-                trending_discovery.twitter_ct0 = ct0_token
+        with api_tab2:
+            st.markdown("""
+            **Cookie Auth - Yedek Yöntem:**
+            1. twitter.com'a giriş yap
+            2. F12 > Application > Cookies > twitter.com
+            3. `auth_token` ve `ct0` değerlerini kopyala
+            """)
 
-                st.success("✅ Token'lar kaydedildi! Gündem sayfasında X trendleri görünecek.")
-            else:
-                st.warning("Her iki token'ı da gir")
+            auth_token = st.text_input(
+                "Auth Token",
+                type="password",
+                placeholder="auth_token cookie değeri",
+                help="twitter.com cookies'den auth_token",
+                key="auth_token_input"
+            )
+
+            ct0_token = st.text_input(
+                "CT0 Token",
+                type="password",
+                placeholder="ct0 cookie değeri",
+                help="twitter.com cookies'den ct0 (CSRF token)",
+                key="ct0_token_input"
+            )
+
+            if st.button("💾 Cookie Token'ları Kaydet", use_container_width=True, key="save_cookies"):
+                if auth_token and ct0_token:
+                    os.environ["TWITTER_AUTH_TOKEN"] = auth_token
+                    os.environ["TWITTER_CT0"] = ct0_token
+
+                    trending_discovery.twitter_auth_token = auth_token
+                    trending_discovery.twitter_ct0 = ct0_token
+
+                    st.success("✅ Cookie Token'lar kaydedildi!")
+                else:
+                    st.warning("Her iki token'ı da gir")
+
+        # Durum göster
+        st.markdown("---")
+        st.markdown("**📊 Mevcut Durum:**")
+        bearer = os.environ.get("TWITTER_BEARER_TOKEN", "")
+        auth = os.environ.get("TWITTER_AUTH_TOKEN", "")
+        ct0 = os.environ.get("TWITTER_CT0", "")
+
+        if bearer:
+            st.success(f"✅ API v2: Bearer Token ayarlı ({bearer[:20]}...)")
+        elif auth and ct0:
+            st.info(f"🍪 Cookie Auth: Token'lar ayarlı")
+        else:
+            st.warning("❌ Hiçbir token ayarlanmamış")
 
         # Test butonu
-        if st.button("🧪 Bağlantıyı Test Et"):
-            if trending_discovery.twitter_auth_token and trending_discovery.twitter_ct0:
+        if st.button("🧪 Bağlantıyı Test Et", key="test_x_connection"):
+            if bearer or (auth and ct0):
                 with st.spinner("X'e bağlanılıyor..."):
-                    topics = trending_discovery._get_x_trends_graphql()
-                    if topics:
-                        st.success(f"✅ Bağlantı başarılı! {len(topics)} trend bulundu")
-                        for t in topics[:3]:
-                            st.markdown(f"• {t.title}")
-                    else:
-                        st.warning("Trend bulunamadı, token'ları kontrol et")
+                    try:
+                        from src.content.ai_content_engine import AIContentEngine
+                        test_engine = AIContentEngine(
+                            auth_token=auth,
+                            ct0=ct0,
+                            bearer_token=bearer
+                        )
+                        success, msg = test_engine.test_connection()
+                        if success:
+                            st.success(msg)
+                        else:
+                            st.error(msg)
+                    except Exception as e:
+                        st.error(f"Test hatası: {e}")
             else:
                 st.warning("Önce token'ları kaydet")
 
@@ -1120,7 +1170,8 @@ def render_discover_page():
             AIContentEngine, WRITING_STYLES, AVAILABLE_MODELS,
             CONTENT_FORMATS, DEFAULT_AI_ACCOUNTS
         )
-        # Token'ları al
+        # Token'ları al - Bearer Token öncelikli
+        bearer_token = os.environ.get("TWITTER_BEARER_TOKEN", "")
         auth_token = os.environ.get("TWITTER_AUTH_TOKEN", "")
         ct0_token = os.environ.get("TWITTER_CT0", "")
 
@@ -1130,25 +1181,33 @@ def render_discover_page():
         if not ct0_token and hasattr(trending_discovery, 'twitter_ct0'):
             ct0_token = trending_discovery.twitter_ct0 or ""
 
-        engine = AIContentEngine(auth_token=auth_token, ct0=ct0_token)
+        engine = AIContentEngine(
+            auth_token=auth_token,
+            ct0=ct0_token,
+            bearer_token=bearer_token
+        )
         engine_available = True
     except Exception as e:
         st.error(f"Content engine yüklenemedi: {e}")
         engine_available = False
         return
 
-    # Üst bilgi - Model bilgisi
+    # Üst bilgi - Model ve API bilgisi
     model_info = AVAILABLE_MODELS.get(engine.current_model, {})
-    st.caption(f"🤖 Model: **{model_info.get('name', 'Claude Sonnet')}** | 🔧 XPatla v4")
+    api_mode = "API v2" if engine.api_mode == "v2" else "Cookie Auth"
+    st.caption(f"🤖 Model: **{model_info.get('name', 'Claude Sonnet')}** | 🔗 {api_mode}")
 
     # Token kontrolü ve debug
-    if not auth_token or not ct0_token:
-        st.error("❌ X/Twitter token'ları ayarlanmamış! Sidebar'dan X Credentials'a git ve token'ları gir!")
-        st.info("💡 Token'lar: X.com > F12 > Application > Cookies > auth_token ve ct0")
+    if not bearer_token and (not auth_token or not ct0_token):
+        st.error("❌ X/Twitter token'ları ayarlanmamış!")
+        st.info("💡 Profil sekmesine git > X API Ayarları > Bearer Token gir")
         return
     else:
         # Debug: Token özeti göster
-        st.success(f"✅ Token'lar ayarlı: auth={auth_token[:8]}... ct0={ct0_token[:8]}...")
+        if bearer_token:
+            st.success(f"✅ API v2 aktif: Bearer Token ayarlı")
+        else:
+            st.success(f"✅ Cookie Auth: Token'lar ayarlı")
 
     # Bağlantı testi butonu
     with st.expander("🔧 Bağlantı Testi", expanded=False):
@@ -1240,12 +1299,13 @@ def render_discover_page():
         category = st.session_state.get("discover_category", "ai")
 
         if st.button("🔄 Haberleri Tara", type="primary", use_container_width=True):
-            # Token kontrolü
-            if not auth_token or not ct0_token:
-                st.error("❌ Token'lar eksik! Sidebar'dan X Credentials'a git ve token'ları gir.")
+            # Token kontrolü - Bearer Token veya Cookie Auth
+            if not bearer_token and (not auth_token or not ct0_token):
+                st.error("❌ Token'lar eksik! Profil > X API Ayarları'na git ve token gir.")
                 st.stop()
 
-            with st.spinner(f"🔍 {category.upper()} haberleri aranıyor (son {hours} saat)...\n\n⚡ bird CLI kullanılıyor..."):
+            api_info = "API v2" if bearer_token else "Direct API"
+            with st.spinner(f"🔍 {category.upper()} haberleri aranıyor ({api_info})..."):
                 try:
                     if category == "ai":
                         tweets, error = engine.get_ai_news(hours=hours, limit=15)

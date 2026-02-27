@@ -1,0 +1,24 @@
+{
+  "accounts": [
+    {"username": "OpenAI", "name": "OpenAI", "category": "Lab"},
+    {"username": "AnthropicAI", "name": "Anthropic", "category": "Lab"},
+    {"username": "GoogleDeepMind", "name": "Google DeepMind", "category": "Lab"},
+    {"username": "MetaAI", "name": "Meta AI", "category": "Lab"},
+    {"username": "MistralAI", "name": "Mistral AI", "category": "Lab"},
+    {"username": "huggingface", "name": "Hugging Face", "category": "Platform"},
+    {"username": "nvidia", "name": "NVIDIA", "category": "Hardware"},
+    {"username": "GoogleAI", "name": "Google AI", "category": "Lab"},
+    {"username": "stabilityai", "name": "Stability AI", "category": "Lab"},
+    {"username": "RunwayML", "name": "Runway", "category": "Lab"},
+    {"username": "sama", "name": "Sam Altman", "category": "Person"},
+    {"username": "kaborarpathy", "name": "Andrej Karpathy", "category": "Person"},
+    {"username": "ylaborecun", "name": "Yann LeCun", "category": "Person"},
+    {"username": "demisaborrhassabis", "name": "Demis Hassabis", "category": "Person"},
+    {"username": "daborarioamodei", "name": "Dario Amodei", "category": "Person"},
+    {"username": "Qwen_LM", "name": "Qwen", "category": "Lab"},
+    {"username": "hardmaru", "name": "hardmaru", "category": "Person"},
+    {"username": "swyx", "name": "swyx", "category": "Person"},
+    {"username": "bindureddy", "name": "Bindu Reddy", "category": "Person"},
+    {"username": "jimfan_ai", "name": "Jim Fan", "category": "Person"}
+  ]
+}

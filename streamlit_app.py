@@ -1,151 +1,206 @@
+"""
+X AI Otomasyon Dashboard - Ana Sayfa
+Twitter/X üzerinde AI gelişmelerini tarayıp doğal tweet üreten otomasyon sistemi
+"""
 import streamlit as st
-import pandas as pd
-import math
-from pathlib import Path
+import datetime
+from modules.ui_components import inject_custom_css, check_password, render_stat_box
+from modules.style_manager import load_post_history, load_draft_tweets
 
-# Set the title and favicon that appear in the Browser's tab bar.
+# Page config
 st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
+    page_title="X AI Otomasyon",
+    page_icon="🤖",
+    layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+# Custom CSS
+inject_custom_css()
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+# Authentication
+if not check_password():
+    st.stop()
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+# --- Sidebar ---
+with st.sidebar:
+    st.markdown("### 🤖 X AI Otomasyon")
+    st.markdown("---")
+    st.markdown("**Sayfalar:**")
+    st.markdown("- 🔍 **Tara** - AI gündem tarayıcı")
+    st.markdown("- ✍️ **Yaz** - Tweet yazıcı")
+    st.markdown("- ⚙️ **Ayarlar** - Sistem ayarları")
+    st.markdown("---")
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
+    # API status indicators
+    st.markdown("**API Durumu:**")
 
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
+    has_twitter = bool(st.secrets.get("twitter_bearer_token", ""))
+    has_ai = bool(st.secrets.get("anthropic_api_key", "") or st.secrets.get("openai_api_key", ""))
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
+    if has_twitter:
+        st.success("Twitter API ✓", icon="🐦")
+    else:
+        st.warning("Twitter API yapılandırılmamış", icon="⚠️")
 
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
+    if has_ai:
+        st.success("AI API ✓", icon="🧠")
+    else:
+        st.warning("AI API yapılandırılmamış", icon="⚠️")
 
-    return gdp_df
+    st.markdown("---")
+    st.caption(f"v1.0 | {datetime.datetime.now().strftime('%d.%m.%Y')}")
 
-gdp_df = get_gdp_data()
+# --- Main Dashboard ---
+st.markdown("""
+<div class="main-header">
+    <h1>🤖 X AI Otomasyon Paneli</h1>
+    <p style="color:#8899a6; font-size:16px;">
+        AI gelişmelerini tara, doğal tweet'ler üret, direkt paylaş
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
-# -----------------------------------------------------------------------------
-# Draw the actual page
+# Quick stats
+col1, col2, col3, col4 = st.columns(4)
 
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
+post_history = load_post_history()
+drafts = load_draft_tweets()
 
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
+with col1:
+    render_stat_box(str(len(post_history)), "Paylaşılan Tweet")
 
-# Add some spacing
-''
-''
+with col2:
+    render_stat_box(str(len(drafts)), "Taslak")
 
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
+with col3:
+    today_posts = len([p for p in post_history
+                       if p.get("posted_at", "").startswith(datetime.datetime.now().strftime("%Y-%m-%d"))])
+    render_stat_box(str(today_posts), "Bugünkü Paylaşım")
 
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
+with col4:
+    api_status = "Aktif" if (has_twitter and has_ai) else "Eksik"
+    render_stat_box(api_status, "API Durumu")
 
-countries = gdp_df['Country Code'].unique()
+st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
 
-if not len(countries):
-    st.warning("Select at least one country")
+# Quick actions
+st.markdown("### Hızlı İşlemler")
 
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
+col1, col2, col3 = st.columns(3)
 
-''
-''
-''
+with col1:
+    st.markdown("""
+    <div class="stat-box">
+        <div style="font-size:36px; margin-bottom:8px;">🔍</div>
+        <div style="color:#f0f0f0; font-weight:bold; font-size:16px;">AI Gündem Tara</div>
+        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+            X'te son saatlerin AI gelişmelerini bul
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Taramaya Başla", key="scan_btn", use_container_width=True, type="primary"):
+        st.switch_page("pages/1_🔍_Tara.py")
 
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
+with col2:
+    st.markdown("""
+    <div class="stat-box">
+        <div style="font-size:36px; margin-bottom:8px;">✍️</div>
+        <div style="color:#f0f0f0; font-weight:bold; font-size:16px;">Tweet Yaz</div>
+        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+            AI ile doğal tweet üret ve paylaş
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Yazmaya Başla", key="write_btn", use_container_width=True, type="primary"):
+        st.switch_page("pages/2_✍️_Yaz.py")
 
-st.header('GDP over time', divider='gray')
+with col3:
+    st.markdown("""
+    <div class="stat-box">
+        <div style="font-size:36px; margin-bottom:8px;">⚙️</div>
+        <div style="color:#f0f0f0; font-weight:bold; font-size:16px;">Ayarlar</div>
+        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+            API anahtarları ve yazım tarzı ayarları
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Ayarları Aç", key="settings_btn", use_container_width=True):
+        st.switch_page("pages/3_⚙️_Ayarlar.py")
 
-''
+st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
 
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
+# Recent activity
+st.markdown("### Son Aktiviteler")
 
-''
-''
+if post_history:
+    for entry in post_history[:5]:
+        with st.container():
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                text_preview = entry.get("text", "")[:120]
+                if len(entry.get("text", "")) > 120:
+                    text_preview += "..."
+                st.markdown(f"""
+                <div class="tweet-card" style="padding:12px 16px; margin:4px 0;">
+                    <div style="color:#f0f0f0; font-size:14px;">{text_preview}</div>
+                    <div style="color:#8899a6; font-size:12px; margin-top:6px;">
+                        {entry.get('posted_at', 'N/A')} | {entry.get('style', 'N/A')}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            with col2:
+                if entry.get("url"):
+                    st.link_button("Görüntüle", entry["url"], use_container_width=True)
+else:
+    st.info("Henüz paylaşım yapılmamış. **Tara** sayfasından başlayın!")
 
+st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
 
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
+# How to use guide
+with st.expander("📖 Nasıl Kullanılır?"):
+    st.markdown("""
+    ### Kullanım Kılavuzu
 
-st.header(f'GDP in {to_year}', divider='gray')
+    **1. API Anahtarlarını Ayarla** (⚙️ Ayarlar)
+    - Twitter/X API anahtarlarını girin (tweet okuma ve yazma için)
+    - AI API anahtarını girin (Anthropic Claude veya OpenAI)
 
-''
+    **2. AI Gündem Tara** (🔍 Tara)
+    - Zaman aralığını seçin (6/12/24 saat)
+    - "Tara" butonuna tıklayın
+    - Bulunan AI gelişmelerini inceleyin
+    - İlgilendiğiniz konuyu seçin
 
-cols = st.columns(4)
+    **3. Tweet Yaz** (✍️ Yaz)
+    - Bir konu seçin veya manuel girin
+    - Yazım tarzını seçin (Samimi, Profesyonel, Hook, Analitik)
+    - "Yaz" butonuna tıklayın
+    - Oluşturulan tweet'i düzenleyin
+    - Beğendiyseniz "Paylaş" ile X'te paylaşın
 
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
+    **4. Yazım Tarzı Eğitimi** (⚙️ Ayarlar)
+    - Kendi tweet örneklerinizi ekleyin
+    - AI tarzınızı analiz etsin
+    - Artık sizin gibi yazar!
 
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
+    ### API Anahtarları Nereden Alınır?
 
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
+    **Twitter/X API:**
+    - [developer.x.com](https://developer.x.com) adresinden başvurun
+    - Basic ($100/ay) veya Pro plan gerekli
 
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+    **AI API:**
+    - Anthropic Claude: [console.anthropic.com](https://console.anthropic.com)
+    - OpenAI: [platform.openai.com](https://platform.openai.com)
+    """)
+
+# Setup check
+if not has_twitter or not has_ai:
+    st.markdown("---")
+    st.warning("""
+    **Kurulum Gerekli:** API anahtarlarınızı yapılandırmanız gerekiyor.
+
+    Streamlit Cloud kullanıyorsanız, `.streamlit/secrets.toml` dosyasına ekleyin.
+    Lokal kullanıyorsanız, Ayarlar sayfasından girin.
+    """)

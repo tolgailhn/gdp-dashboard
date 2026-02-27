@@ -1,0 +1,32 @@
+{
+  "styles": {
+    "samimi": {
+      "name": "Samimi / Günlük",
+      "description": "Arkadaşınla sohbet eder gibi, rahat ve samimi",
+      "emoji_level": "low",
+      "formality": "casual",
+      "language_mix": "turkish_heavy"
+    },
+    "profesyonel": {
+      "name": "Profesyonel / Bilgilendirici",
+      "description": "Bilgi odaklı, profesyonel ama sıcak",
+      "emoji_level": "minimal",
+      "formality": "professional",
+      "language_mix": "balanced"
+    },
+    "hook": {
+      "name": "Hook / Viral Tarz",
+      "description": "Dikkat çekici açılış, viral potansiyeli yüksek",
+      "emoji_level": "medium",
+      "formality": "casual",
+      "language_mix": "balanced"
+    },
+    "analitik": {
+      "name": "Analitik / Derinlemesine",
+      "description": "Derinlemesine analiz, karşılaştırma ve tahminler",
+      "emoji_level": "minimal",
+      "formality": "semi-formal",
+      "language_mix": "english_heavy"
+    }
+  }
+}

@@ -221,21 +221,22 @@ class AIContentEngine:
         # Varsayılan model
         self.current_model = "claude-sonnet"
 
-    def get_ai_news(self, hours: int = 12, limit: int = 15) -> List[SourceTweet]:
+    def get_ai_news(self, hours: int = 12, limit: int = 15) -> tuple:
         """
         AI haberlerini bul - KONU BAZLI ARAMA
 
-        Hesap takibi yerine AI konularını arar:
-        - Model duyuruları
-        - Güncellemeler
-        - Önemli gelişmeler
+        Returns:
+            (tweets_list, error_message)
         """
         all_tweets = []
         seen_ids = set()
+        errors = []
 
         # 1. AI arama sorguları ile ara
-        for query in AI_SEARCH_QUERIES[:6]:  # İlk 6 sorgu
-            tweets = self._search_ai_tweets(query, hours)
+        for query in AI_SEARCH_QUERIES[:6]:
+            tweets, err = self._search_ai_tweets(query, hours)
+            if err:
+                errors.append(err)
             for tweet in tweets:
                 if tweet.id not in seen_ids:
                     seen_ids.add(tweet.id)
@@ -243,11 +244,12 @@ class AIContentEngine:
 
         # 2. Güvenilir hesaplardan da kontrol et
         for username in TRUSTED_AI_ACCOUNTS[:5]:
-            tweets = self._get_user_recent_tweets(username, hours)
+            tweets, err = self._get_user_recent_tweets(username, hours)
+            if err:
+                errors.append(err)
             for tweet in tweets:
                 if tweet.id not in seen_ids:
                     seen_ids.add(tweet.id)
-                    # AI konusu mu kontrol et
                     if self._is_ai_related(tweet.text):
                         tweet.is_ai_news = True
                         all_tweets.append(tweet)
@@ -255,13 +257,18 @@ class AIContentEngine:
         # 3. AI haberi olmayanları filtrele
         ai_tweets = [t for t in all_tweets if t.is_ai_news or self._is_ai_related(t.text)]
 
-        # 4. Engagement + AI relevance'a göre sırala
+        # 4. Sırala
         ai_tweets.sort(
             key=lambda t: (t.likes + t.retweets * 2) * (2 if t.is_ai_news else 1),
             reverse=True
         )
 
-        return ai_tweets[:limit]
+        # Hata mesajı
+        error_msg = None
+        if not ai_tweets and errors:
+            error_msg = errors[0]  # İlk hatayı göster
+
+        return ai_tweets[:limit], error_msg
 
     def _is_ai_related(self, text: str) -> bool:
         """Metin AI ile ilgili mi?"""
@@ -280,9 +287,10 @@ class AIContentEngine:
         matches = sum(1 for kw in ai_keywords if kw in text_lower)
         return matches >= 2
 
-    def _search_ai_tweets(self, query: str, hours: int) -> List[SourceTweet]:
-        """AI konulu tweet ara"""
+    def _search_ai_tweets(self, query: str, hours: int) -> tuple:
+        """AI konulu tweet ara - returns (tweets, error)"""
         tweets = []
+        error = None
 
         try:
             url = "https://twitter.com/i/api/2/search/adaptive.json"
@@ -339,18 +347,25 @@ class AIContentEngine:
                     tweets.append(tweet)
 
                 logger.info(f"'{query}' aramasından {len(tweets)} tweet bulundu")
+            elif response.status_code == 401:
+                error = "Token geçersiz veya süresi dolmuş. Yeni token al."
+            elif response.status_code == 429:
+                error = "Rate limit aşıldı. Biraz bekle."
+            else:
+                error = f"Twitter API hatası: {response.status_code}"
 
         except Exception as e:
+            error = f"Bağlantı hatası: {str(e)[:100]}"
             logger.debug(f"Arama hatası '{query}': {e}")
 
-        return tweets
+        return tweets, error
 
-    def _get_user_recent_tweets(self, username: str, hours: int) -> List[SourceTweet]:
-        """Kullanıcının son tweetlerini çek"""
+    def _get_user_recent_tweets(self, username: str, hours: int) -> tuple:
+        """Kullanıcının son tweetlerini çek - returns (tweets, error)"""
         tweets = []
+        error = None
 
         try:
-            # Basit search ile kullanıcı tweetlerini bul
             url = "https://twitter.com/i/api/2/search/adaptive.json"
 
             since_time = datetime.now() - timedelta(hours=hours)
@@ -394,15 +409,19 @@ class AIContentEngine:
                         created_at=tweet_info.get("created_at", ""),
                     )
                     tweets.append(tweet)
+            elif response.status_code == 401:
+                error = "Token geçersiz"
 
         except Exception as e:
+            error = str(e)[:50]
             logger.debug(f"@{username} hatası: {e}")
 
-        return tweets
+        return tweets, error
 
-    def get_football_content(self, hours: int = 6, limit: int = 15) -> List[SourceTweet]:
-        """Futbol haberlerini bul"""
+    def get_football_content(self, hours: int = 6, limit: int = 15) -> tuple:
+        """Futbol haberlerini bul - returns (tweets, error)"""
         all_tweets = []
+        errors = []
 
         queries = [
             "transfer news breaking",
@@ -411,11 +430,15 @@ class AIContentEngine:
         ]
 
         for query in queries:
-            tweets = self._search_ai_tweets(query, hours)
+            tweets, err = self._search_ai_tweets(query, hours)
+            if err:
+                errors.append(err)
             all_tweets.extend(tweets)
 
         all_tweets.sort(key=lambda t: t.likes + t.retweets * 2, reverse=True)
-        return all_tweets[:limit]
+
+        error_msg = errors[0] if not all_tweets and errors else None
+        return all_tweets[:limit], error_msg
 
     # ==========================================================================
     # ARAŞTIRMA

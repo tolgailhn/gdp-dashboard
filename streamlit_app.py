@@ -1184,17 +1184,26 @@ def render_discover_page():
 
     if st.button("🔄 AI Haberlerini Tara", type="primary", use_container_width=True):
         with st.spinner(f"🔍 {category.upper()} haberleri aranıyor (son {hours} saat)..."):
-            if category == "ai":
-                tweets = engine.get_ai_news(hours=hours, limit=15)
-            else:
-                tweets = engine.get_football_content(hours=hours, limit=15)
+            try:
+                if category == "ai":
+                    tweets, error = engine.get_ai_news(hours=hours, limit=15)
+                else:
+                    tweets, error = engine.get_football_content(hours=hours, limit=15)
 
-            st.session_state.discover_tweets = tweets
-            st.session_state.selected_style = selected_style
+                st.session_state.discover_tweets = tweets
+                st.session_state.selected_style = selected_style
+                st.session_state.discover_error = error
+            except Exception as e:
+                tweets = []
+                st.session_state.discover_tweets = []
+                st.session_state.discover_error = str(e)
 
         if tweets:
             st.success(f"✅ {len(tweets)} AI haberi bulundu!")
         else:
+            error_msg = st.session_state.get("discover_error", "")
+            if error_msg:
+                st.error(f"❌ Hata: {error_msg}")
             st.warning("Haber bulunamadı. Token'ları kontrol et veya zaman aralığını artır.")
         st.rerun()
 

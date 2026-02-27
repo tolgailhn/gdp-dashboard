@@ -88,8 +88,14 @@ with tab1:
 
     with col2:
         st.markdown("**AI API**")
+        minimax_key = get_secret("minimax_api_key", "")
         anthropic_key = get_secret("anthropic_api_key", "")
         openai_key = get_secret("openai_api_key", "")
+
+        if minimax_key:
+            st.success("MiniMax: Yapılandırılmış ✓")
+        else:
+            st.warning("MiniMax: Eksik")
 
         if anthropic_key:
             st.success("Anthropic Claude: Yapılandırılmış ✓")
@@ -117,6 +123,7 @@ twitter_access_token = "your_access_token"
 twitter_access_secret = "your_access_secret"
 
 # AI API Keys (en az birini doldurun)
+minimax_api_key = "your_minimax_api_key"
 anthropic_api_key = "your_anthropic_api_key"
 openai_api_key = "your_openai_api_key"
 """, language="toml")
@@ -149,8 +156,8 @@ openai_api_key = "your_openai_api_key"
 
     with col2:
         if st.button("🧠 AI API Bağlantısını Test Et", use_container_width=True):
-            test_provider = "anthropic" if anthropic_key else "openai" if openai_key else None
-            test_key = anthropic_key or openai_key
+            test_provider = "minimax" if minimax_key else "anthropic" if anthropic_key else "openai" if openai_key else None
+            test_key = minimax_key or anthropic_key or openai_key
 
             if test_provider and test_key:
                 try:
@@ -364,8 +371,13 @@ with tab4:
             if len(user_samples) < 5:
                 st.warning("En az 5 tweet örneği gerekli!")
             else:
-                ai_provider = "anthropic" if get_secret("anthropic_api_key", "") else "openai"
-                api_key = get_secret("anthropic_api_key", "") or get_secret("openai_api_key", "")
+                if get_secret("minimax_api_key", ""):
+                    ai_provider = "minimax"
+                elif get_secret("anthropic_api_key", ""):
+                    ai_provider = "anthropic"
+                else:
+                    ai_provider = "openai"
+                api_key = get_secret("minimax_api_key", "") or get_secret("anthropic_api_key", "") or get_secret("openai_api_key", "")
 
                 if not api_key:
                     st.error("AI API anahtarı gerekli!")

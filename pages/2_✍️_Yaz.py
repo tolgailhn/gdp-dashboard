@@ -153,11 +153,16 @@ with st.expander("Ek Seçenekler"):
 
     # AI Provider selection
     col1, col2 = st.columns(2)
+    provider_labels = {
+        "minimax": "MiniMax (Uygun Fiyat)",
+        "anthropic": "Anthropic Claude",
+        "openai": "OpenAI GPT",
+    }
     with col1:
         ai_provider = st.selectbox(
             "AI Sağlayıcı",
-            options=["anthropic", "openai"],
-            format_func=lambda x: "Anthropic Claude" if x == "anthropic" else "OpenAI GPT",
+            options=list(provider_labels.keys()),
+            format_func=lambda x: provider_labels[x],
             key="ai_provider"
         )
     with col2:
@@ -172,6 +177,18 @@ with st.expander("Ek Seçenekler"):
                 options=list(model_labels.keys()),
                 format_func=lambda x: model_labels[x],
                 key="ai_model_anthropic"
+            )
+        elif ai_provider == "minimax":
+            minimax_labels = {
+                "MiniMax-M2.5": "M2.5 (En Güçlü)",
+                "MiniMax-M2.5-highspeed": "M2.5 Highspeed (Hızlı)",
+                "MiniMax-M2": "M2 (Agent/Coding)",
+            }
+            ai_model = st.selectbox(
+                "Model",
+                options=list(minimax_labels.keys()),
+                format_func=lambda x: minimax_labels[x],
+                key="ai_model_minimax"
             )
         else:
             openai_labels = {
@@ -215,10 +232,13 @@ if generate_clicked or regenerate_clicked:
         st.stop()
 
     # Get API key
-    ai_provider = st.session_state.get("ai_provider", "anthropic")
+    ai_provider = st.session_state.get("ai_provider", "minimax")
     if ai_provider == "anthropic":
         api_key = get_secret("anthropic_api_key", "")
         model = st.session_state.get("ai_model_anthropic", "claude-sonnet-4-6")
+    elif ai_provider == "minimax":
+        api_key = get_secret("minimax_api_key", "")
+        model = st.session_state.get("ai_model_minimax", "MiniMax-M2.5")
     else:
         api_key = get_secret("openai_api_key", "")
         model = st.session_state.get("ai_model_openai", "gpt-4o")
@@ -374,10 +394,13 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
     with col4:
         if st.button("🔄 Yeniden Yaz", use_container_width=True, key="rewrite_btn"):
             try:
-                ai_provider = st.session_state.get("ai_provider", "anthropic")
+                ai_provider = st.session_state.get("ai_provider", "minimax")
                 if ai_provider == "anthropic":
                     api_key = get_secret("anthropic_api_key", "")
                     model = st.session_state.get("ai_model_anthropic", "claude-sonnet-4-6")
+                elif ai_provider == "minimax":
+                    api_key = get_secret("minimax_api_key", "")
+                    model = st.session_state.get("ai_model_minimax", "MiniMax-M2.5")
                 else:
                     api_key = get_secret("openai_api_key", "")
                     model = st.session_state.get("ai_model_openai", "gpt-4o")

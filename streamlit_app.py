@@ -36,7 +36,7 @@ with st.sidebar:
     st.markdown("**API Durumu:**")
 
     has_twitter = bool(get_secret("twitter_bearer_token", ""))
-    has_ai = bool(get_secret("anthropic_api_key", "") or get_secret("openai_api_key", ""))
+    has_ai = bool(get_secret("minimax_api_key", "") or get_secret("anthropic_api_key", "") or get_secret("openai_api_key", ""))
 
     if has_twitter:
         st.success("Twitter API ✓", icon="🐦")

@@ -141,6 +141,12 @@ class ContentGenerator:
         elif provider == "openai":
             self.model = model or "gpt-4o"
             self.client = openai.OpenAI(api_key=api_key) if api_key else None
+        elif provider == "minimax":
+            self.model = model or "MiniMax-M2.5"
+            self.client = openai.OpenAI(
+                api_key=api_key,
+                base_url="https://api.minimax.io/v1",
+            ) if api_key else None
         else:
             raise ValueError(f"Unsupported provider: {provider}")
 
@@ -362,7 +368,7 @@ Sadece tweet metnini yaz, başka bir şey yazma. Tırnak işareti kullanma."""
         return response.content[0].text.strip()
 
     def _generate_openai(self, system_prompt: str, user_prompt: str) -> str:
-        """Generate content using OpenAI API"""
+        """Generate content using OpenAI-compatible API (OpenAI, MiniMax, etc.)"""
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
@@ -372,7 +378,11 @@ Sadece tweet metnini yaz, başka bir şey yazma. Tırnak işareti kullanma."""
             max_tokens=2000,
             temperature=0.9,
         )
-        return response.choices[0].message.content.strip()
+        text = response.choices[0].message.content.strip()
+        # Strip <think> tags from reasoning models (MiniMax, etc.)
+        import re
+        text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
+        return text
 
     def analyze_writing_style(self, sample_tweets: list[str]) -> str:
         """

@@ -14,7 +14,6 @@ AI Content Engine v4 - XPatla Benzeri Viral Sistem
 Kurulum: npm install -g @steipete/bird
 """
 
-import subprocess
 import requests
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
@@ -24,13 +23,12 @@ import logging
 import json
 import re
 import urllib.parse
-import shutil
 import os
 
 logger = logging.getLogger(__name__)
 
-# Bird CLI var mı kontrol et
-BIRD_CLI_AVAILABLE = shutil.which("bird") is not None
+# Bird CLI devre dışı - sadece Direct API kullanılıyor
+BIRD_CLI_AVAILABLE = False
 
 # Demo mod - gerçek API çalışmadığında örnek veri göster
 DEMO_MODE = os.environ.get("DEMO_MODE", "").lower() in ("1", "true", "yes")
@@ -523,8 +521,9 @@ class AIContentEngine:
     """
 
     def __init__(self, auth_token: str = None, ct0: str = None):
-        self.auth_token = auth_token or "75dbe5f8894451b851b2d362d6bec9760d59272b"
-        self.ct0 = ct0 or "9b77d23bbc8b17f6289acce782f90070201db154d3507f32acd5999039766982512ebd8cc4b54b1461448dc62c1167a599e1dac53304d6cd2d5ce4a63041c367a31fd8de37425c287c0fadf1908d3324"
+        # Token'lar boş string olabilir, None kontrolü yap
+        self.auth_token = auth_token if auth_token else ""
+        self.ct0 = ct0 if ct0 else ""
 
         self.session = requests.Session()
         self.base_headers = {
@@ -552,58 +551,37 @@ class AIContentEngine:
 
     def test_connection(self) -> Tuple[bool, str]:
         """
-        Twitter/X bağlantısını test et.
+        Twitter/X bağlantısını test et (Direct API).
 
         Returns:
             (success, message)
         """
-        # 1. Bird CLI ile dene
-        if BIRD_CLI_AVAILABLE:
-            try:
-                cmd = [
-                    "bird", "search", "test",
-                    "--auth-token", self.auth_token,
-                    "--ct0", self.ct0,
-                    "--count", "1",
-                    "--timeout", "10000"
-                ]
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        # Token kontrolü
+        if not self.auth_token or not self.ct0:
+            return False, "❌ Token'lar ayarlanmamış. X Credentials'dan token gir."
 
-                if result.returncode == 0:
-                    return True, "✅ Bağlantı başarılı (bird CLI)"
-
-                stderr = result.stderr.strip() if result.stderr else ""
-                if "401" in stderr or "Unauthorized" in stderr:
-                    return False, "❌ Token geçersiz veya süresi dolmuş. Yeni token al."
-                elif "rate" in stderr.lower():
-                    return False, "⚠️ Rate limit - biraz bekle ve tekrar dene"
-                elif "fetch failed" in stderr.lower():
-                    return False, "❌ Ağ bağlantısı başarısız. İnternet bağlantını kontrol et."
-                else:
-                    return False, f"❌ Hata: {stderr[:100]}"
-
-            except subprocess.TimeoutExpired:
-                return False, "❌ Bağlantı zaman aşımı (15s)"
-            except Exception as e:
-                return False, f"❌ Hata: {str(e)[:50]}"
-
-        # 2. Bird CLI yoksa direct API ile test et
         try:
             url = "https://twitter.com/i/api/2/search/adaptive.json"
             params = {"q": "test", "count": "1"}
             response = self.session.get(url, params=params, headers=self.base_headers, timeout=10)
 
             if response.status_code == 200:
-                return True, "✅ Bağlantı başarılı (Direct API)"
+                return True, "✅ Bağlantı başarılı!"
             elif response.status_code == 401:
                 return False, "❌ Token geçersiz veya süresi dolmuş. Yeni token al."
             elif response.status_code == 429:
                 return False, "⚠️ Rate limit - biraz bekle ve tekrar dene"
+            elif response.status_code == 403:
+                return False, "❌ Erişim reddedildi. Token'ları kontrol et."
             else:
                 return False, f"❌ API hatası: {response.status_code}"
 
+        except requests.exceptions.Timeout:
+            return False, "❌ Bağlantı zaman aşımı"
+        except requests.exceptions.ConnectionError:
+            return False, "❌ Bağlantı hatası - internet bağlantını kontrol et"
         except Exception as e:
-            return False, f"❌ Bağlantı hatası: {str(e)[:50]}"
+            return False, f"❌ Hata: {str(e)[:50]}"
 
     def update_tokens(self, auth_token: str, ct0: str):
         """Token'ları güncelle"""
@@ -1132,18 +1110,12 @@ Türkçe, doğal, insansı yaz. Sadece tweet metnini ver."""
     # ==========================================================================
 
     def _search_tweets(self, query: str, hours: int) -> Tuple[List[SourceTweet], str]:
-        """Tweet ara - bird CLI veya direct API"""
-        if BIRD_CLI_AVAILABLE:
-            return self._search_with_bird(query, hours)
-        else:
-            return self._search_with_api(query, hours)
+        """Tweet ara - Direct API"""
+        return self._search_with_api(query, hours)
 
     def _get_user_tweets(self, username: str, hours: int) -> Tuple[List[SourceTweet], str]:
-        """Kullanıcı tweetlerini çek - bird CLI veya direct API"""
-        if BIRD_CLI_AVAILABLE:
-            return self._get_user_tweets_bird(username, hours)
-        else:
-            return self._get_user_tweets_api(username, hours)
+        """Kullanıcı tweetlerini çek - Direct API"""
+        return self._get_user_tweets_api(username, hours)
 
     def _search_with_api(self, query: str, hours: int) -> Tuple[List[SourceTweet], str]:
         """Direct Twitter API ile arama (bird CLI olmadan)"""
@@ -1250,107 +1222,6 @@ Türkçe, doğal, insansı yaz. Sadece tweet metnini ver."""
                 error = "Token geçersiz"
             else:
                 error = f"API hatası: {response.status_code}"
-
-        except Exception as e:
-            error = str(e)[:50]
-
-        return tweets, error
-
-    def _search_with_bird(self, query: str, hours: int) -> Tuple[List[SourceTweet], str]:
-        """Bird CLI ile arama"""
-        tweets = []
-        error = None
-
-        try:
-            since_time = datetime.now() - timedelta(hours=hours)
-            since_str = since_time.strftime("%Y-%m-%d")
-
-            cmd = [
-                "bird", "search", f"{query} since:{since_str}",
-                "--auth-token", self.auth_token,
-                "--ct0", self.ct0,
-                "--json", "--count", "20"
-            ]
-
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-
-            if result.returncode == 0 and result.stdout:
-                data = json.loads(result.stdout)
-
-                if isinstance(data, list):
-                    for item in data[:15]:
-                        text = item.get("text", "") or item.get("full_text", "")
-
-                        if text.startswith("RT @"):
-                            continue
-
-                        tweet = SourceTweet(
-                            id=str(item.get("id", "")),
-                            author=item.get("user", {}).get("screen_name", "") or item.get("author", ""),
-                            author_name=item.get("user", {}).get("name", "") or item.get("authorName", ""),
-                            text=text,
-                            url=item.get("url", f"https://twitter.com/i/status/{item.get('id', '')}"),
-                            likes=item.get("favorite_count", 0) or item.get("likes", 0),
-                            retweets=item.get("retweet_count", 0) or item.get("retweets", 0),
-                            replies=item.get("reply_count", 0),
-                            created_at=item.get("created_at", ""),
-                        )
-                        tweets.append(tweet)
-            else:
-                stderr = result.stderr.strip() if result.stderr else ""
-                if "401" in stderr:
-                    error = "Token geçersiz"
-                elif "rate" in stderr.lower():
-                    error = "Rate limit"
-                else:
-                    error = f"bird hatası: {stderr[:50]}"
-
-        except subprocess.TimeoutExpired:
-            error = "Zaman aşımı"
-        except Exception as e:
-            error = str(e)[:50]
-
-        return tweets, error
-
-    def _get_user_tweets_bird(self, username: str, hours: int) -> Tuple[List[SourceTweet], str]:
-        """Bird CLI ile kullanıcı tweetleri"""
-        tweets = []
-        error = None
-
-        try:
-            cmd = [
-                "bird", "user-tweets", username,
-                "--auth-token", self.auth_token,
-                "--ct0", self.ct0,
-                "--json", "--count", "15"
-            ]
-
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-
-            if result.returncode == 0 and result.stdout:
-                data = json.loads(result.stdout)
-                cutoff = datetime.now() - timedelta(hours=hours)
-
-                if isinstance(data, list):
-                    for item in data[:10]:
-                        text = item.get("text", "") or item.get("full_text", "")
-
-                        if text.startswith("RT @"):
-                            continue
-
-                        tweet = SourceTweet(
-                            id=str(item.get("id", "")),
-                            author=username,
-                            author_name=item.get("user", {}).get("name", username),
-                            text=text,
-                            url=f"https://twitter.com/{username}/status/{item.get('id', '')}",
-                            likes=item.get("favorite_count", 0) or item.get("likes", 0),
-                            retweets=item.get("retweet_count", 0),
-                            created_at=item.get("created_at", ""),
-                        )
-                        tweets.append(tweet)
-            else:
-                error = result.stderr[:50] if result.stderr else "bird hatası"
 
         except Exception as e:
             error = str(e)[:50]

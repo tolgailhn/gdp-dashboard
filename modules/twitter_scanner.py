@@ -387,7 +387,7 @@ class TwitterScanner:
         try:
             response = self.client.get_tweet(
                 id=tweet_id,
-                tweet_fields=["created_at", "public_metrics", "author_id"],
+                tweet_fields=["created_at", "public_metrics", "author_id", "conversation_id"],
                 user_fields=["name", "username", "profile_image_url"],
                 expansions=["author_id"]
             )
@@ -420,3 +420,54 @@ class TwitterScanner:
         except Exception as e:
             print(f"Get tweet error: {e}")
             return None
+
+    def get_thread(self, tweet_id: str) -> list[str]:
+        """
+        Fetch the full thread for a given tweet.
+        Returns list of tweet texts in order (oldest first).
+        """
+        try:
+            # First get the tweet to find conversation_id and author
+            response = self.client.get_tweet(
+                id=tweet_id,
+                tweet_fields=["conversation_id", "author_id", "created_at"],
+                expansions=["author_id"]
+            )
+            if not response.data:
+                return []
+
+            tweet = response.data
+            conversation_id = tweet.data.get("conversation_id", tweet_id)
+            author_id = tweet.author_id
+
+            # Search for all tweets in this conversation by the same author
+            query = f"conversation_id:{conversation_id} from:{author_id} -is:retweet"
+            search_response = self.client.search_recent_tweets(
+                query=query,
+                max_results=100,
+                tweet_fields=["created_at", "in_reply_to_user_id"],
+                sort_order="recency"
+            )
+
+            if not search_response.data:
+                return [tweet.text]
+
+            # Sort by time (oldest first) and collect texts
+            thread_tweets = sorted(search_response.data, key=lambda t: t.created_at)
+            texts = [t.text for t in thread_tweets]
+
+            # If the original tweet isn't in results, prepend it
+            original_ids = {str(t.id) for t in thread_tweets}
+            if str(tweet_id) not in original_ids and str(conversation_id) not in original_ids:
+                texts.insert(0, tweet.text)
+
+            return texts
+
+        except Exception as e:
+            print(f"Get thread error: {e}")
+            # Fallback: return just the single tweet
+            try:
+                single = self.get_tweet_by_id(tweet_id)
+                return [single.text] if single else []
+            except Exception:
+                return []

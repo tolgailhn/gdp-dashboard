@@ -207,59 +207,48 @@ class ContentGenerator:
                              additional_context: str = "",
                              user_samples: list = None,
                              research_summary: str = "") -> str:
-        """
-        Generate a quote tweet response, optionally with deep research context
-
-        Args:
-            original_tweet: The tweet being quoted
-            original_author: Author of the original tweet
-            style: Writing style
-            additional_context: Extra instructions
-            user_samples: Sample tweets for style matching
-            research_summary: Deep research context (web + Twitter)
-
-        Returns:
-            Generated quote tweet text
-        """
+        """Generate a quote tweet with optional deep research context"""
         if not self.client:
             raise ValueError("API client not initialized. Check your API key.")
 
         system_prompt = self._build_system_prompt(style, user_samples)
 
-        research_block = ""
         if research_summary:
-            research_block = f"""
-## ARAŞTIRMA SONUÇLARI:
+            # RESEARCH MODE: AI has full context, write informed opinion
+            user_prompt = f"""Görevin: Aşağıdaki araştırma bilgilerini oku, konuyu tam anla, sonra bu konu hakkında KENDİ ORİJİNAL YORUMUNU Türkçe tweet olarak yaz.
+
 {research_summary}
-"""
 
-        user_prompt = f"""Aşağıdaki tweet'in KONUSU hakkında kendi yorumunu yaz. Bu bir quote tweet olacak.
+{f"Kullanıcı notu: {additional_context}" if additional_context else ""}
 
-Orijinal Tweet (@{original_author}):
+## GÖREV:
+Yukarıdaki TÜM bilgileri (thread, web araştırması, diğer yorumlar) oku ve anla.
+Sonra bu konu hakkında kendi orijinal yorumunu yaz.
+
+## YAPMAN GEREKEN:
+- Araştırmadan öğrendiğin spesifik bir bilgiyi yorumuna ekle (rakam, karşılaştırma, detay)
+- Tweet'te bahsedilmeyen ama araştırmada bulduğun bir açıyı vurgula
+- Kişisel bakış açını ekle: "bence...", "dikkat çeken şey...", "herkes X diyor ama..."
+- Kısa ve vurucu yaz (2-4 cümle)
+- Doğal Türkçe günlük dil kullan
+
+## YAPMA:
+- Orijinal tweet'i Türkçeye çevirme veya özetle
+- "Heyecan verici", "çığır açan" gibi klişeler kullanma
+- Orijinal tweet'teki cümleleri tekrarlama
+- Uzun uzun açıklama yapma
+
+Sadece tweet metnini yaz, başka bir şey yazma."""
+        else:
+            # NO RESEARCH: simple quote tweet
+            user_prompt = f"""@{original_author} şunu yazmış:
 "{original_tweet}"
 
-{research_block}
-{f"Ek talimatlar: {additional_context}" if additional_context else ""}
+Bu konu hakkında KENDİ YORUMUNU yaz. Orijinal tweet'i çevirme veya tekrarlama.
+Kendi bakış açını ekle, kısa tut (1-3 cümle), doğal Türkçe yaz.
+{f"Not: {additional_context}" if additional_context else ""}
 
-## ÇOK ÖNEMLİ KURALLAR:
-
-1. KONUYU ANLA: Bu tweet ne hakkında? Hangi ürün, model, gelişme? Onu anla.
-
-2. ASLA ÇEVİRME: Orijinal tweet'i Türkçeye çevirme, aynı cümleleri farklı kelimelerle tekrarlama. Bu en büyük hata.
-
-3. KENDİ YORUMUNU YAZ: Konu hakkında SENİN düşüncen ne? Bunu yaz. Örnekler:
-   - "Bunu test ettim, gerçekten fark var" gibi kişisel deneyim
-   - "Bu X ile karşılaştırınca şöyle bir avantajı var" gibi karşılaştırma
-   - "Bence asıl önemli olan şu kısım..." gibi analiz
-   - "Herkes bunu konuşuyor ama kimse şunu fark etmedi" gibi farklı bakış açısı
-
-4. ARAŞTIRMA KULLAN: Eğer araştırma sonuçları varsa, oradaki bilgilerden SPESIFIK bir detay seç ve yorumuna ekle. Araştırmadan öğrendiğin somut bir bilgiyi paylaş.
-
-5. KISA TUT: 1-3 cümle. Uzun yazma.
-
-6. TÜRKÇE DOĞAL DİL: Günlük konuşma dili. "ya", "bence", "aslında", "harbiden" gibi.
-
-Sadece quote tweet metnini yaz, başka bir şey yazma. Tırnak işareti kullanma."""
+Sadece tweet metnini yaz."""
 
         if self.provider == "anthropic":
             return self._generate_anthropic(system_prompt, user_prompt)

@@ -57,7 +57,7 @@ with mode_tab2:
                 padding:16px; margin-bottom:16px;">
         <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">🔬 Araştırmalı Quote Tweet</div>
         <div style="color:#8899a6; font-size:13px; margin-top:4px;">
-            Tweet URL'si ver → Web'de ve X'te araştır → Bilgi topla → Akıllı quote yaz
+            Tweet URL → Thread'i oku → Web'de araştır → X'te ara → Bilgili quote yaz
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -68,29 +68,19 @@ with mode_tab2:
         key="research_quote_url"
     )
 
-    col_r1, col_r2 = st.columns(2)
-    with col_r1:
-        research_clicked = st.button(
-            "🔬 Araştır ve Yaz",
-            type="primary",
-            use_container_width=True,
-            key="research_btn",
-            disabled=not quote_url
-        )
-    with col_r2:
-        research_only = st.button(
-            "🔍 Sadece Araştır",
-            use_container_width=True,
-            key="research_only_btn",
-            disabled=not quote_url
-        )
+    research_clicked = st.button(
+        "🔬 Araştır ve Quote Tweet Yaz",
+        type="primary",
+        use_container_width=True,
+        key="research_btn",
+        disabled=not quote_url
+    )
 
-    if research_clicked or research_only:
+    if research_clicked:
         tweet_id = extract_tweet_id(quote_url)
         if not tweet_id:
             st.error("Geçersiz tweet URL'si! Örn: https://x.com/user/status/123456")
         else:
-            # Fetch tweet from Twitter
             bearer_token = get_secret("twitter_bearer_token", "")
             scanner = None
             original_tweet = None
@@ -104,8 +94,9 @@ with mode_tab2:
             if not original_tweet and not bearer_token:
                 st.warning("Twitter API yapılandırılmamış. Tweet metnini manuel girin.")
                 manual_tweet_text = st.text_area(
-                    "Tweet metni",
-                    placeholder="Quote edeceğiniz tweet'in metnini yapıştırın...",
+                    "Tweet metni (thread varsa tüm tweet'leri yapıştırın)",
+                    placeholder="Thread'deki tüm tweet'leri yapıştırın...",
+                    height=200,
                     key="manual_quote_text"
                 )
                 if manual_tweet_text:
@@ -128,12 +119,12 @@ with mode_tab2:
                     </div>
                     <div class="tweet-text">{original_tweet_text}</div>
                     <div style="color:#8899a6; font-size:12px; margin-top:8px;">
-                        ❤️ {original_tweet.like_count:,} · 🔁 {original_tweet.retweet_count:,}
+                        ❤️ {original_tweet.like_count:,} · 🔁 {original_tweet.retweet_count:,} · 💬 {original_tweet.reply_count:,}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
-            # Deep research
+            # === FULL RESEARCH PIPELINE ===
             progress_text = st.empty()
             with st.spinner("Derin araştırma yapılıyor..."):
                 research = research_topic(
@@ -145,51 +136,57 @@ with mode_tab2:
                 )
                 progress_text.empty()
 
-            # Show research results
             st.session_state.research_data = research
             research_summary = research.summary
 
+            # --- Show thread if found ---
+            if len(research.thread_texts) > 1:
+                with st.expander(f"🧵 Thread ({len(research.thread_texts)} tweet)", expanded=True):
+                    for i, t in enumerate(research.thread_texts, 1):
+                        st.markdown(f"""
+                        <div style="background:#1a1a2e; border-left:3px solid #1DA1F2;
+                                    padding:8px 12px; margin:4px 0; border-radius:4px;">
+                            <span style="color:#1DA1F2; font-weight:bold;">{i}/</span>
+                            <span style="color:#f0f0f0; font-size:13px;">{t}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+            # --- Show research results ---
             with st.expander("📊 Araştırma Sonuçları", expanded=True):
-                if research.topic:
-                    st.markdown(f"**Tespit edilen konu:** `{research.topic}`")
-                    st.markdown("---")
+                st.markdown(f"**Tespit edilen konu:** `{research.topic}`")
+
                 if research.web_results:
-                    st.markdown(f"**Web Sonuçları ({len(research.web_results)}):**")
+                    st.markdown(f"**Web ({len(research.web_results)} kaynak):**")
                     for wr in research.web_results[:6]:
-                        st.markdown(f"- **{wr['title']}**\n  {wr['body'][:150]}...")
+                        st.markdown(f"- **{wr['title']}**\n  _{wr['body'][:180]}_")
+
                 if research.related_tweets:
-                    st.markdown(f"**İlgili Tweet'ler ({len(research.related_tweets)}):**")
+                    st.markdown(f"**X'te Yorumlar ({len(research.related_tweets)}):**")
                     for rt in research.related_tweets[:3]:
-                        st.markdown(f"- @{rt['author']}: _{rt['text'][:120]}_...")
+                        st.markdown(f"- @{rt['author']} ({rt['likes']} ❤️): _{rt['text'][:140]}_")
 
-            if research_clicked:
-                # Auto-generate quote tweet with research
-                st.session_state.write_mode = "quote"
-                st.session_state.quote_topic = {
-                    "id": tweet_id,
-                    "text": original_tweet_text,
-                    "author": original_author,
-                }
-                st.session_state.research_summary = research_summary
-            elif research_only:
-                st.success("Araştırma tamamlandı! Sonuçları inceleyip '📝 Tweet Yaz' sekmesine geçebilirsiniz.")
-                st.session_state.selected_topic = {
-                    "text": f"[Araştırma] {original_tweet_text}",
-                    "url": quote_url,
-                }
-                st.session_state.research_summary = research_summary
+                if not research.web_results and not research.related_tweets:
+                    st.warning("Bu konu için web'de yeterli bilgi bulunamadı.")
 
-    # Show stored research if exists
-    if "research_data" in st.session_state and not (research_clicked or research_only):
+            # Set state for generation
+            st.session_state.write_mode = "quote"
+            st.session_state.quote_topic = {
+                "id": tweet_id,
+                "text": original_tweet_text,
+                "author": original_author,
+            }
+            st.session_state.research_summary = research_summary
+            st.info("Aşağıdaki 'Tweet Üret' butonuna tıklayarak araştırma sonuçlarıyla quote tweet yazabilirsiniz.")
+
+    # Show previous research
+    if "research_data" in st.session_state and not research_clicked:
         rd = st.session_state.research_data
-        if rd.web_results or rd.related_tweets:
-            with st.expander("📊 Önceki Araştırma Sonuçları"):
-                if rd.web_results:
-                    for wr in rd.web_results[:4]:
-                        st.markdown(f"- **{wr['title']}**: {wr['body'][:120]}...")
-                if rd.related_tweets:
-                    for rt in rd.related_tweets[:3]:
-                        st.markdown(f"- @{rt['author']}: _{rt['text'][:100]}_...")
+        if rd.summary:
+            with st.expander("📊 Önceki Araştırma"):
+                st.caption(f"Konu: {rd.topic}")
+                if len(rd.thread_texts) > 1:
+                    st.caption(f"Thread: {len(rd.thread_texts)} tweet okundu")
+                st.caption(f"Web: {len(rd.web_results)} kaynak | X: {len(rd.related_tweets)} yorum")
 
 with mode_tab3:
     if write_mode == "quote" and quote_topic:

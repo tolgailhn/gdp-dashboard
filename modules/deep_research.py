@@ -1,7 +1,9 @@
 """
 Deep Research Module
-Gathers context from web search and Twitter before writing tweets.
-Flow: Tweet URL → Fetch tweet → Extract topic → Web search → Twitter search → Generate
+Full research pipeline: Tweet URL → Fetch thread → Extract topic → Web search → Compile → Generate
+
+The goal: When user gives a tweet URL, understand the FULL context (thread, topic, details)
+then research it from web sources, and provide all this to the AI so it writes an informed tweet.
 """
 import re
 import datetime
@@ -15,6 +17,8 @@ class ResearchResult:
     original_tweet_text: str = ""
     original_tweet_author: str = ""
     original_tweet_id: str = ""
+    thread_texts: list = field(default_factory=list)
+    full_thread_text: str = ""
     topic: str = ""
     web_results: list = field(default_factory=list)
     related_tweets: list = field(default_factory=list)
@@ -24,21 +28,14 @@ class ResearchResult:
 def extract_tweet_id(url_or_id: str) -> str | None:
     """Extract tweet ID from a URL or raw ID string"""
     url_or_id = url_or_id.strip()
-
-    # Direct ID
     if url_or_id.isdigit():
         return url_or_id
-
-    # URL patterns: x.com/user/status/123 or twitter.com/user/status/123
     match = re.search(r'(?:twitter\.com|x\.com)/\w+/status/(\d+)', url_or_id)
-    if match:
-        return match.group(1)
-
-    return None
+    return match.group(1) if match else None
 
 
 def web_search(query: str, max_results: int = 8) -> list[dict]:
-    """Search the web using DuckDuckGo (free, no API key needed)"""
+    """Search the web using DuckDuckGo"""
     results = []
     try:
         with DDGS() as ddgs:
@@ -54,7 +51,7 @@ def web_search(query: str, max_results: int = 8) -> list[dict]:
 
 
 def web_search_news(query: str, max_results: int = 5) -> list[dict]:
-    """Search recent news using DuckDuckGo"""
+    """Search recent news"""
     results = []
     try:
         with DDGS() as ddgs:
@@ -63,7 +60,6 @@ def web_search_news(query: str, max_results: int = 5) -> list[dict]:
                     "title": r.get("title", ""),
                     "url": r.get("url", ""),
                     "body": r.get("body", ""),
-                    "date": r.get("date", ""),
                     "source": r.get("source", ""),
                 })
     except Exception as e:
@@ -71,165 +67,133 @@ def web_search_news(query: str, max_results: int = 5) -> list[dict]:
     return results
 
 
-def extract_topic_from_tweet(tweet_text: str) -> dict:
+def extract_topic_from_text(full_text: str) -> dict:
     """
-    Extract the actual TOPIC from a tweet - what is it about?
-    Returns {topic: str, product: str, company: str, search_queries: list[str]}
+    Smart topic extraction from tweet/thread text.
+    Finds actual product names, companies, and what happened.
+    Returns targeted search queries.
     """
-    # Remove URLs
-    text = re.sub(r'https?://\S+', '', tweet_text).strip()
-    # Remove mentions but remember them
-    mentions = re.findall(r'@(\w+)', text)
-    text_clean = re.sub(r'@\w+', '', text).strip()
-    # Remove hashtags but keep words
-    hashtags = re.findall(r'#(\w+)', text)
+    text = re.sub(r'https?://\S+', '', full_text).strip()
+    text_clean = re.sub(r'@\w+', '', text)
     text_clean = re.sub(r'#(\w+)', r'\1', text_clean)
 
-    # --- Known product/model names (exact match, case-insensitive) ---
-    known_products = {
-        # Models
-        r'\bGPT[-\s]?4o?\b': 'GPT-4o',
+    # --- Product/model detection ---
+    product_patterns = {
+        r'\bGPT[-\s]?4[o.]?\w*\b': 'GPT-4o',
         r'\bGPT[-\s]?5\b': 'GPT-5',
         r'\bGPT[-\s]?4\.?1\b': 'GPT-4.1',
-        r'\bo1[\s-]?(pro|mini|preview)?\b': 'o1',
-        r'\bo3[\s-]?(pro|mini)?\b': 'o3',
-        r'\bClaude\s*([\d.]+|Opus|Sonnet|Haiku)?\b': 'Claude',
-        r'\bGemini\s*([\d.]+|Pro|Ultra|Flash|Nano)?\b': 'Gemini',
+        r'\bo[13][-\s]?(pro|mini|preview)?\b': 'o1',
+        r'\bClaude\s*[\d.]*\s*(Opus|Sonnet|Haiku)?\b': 'Claude',
+        r'\bGemini\s*[\d.]*\s*(Pro|Ultra|Flash|Nano)?\b': 'Gemini',
         r'\bLlama\s*[\d.]*\b': 'Llama',
         r'\bQwen\s*[\d.]*\b': 'Qwen',
-        r'\bMistral\s*[\w]*\b': 'Mistral',
-        r'\bDeepSeek\s*[\w-]*\b': 'DeepSeek',
+        r'\bMistral\s*\w*\b': 'Mistral',
+        r'\bDeepSeek[-\s]?\w*\b': 'DeepSeek',
         r'\bGrok\s*[\d.]*\b': 'Grok',
         r'\bPhi[-\s]?[\d.]+\b': 'Phi',
-        r'\bCommand\s*R\+?\b': 'Command R',
         r'\bCopilot\b': 'Copilot',
         r'\bCursor\b': 'Cursor',
-        r'\bWindsurf\b': 'Windsurf',
-        r'\bDevin\b': 'Devin',
         r'\bSora\b': 'Sora',
         r'\bDALL[-\s]?E\s*[\d]*\b': 'DALL-E',
-        r'\bMidjourney\s*[\w]*\b': 'Midjourney',
+        r'\bMidjourney\b': 'Midjourney',
         r'\bStable\s*Diffusion\b': 'Stable Diffusion',
-        r'\bVeo\s*[\d]*\b': 'Veo',
-        r'\bNotebookLM\b': 'NotebookLM',
-        # Platforms
         r'\bChatGPT\b': 'ChatGPT',
         r'\bPerplexity\b': 'Perplexity',
-        r'\bHugging\s*Face\b': 'Hugging Face',
+        r'\bNotebookLM\b': 'NotebookLM',
+        r'\bWindsurf\b': 'Windsurf',
+        r'\bDevin\b': 'Devin',
     }
 
-    known_companies = {
-        r'\bOpenAI\b': 'OpenAI',
-        r'\bAnthropic\b': 'Anthropic',
-        r'\bGoogle\b': 'Google',
-        r'\bMeta\b': 'Meta',
-        r'\bMicrosoft\b': 'Microsoft',
-        r'\bApple\b': 'Apple',
-        r'\bNVIDIA\b': 'NVIDIA',
-        r'\bAmazon\b': 'Amazon',
-        r'\bxAI\b': 'xAI',
-        r'\bCohere\b': 'Cohere',
+    company_patterns = {
+        r'\bOpenAI\b': 'OpenAI', r'\bAnthropic\b': 'Anthropic',
+        r'\bGoogle\b': 'Google', r'\bMeta\b': 'Meta',
+        r'\bMicrosoft\b': 'Microsoft', r'\bApple\b': 'Apple',
+        r'\bNVIDIA\b': 'NVIDIA', r'\bAmazon\b': 'Amazon',
+        r'\bxAI\b': 'xAI', r'\bCohere\b': 'Cohere',
         r'\bStability\s*AI\b': 'Stability AI',
-        r'\bRunway\b': 'Runway',
-        r'\bMistral\s*AI\b': 'Mistral AI',
-        r'\bMiniMax\b': 'MiniMax',
+        r'\bRunway\b': 'Runway', r'\bMistral\s*AI\b': 'Mistral AI',
+        r'\bMiniMax\b': 'MiniMax', r'\bSamsung\b': 'Samsung',
+        r'\bSoftBank\b': 'SoftBank',
     }
 
-    # Find products mentioned
-    found_products = []
-    for pattern, name in known_products.items():
-        if re.search(pattern, text, re.IGNORECASE):
-            found_products.append(name)
+    found_products = list({name for pat, name in product_patterns.items()
+                          if re.search(pat, text, re.IGNORECASE)})
+    found_companies = list({name for pat, name in company_patterns.items()
+                           if re.search(pat, text, re.IGNORECASE)})
 
-    # Find companies mentioned
-    found_companies = []
-    for pattern, name in known_companies.items():
-        if re.search(pattern, text, re.IGNORECASE):
-            found_companies.append(name)
-
-    # --- Detect what HAPPENED (action/event) ---
-    action_patterns = {
+    # --- Action detection ---
+    action_map = {
         r'(?i)(releas|launch|announc|introduc|unveil|drop)': 'release',
-        r'(?i)(updat|upgrad|improv|new version|patch)': 'update',
+        r'(?i)(updat|upgrad|improv|new version)': 'update',
         r'(?i)(benchmark|outperform|beats?|surpass|SOTA)': 'benchmark',
-        r'(?i)(open.?sourc|weight|github|huggingface)': 'open-source',
-        r'(?i)(pric|cost|\$|free tier|API.?pric)': 'pricing',
-        r'(?i)(acqui|fund|rais|billion|valuation|IPO|partner)': 'business',
-        r'(?i)(paper|research|arxiv|study|finding)': 'research',
-        r'(?i)(agent|autono|tool.?use|function.?call)': 'agents',
-        r'(?i)(ban|regulat|safety|alignment|risk)': 'regulation',
+        r'(?i)(open.?sourc|weights?|github)': 'open-source',
+        r'(?i)(pric|cost|\$\d|free tier|API.?pric)': 'pricing',
+        r'(?i)(acqui|fund|rais|\$\d+[BMb]|valuation|invest)': 'investment',
+        r'(?i)(paper|research|arxiv|study)': 'research',
+        r'(?i)(agent|autono|tool.?use)': 'agents',
+        r'(?i)(ban|regulat|safety|alignment)': 'regulation',
+        r'(?i)(partner|deal|collaborat|agreement)': 'partnership',
     }
 
-    detected_action = None
-    for pattern, action in action_patterns.items():
-        if re.search(pattern, text):
-            detected_action = action
+    action = None
+    for pat, act in action_map.items():
+        if re.search(pat, text):
+            action = act
             break
 
-    # --- Build smart search queries ---
-    search_queries = []
+    # --- Also find dollar amounts, percentages, numbers ---
+    amounts = re.findall(r'\$[\d,.]+\s*[BMKbmk](?:illion)?', text)
+    percentages = re.findall(r'\d+(?:\.\d+)?%', text)
 
-    # Primary query: product + action
-    if found_products:
-        main_product = found_products[0]
-        if detected_action == 'release':
-            search_queries.append(f"{main_product} release announcement 2025")
-            search_queries.append(f"{main_product} features capabilities")
-        elif detected_action == 'benchmark':
-            search_queries.append(f"{main_product} benchmark results comparison")
-        elif detected_action == 'update':
-            search_queries.append(f"{main_product} update new features 2025")
-        elif detected_action == 'pricing':
-            search_queries.append(f"{main_product} pricing API cost")
+    # --- Build search queries ---
+    queries = []
+
+    # Strategy: specific queries about what actually happened
+    entities = found_products + found_companies
+
+    if entities and action:
+        main = entities[0]
+        if action == 'investment' and amounts:
+            queries.append(f"{main} {amounts[0]} investment funding 2025")
+        elif action == 'release':
+            queries.append(f"{main} release announcement features 2025")
+        elif action == 'benchmark' and percentages:
+            queries.append(f"{main} benchmark results {percentages[0]} 2025")
         else:
-            search_queries.append(f"{main_product} AI 2025")
+            queries.append(f"{main} {action} 2025")
 
-        if found_companies:
-            search_queries.append(f"{found_companies[0]} {main_product}")
-
-    # Fallback: company + action
-    elif found_companies:
-        company = found_companies[0]
-        if detected_action:
-            search_queries.append(f"{company} AI {detected_action} 2025")
+        # Second query: combine companies + products
+        if len(entities) > 1:
+            queries.append(f"{entities[0]} {entities[1]} {action or 'AI'} 2025")
+    elif entities:
+        queries.append(f"{entities[0]} AI news 2025")
+    else:
+        # Fallback: get proper nouns from text
+        proper = re.findall(r'\b[A-Z][a-zA-Z]+(?:\s[A-Z][a-zA-Z]+)*\b', text_clean)
+        if proper:
+            queries.append(" ".join(proper[:3]) + " AI 2025")
         else:
-            search_queries.append(f"{company} AI news 2025")
+            queries.append(text_clean[:60])
 
-    # Last resort: use significant words from tweet
-    if not search_queries:
-        # Get capitalized words (likely proper nouns/names)
-        proper_nouns = re.findall(r'\b[A-Z][a-z]+(?:\s[A-Z][a-z]+)*\b', text_clean)
-        # Get words >4 chars that aren't stopwords
-        stopwords = {"this", "that", "with", "from", "have", "been", "will",
-                     "just", "about", "more", "than", "very", "also", "some",
-                     "into", "they", "their", "there", "here", "what", "when",
-                     "like", "does", "which", "these", "those", "would", "could",
-                     "should", "being", "every", "after", "before", "between"}
-        significant = [w for w in text_clean.split()
-                       if len(w) > 4 and w.lower() not in stopwords]
+    # Add a news-specific query
+    if entities:
+        queries.append(f"{' '.join(entities[:2])} latest news")
 
-        query_words = proper_nouns[:3] + significant[:3]
-        if query_words:
-            search_queries.append(" ".join(query_words[:4]) + " AI")
-
-    # Build topic string
-    topic_parts = []
-    if found_companies:
-        topic_parts.extend(found_companies[:2])
-    if found_products:
-        topic_parts.extend(found_products[:2])
-    if detected_action:
-        topic_parts.append(detected_action)
-
-    topic = " ".join(topic_parts) if topic_parts else text_clean[:80]
+    topic_str = " ".join(filter(None, [
+        " ".join(found_companies[:2]),
+        " ".join(found_products[:2]),
+        action or "",
+        amounts[0] if amounts else "",
+    ])).strip() or text_clean[:80]
 
     return {
-        "topic": topic,
+        "topic": topic_str,
         "products": found_products,
         "companies": found_companies,
-        "action": detected_action,
-        "search_queries": search_queries[:3],
-        "hashtags": hashtags,
+        "action": action,
+        "amounts": amounts,
+        "percentages": percentages,
+        "search_queries": queries[:3],
     }
 
 
@@ -237,7 +201,14 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                    tweet_id: str = "", scanner=None,
                    progress_callback=None) -> ResearchResult:
     """
-    Perform deep research on a tweet topic.
+    Full research pipeline.
+
+    1. Fetch thread (if scanner available)
+    2. Extract topic from full thread text
+    3. Web search with targeted queries
+    4. News search
+    5. Twitter search for other opinions
+    6. Compile everything
     """
     result = ResearchResult(
         original_tweet_text=tweet_text,
@@ -245,60 +216,79 @@ def research_topic(tweet_text: str, tweet_author: str = "",
         original_tweet_id=tweet_id,
     )
 
-    # Smart topic extraction
-    topic_info = extract_topic_from_tweet(tweet_text)
+    # === STEP 1: Fetch full thread ===
+    if scanner and tweet_id:
+        if progress_callback:
+            progress_callback("Thread kontrol ediliyor...")
+        try:
+            thread_texts = scanner.get_thread(tweet_id)
+            if thread_texts and len(thread_texts) > 1:
+                result.thread_texts = thread_texts
+                result.full_thread_text = "\n\n".join(thread_texts)
+                if progress_callback:
+                    progress_callback(f"Thread bulundu: {len(thread_texts)} tweet")
+            else:
+                result.thread_texts = [tweet_text]
+                result.full_thread_text = tweet_text
+        except Exception as e:
+            print(f"Thread fetch error: {e}")
+            result.thread_texts = [tweet_text]
+            result.full_thread_text = tweet_text
+    else:
+        result.thread_texts = [tweet_text]
+        result.full_thread_text = tweet_text
+
+    # === STEP 2: Extract topic from FULL thread text ===
+    topic_info = extract_topic_from_text(result.full_thread_text)
     result.topic = topic_info["topic"]
     search_queries = topic_info["search_queries"]
 
     if not search_queries:
-        # Absolute fallback
         search_queries = [tweet_text[:60]]
 
-    # Step 1: Web search with targeted queries
+    # === STEP 3: Web search ===
     if progress_callback:
-        progress_callback(f"Web'de araştırılıyor: {search_queries[0][:50]}...")
+        progress_callback(f"Web araştırması: {search_queries[0][:50]}...")
 
     for query in search_queries[:2]:
-        web_results = web_search(query, max_results=5)
-        result.web_results.extend(web_results)
+        results = web_search(query, max_results=5)
+        result.web_results.extend(results)
 
-    # Step 2: News search
+    # === STEP 4: News search ===
     if progress_callback:
-        progress_callback("Son haberler taranıyor...")
+        progress_callback("Son haberler aranıyor...")
 
-    news_query = search_queries[0]
-    news_results = web_search_news(news_query, max_results=4)
-    for nr in news_results:
+    news = web_search_news(search_queries[0], max_results=4)
+    for n in news:
         result.web_results.append({
-            "title": f"[HABER] {nr['title']}",
-            "url": nr["url"],
-            "body": nr["body"],
-            "source": nr.get("source", ""),
+            "title": f"[HABER] {n['title']}",
+            "url": n["url"],
+            "body": n["body"],
+            "source": n.get("source", ""),
         })
 
-    # Deduplicate by URL
-    seen_urls = set()
-    unique_results = []
+    # Deduplicate
+    seen = set()
+    unique = []
     for wr in result.web_results:
-        if wr["url"] not in seen_urls:
-            seen_urls.add(wr["url"])
-            unique_results.append(wr)
-    result.web_results = unique_results
+        if wr["url"] not in seen:
+            seen.add(wr["url"])
+            unique.append(wr)
+    result.web_results = unique
 
-    # Step 3: Search Twitter for related tweets
+    # === STEP 5: Twitter search ===
     if scanner:
         if progress_callback:
-            progress_callback("X'te ilgili tweet'ler aranıyor...")
+            progress_callback("X'te ilgili yorumlar aranıyor...")
         try:
-            # Build targeted Twitter query from products/companies
             parts = topic_info["products"][:2] + topic_info["companies"][:1]
             if parts:
                 twitter_q = f"({' OR '.join(parts)}) -is:retweet lang:en"
             else:
                 twitter_q = f"({search_queries[0][:50]}) -is:retweet"
 
-            start_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=48)
-            related = scanner._search_tweets(twitter_q, start_time, 10)
+            start = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=48)
+            related = scanner._search_tweets(twitter_q, start, 10)
 
             for t in related:
                 if t.id != tweet_id and len(t.text) > 50:
@@ -306,7 +296,6 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                         "text": t.text,
                         "author": t.author_username,
                         "likes": t.like_count,
-                        "url": t.url,
                     })
 
             result.related_tweets.sort(key=lambda x: x["likes"], reverse=True)
@@ -314,7 +303,7 @@ def research_topic(tweet_text: str, tweet_author: str = "",
         except Exception as e:
             print(f"Twitter search error: {e}")
 
-    # Step 4: Compile
+    # === STEP 6: Compile ===
     if progress_callback:
         progress_callback("Araştırma derleniyor...")
 
@@ -322,23 +311,36 @@ def research_topic(tweet_text: str, tweet_author: str = "",
     return result
 
 
-def compile_research_summary(research: ResearchResult) -> str:
-    """Compile all research into a structured summary for the AI"""
+def compile_research_summary(r: ResearchResult) -> str:
+    """
+    Build the research context that will be sent to the AI.
+    This is the most important part - it determines what the AI knows.
+    """
     parts = []
 
-    parts.append(f"## Konu: {research.topic}")
-    parts.append(f"## Orijinal Tweet (@{research.original_tweet_author}): \"{research.original_tweet_text}\"")
+    # Section 1: What was the original tweet/thread about
+    parts.append(f"# KONU: {r.topic}")
 
-    if research.web_results:
-        parts.append("\n## Araştırma Bulguları (Web)")
-        for i, wr in enumerate(research.web_results[:8], 1):
-            source = wr.get("source", "")
-            source_str = f" ({source})" if source else ""
-            parts.append(f"{i}. {wr['title']}{source_str}: {wr['body'][:200]}")
+    if len(r.thread_texts) > 1:
+        parts.append(f"\n## Orijinal Thread (@{r.original_tweet_author}) - {len(r.thread_texts)} tweet:")
+        for i, t in enumerate(r.thread_texts, 1):
+            parts.append(f"  {i}/ {t}")
+    else:
+        parts.append(f"\n## Orijinal Tweet (@{r.original_tweet_author}):")
+        parts.append(f"  {r.original_tweet_text}")
 
-    if research.related_tweets:
-        parts.append("\n## X'te Diğer Kullanıcıların Yorumları")
-        for i, rt in enumerate(research.related_tweets[:5], 1):
-            parts.append(f"{i}. @{rt['author']} ({rt['likes']} beğeni): \"{rt['text'][:150]}\"")
+    # Section 2: What the web says about this topic
+    if r.web_results:
+        parts.append(f"\n## Web Araştırma Bulguları ({len(r.web_results)} kaynak):")
+        for i, wr in enumerate(r.web_results[:8], 1):
+            src = f" ({wr['source']})" if wr.get("source") else ""
+            parts.append(f"  {i}. {wr['title']}{src}")
+            parts.append(f"     {wr['body'][:250]}")
+
+    # Section 3: What others on X are saying
+    if r.related_tweets:
+        parts.append(f"\n## X'te Diğer Yorumlar:")
+        for i, rt in enumerate(r.related_tweets[:5], 1):
+            parts.append(f"  {i}. @{rt['author']} ({rt['likes']} beğeni): {rt['text'][:180]}")
 
     return "\n".join(parts)

@@ -124,6 +124,32 @@ with mode_tab2:
                 </div>
                 """, unsafe_allow_html=True)
 
+            # === Build AI client for smart topic extraction ===
+            import openai as _openai
+            import anthropic as _anthropic
+
+            _ai_client = None
+            _ai_model = None
+            _ai_provider = "minimax"
+
+            # Try MiniMax first (cheapest), then Anthropic, then OpenAI
+            minimax_key = get_secret("minimax_api_key", "")
+            anthropic_key = get_secret("anthropic_api_key", "")
+            openai_key = get_secret("openai_api_key", "")
+
+            if minimax_key:
+                _ai_client = _openai.OpenAI(api_key=minimax_key, base_url="https://api.minimax.io/v1")
+                _ai_model = "MiniMax-M2.5"
+                _ai_provider = "minimax"
+            elif anthropic_key:
+                _ai_client = _anthropic.Anthropic(api_key=anthropic_key)
+                _ai_model = "claude-haiku-4-5-20251001"
+                _ai_provider = "anthropic"
+            elif openai_key:
+                _ai_client = _openai.OpenAI(api_key=openai_key)
+                _ai_model = "gpt-4o-mini"
+                _ai_provider = "openai"
+
             # === FULL RESEARCH PIPELINE ===
             progress_text = st.empty()
             with st.spinner("Derin araştırma yapılıyor..."):
@@ -133,6 +159,9 @@ with mode_tab2:
                     tweet_id=tweet_id,
                     scanner=scanner,
                     progress_callback=lambda msg: progress_text.caption(msg),
+                    ai_client=_ai_client,
+                    ai_model=_ai_model,
+                    ai_provider=_ai_provider,
                 )
                 progress_text.empty()
 

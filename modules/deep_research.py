@@ -1,13 +1,16 @@
 """
 Deep Research Module
-Full research pipeline: Tweet URL → Fetch thread → Extract topic → Multi-platform search
-→ Fetch full article content → Compile → Generate
+Full research pipeline: Tweet URL → Fetch thread → AI-powered topic extraction
+→ Multi-platform search → Fetch full article content → Compile → Generate
 
-Key difference from basic search: We don't just get snippets.
-We actually VISIT and READ the top articles, blogs, Reddit posts to extract
-real data (numbers, specs, analysis) that the AI can use.
+Key principles:
+1. Use AI to UNDERSTAND the tweet first, then generate targeted search queries
+2. Don't just match brand names — understand what the tweet is actually about
+3. Visit and READ the top articles, not just snippets
+4. Search across platforms: web, Reddit, tech blogs, news
 """
 import re
+import json
 import datetime
 import requests
 from dataclasses import dataclass, field
@@ -88,6 +91,108 @@ def web_search_news(query: str, max_results: int = 6) -> list[dict]:
     except Exception as e:
         print(f"News search error: {e}")
     return results
+
+
+# ========================================================================
+# AI-POWERED TOPIC EXTRACTION — understands what the tweet is ACTUALLY about
+# ========================================================================
+
+def ai_extract_topic(tweet_text: str, ai_client=None, ai_model: str = None,
+                     provider: str = "minimax") -> dict | None:
+    """
+    Use AI to understand the tweet and generate targeted search queries.
+    This is the KEY fix: instead of regex matching brand names,
+    AI actually reads the tweet and understands the topic.
+
+    Returns:
+        {
+            "topic": "Blackbox CLI AI terminal tool major update",
+            "search_queries": {
+                "general": [...],
+                "technical": [...],
+                "reddit": [...],
+                "news": [...]
+            }
+        }
+    """
+    if not ai_client:
+        return None
+
+    current_year = str(datetime.datetime.now().year)
+
+    prompt = f"""Aşağıdaki tweet'i oku ve konusunu analiz et. Tweet'in ASIL konusu nedir?
+
+TWEET:
+{tweet_text[:1500]}
+
+Görevin: Bu tweet'in gerçek konusunu anla ve araştırma yapmak için arama sorguları üret.
+
+DİKKAT: Tweet'te birçok marka/ürün adı geçebilir ama asıl konu farklı olabilir.
+Örnek: "Claude ve Codex built-in" diyen bir tweet Claude hakkında değil, o ürünleri entegre eden ARAÇ hakkındadır.
+
+Yanıtını SADECE şu JSON formatında ver, başka hiçbir şey yazma:
+{{
+    "topic": "tweet'in asıl konusunun 5-10 kelimelik özeti (İngilizce)",
+    "main_subject": "tweet'in ana konusu olan ürün/şirket/olay (tek isim)",
+    "general_queries": ["genel web araması 1", "genel web araması 2", "genel web araması 3"],
+    "technical_queries": ["teknik detay araması 1", "teknik detay araması 2"],
+    "reddit_queries": ["site:reddit.com ile reddit araması 1", "site:reddit.com ile reddit araması 2"]
+}}
+
+KURALLAR:
+- Arama sorgularını İngilizce yaz
+- Her sorguya "{current_year}" ekle
+- "general_queries" konunun ne olduğunu araştırsın
+- "technical_queries" teknik detayları bulsun
+- "reddit_queries" Reddit'te tartışmaları bulsun
+- Sorgular SPESİFİK olsun, genel "AI news" gibi değil"""
+
+    try:
+        if provider == "anthropic":
+            import anthropic
+            response = ai_client.messages.create(
+                model=ai_model or "claude-haiku-4-5-20251001",
+                max_tokens=500,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+            )
+            raw = response.content[0].text.strip()
+        else:
+            response = ai_client.chat.completions.create(
+                model=ai_model or "MiniMax-M2.5",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500,
+                temperature=0.1,
+            )
+            raw = response.choices[0].message.content.strip()
+
+        # Strip <think> tags from reasoning models
+        raw = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
+
+        # Extract JSON from response
+        json_match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if not json_match:
+            return None
+
+        data = json.loads(json_match.group())
+
+        return {
+            "topic": data.get("topic", ""),
+            "main_subject": data.get("main_subject", ""),
+            "search_queries": {
+                "general": data.get("general_queries", [])[:3],
+                "technical": data.get("technical_queries", [])[:2],
+                "reddit": data.get("reddit_queries", [])[:2],
+                "news": [
+                    f"{data.get('main_subject', '')} news {current_year}",
+                    f"{data.get('topic', '')[:40]} {current_year}",
+                ],
+            }
+        }
+
+    except Exception as e:
+        print(f"AI topic extraction error: {e}")
+        return None
 
 
 # ========================================================================
@@ -372,17 +477,20 @@ def extract_topic_from_text(full_text: str) -> dict:
 
 def research_topic(tweet_text: str, tweet_author: str = "",
                    tweet_id: str = "", scanner=None,
-                   progress_callback=None) -> ResearchResult:
+                   progress_callback=None,
+                   ai_client=None, ai_model: str = None,
+                   ai_provider: str = "minimax") -> ResearchResult:
     """
     Full deep research pipeline:
 
     1. Fetch thread (if scanner available)
-    2. Extract topic from full thread text
-    3. Web search with diverse queries (general + technical + reddit)
-    4. News search
-    5. DEEP FETCH: Read full article content from top URLs
-    6. Twitter search for other opinions
-    7. Compile everything into rich context
+    2. AI-powered topic extraction (understands what the tweet is ACTUALLY about)
+    3. Fallback to regex if AI not available
+    4. Web search with diverse queries (general + technical + reddit)
+    5. News search
+    6. DEEP FETCH: Read full article content from top URLs
+    7. Twitter search for other opinions
+    8. Compile everything into rich context
     """
     result = ResearchResult(
         original_tweet_text=tweet_text,
@@ -412,10 +520,30 @@ def research_topic(tweet_text: str, tweet_author: str = "",
         result.thread_texts = [tweet_text]
         result.full_thread_text = tweet_text
 
-    # === STEP 2: Extract topic from FULL thread text ===
-    topic_info = extract_topic_from_text(result.full_thread_text)
-    result.topic = topic_info["topic"]
-    search_queries = topic_info["search_queries"]
+    # === STEP 2: AI-powered topic extraction ===
+    # Try AI first — it actually UNDERSTANDS the tweet
+    ai_topic = None
+    if ai_client:
+        if progress_callback:
+            progress_callback("AI ile konu analiz ediliyor...")
+        ai_topic = ai_extract_topic(
+            result.full_thread_text,
+            ai_client=ai_client,
+            ai_model=ai_model,
+            provider=ai_provider,
+        )
+
+    if ai_topic and ai_topic.get("search_queries"):
+        # AI understood the tweet — use its queries
+        result.topic = ai_topic["topic"]
+        search_queries = ai_topic["search_queries"]
+        if progress_callback:
+            progress_callback(f"Konu: {result.topic}")
+    else:
+        # Fallback to regex extraction
+        topic_info = extract_topic_from_text(result.full_thread_text)
+        result.topic = topic_info["topic"]
+        search_queries = topic_info["search_queries"]
 
     # === STEP 3: General + Technical web search ===
     if progress_callback:

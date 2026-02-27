@@ -70,16 +70,21 @@ class TrendingDiscovery:
             "Upgrade-Insecure-Requests": "1",
         })
 
-        # Twitter API config
+        # Twitter API config - senin token'ların
         self.twitter_bearer_token = None
-        self.twitter_auth_token = None  # cookie auth token
-        self.twitter_ct0 = None  # csrf token
+        self.twitter_auth_token = "75dbe5f8894451b851b2d362d6bec9760d59272b"
+        self.twitter_ct0 = "9b77d23bbc8b17f6289acce782f90070201db154d3507f32acd5999039766982512ebd8cc4b54b1461448dc62c1167a599e1dac53304d6cd2d5ce4a63041c367a31fd8de37425c287c0fadf1908d3324"
+
         try:
             from config.settings import config, get_secret
             self.twitter_bearer_token = config.twitter.bearer_token
-            # Cookie-based auth tokens
-            self.twitter_auth_token = get_secret("TWITTER_AUTH_TOKEN", "")
-            self.twitter_ct0 = get_secret("TWITTER_CT0", "")
+            # env'den override
+            env_auth = get_secret("TWITTER_AUTH_TOKEN", "")
+            env_ct0 = get_secret("TWITTER_CT0", "")
+            if env_auth:
+                self.twitter_auth_token = env_auth
+            if env_ct0:
+                self.twitter_ct0 = env_ct0
         except:
             pass
 

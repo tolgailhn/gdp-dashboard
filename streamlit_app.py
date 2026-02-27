@@ -506,38 +506,39 @@ def render_header():
 
 
 def render_navigation():
-    """Üst navigasyon"""
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
+    """Üst navigasyon - tabs kullan"""
+    # Streamlit tabs ile daha görünür navigasyon
+    pages = {
+        "🏠 Tweet": "main",
+        "📡 Gündem": "trending",
+        "🔍 Keşfet": "discover",
+        "🔥 XPatla": "xpatla",
+        "⚙️ Ayarlar": "profile",
+    }
 
-    with col1:
-        if st.button("🏠 Tweet", use_container_width=True):
-            st.session_state.page = "main"
-            st.rerun()
+    # Mevcut sayfa indeksi
+    current_page = st.session_state.page
+    page_keys = list(pages.keys())
+    page_values = list(pages.values())
 
-    with col2:
-        if st.button("📡 Gündem", use_container_width=True):
-            st.session_state.page = "trending"
-            st.rerun()
+    try:
+        current_idx = page_values.index(current_page)
+    except ValueError:
+        current_idx = 0
 
-    with col3:
-        if st.button("🔍 Keşfet", use_container_width=True):
-            st.session_state.page = "discover"
-            st.rerun()
+    # Selectbox ile sayfa seçimi (mobil uyumlu)
+    selected = st.selectbox(
+        "Sayfa Seç:",
+        options=page_keys,
+        index=current_idx,
+        label_visibility="collapsed"
+    )
 
-    with col4:
-        if st.button("🔥 XPatla", use_container_width=True):
-            st.session_state.page = "xpatla"
-            st.rerun()
-
-    with col5:
-        if st.button("👤 Profil", use_container_width=True):
-            st.session_state.page = "profile"
-            st.rerun()
-
-    with col6:
-        if st.button("💡 Tips", use_container_width=True):
-            st.session_state.page = "tips"
-            st.rerun()
+    # Sayfa değiştiyse güncelle
+    new_page = pages[selected]
+    if new_page != current_page:
+        st.session_state.page = new_page
+        st.rerun()
 
     st.markdown("---")
 

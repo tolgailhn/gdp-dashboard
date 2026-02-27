@@ -5,7 +5,8 @@ AI ile doğal tweet üretir, düzenler ve paylaşır
 import streamlit as st
 import datetime
 from modules.ui_components import (inject_custom_css, check_password,
-                                   render_generated_tweet, render_thread_preview)
+                                   render_generated_tweet, render_thread_preview,
+                                   get_secret)
 from modules.content_generator import ContentGenerator, get_available_styles, get_style_info
 from modules.tweet_publisher import TweetPublisher
 from modules.style_manager import (
@@ -205,10 +206,10 @@ if generate_clicked or regenerate_clicked:
     # Get API key
     ai_provider = st.session_state.get("ai_provider", "anthropic")
     if ai_provider == "anthropic":
-        api_key = st.secrets.get("anthropic_api_key", "")
+        api_key = get_secret("anthropic_api_key", "")
         model = st.session_state.get("ai_model_anthropic", "claude-sonnet-4-20250514")
     else:
-        api_key = st.secrets.get("openai_api_key", "")
+        api_key = get_secret("openai_api_key", "")
         model = st.session_state.get("ai_model_openai", "gpt-4o")
 
     if not api_key:
@@ -302,10 +303,10 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
     with col1:
         if st.button("🚀 Paylaş", type="primary", use_container_width=True, key="publish_btn"):
             # Check Twitter API
-            api_key = st.secrets.get("twitter_api_key", "")
-            api_secret = st.secrets.get("twitter_api_secret", "")
-            access_token = st.secrets.get("twitter_access_token", "")
-            access_secret = st.secrets.get("twitter_access_secret", "")
+            api_key = get_secret("twitter_api_key", "")
+            api_secret = get_secret("twitter_api_secret", "")
+            access_token = get_secret("twitter_access_token", "")
+            access_secret = get_secret("twitter_access_secret", "")
 
             if not all([api_key, api_secret, access_token, access_secret]):
                 st.error("Twitter API anahtarları eksik! Ayarlar sayfasından ekleyin.")
@@ -316,7 +317,7 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
                         api_secret=api_secret,
                         access_token=access_token,
                         access_secret=access_secret,
-                        bearer_token=st.secrets.get("twitter_bearer_token", ""),
+                        bearer_token=get_secret("twitter_bearer_token", ""),
                     )
 
                     if write_mode == "quote" and quote_topic:
@@ -364,10 +365,10 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
             try:
                 ai_provider = st.session_state.get("ai_provider", "anthropic")
                 if ai_provider == "anthropic":
-                    api_key = st.secrets.get("anthropic_api_key", "")
+                    api_key = get_secret("anthropic_api_key", "")
                     model = st.session_state.get("ai_model_anthropic", "claude-sonnet-4-20250514")
                 else:
-                    api_key = st.secrets.get("openai_api_key", "")
+                    api_key = get_secret("openai_api_key", "")
                     model = st.session_state.get("ai_model_openai", "gpt-4o")
 
                 generator = ContentGenerator(
@@ -414,10 +415,10 @@ if "generated_thread" in st.session_state and st.session_state.generated_thread:
 
     with col1:
         if st.button("🚀 Thread Paylaş", type="primary", use_container_width=True, key="publish_thread_btn"):
-            api_key = st.secrets.get("twitter_api_key", "")
-            api_secret = st.secrets.get("twitter_api_secret", "")
-            access_token = st.secrets.get("twitter_access_token", "")
-            access_secret = st.secrets.get("twitter_access_secret", "")
+            api_key = get_secret("twitter_api_key", "")
+            api_secret = get_secret("twitter_api_secret", "")
+            access_token = get_secret("twitter_access_token", "")
+            access_secret = get_secret("twitter_access_secret", "")
 
             if not all([api_key, api_secret, access_token, access_secret]):
                 st.error("Twitter API anahtarları eksik!")

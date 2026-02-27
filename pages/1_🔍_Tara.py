@@ -4,7 +4,7 @@ X/Twitter'da AI gelişmelerini tarar ve listeler
 """
 import streamlit as st
 import datetime
-from modules.ui_components import inject_custom_css, check_password, render_tweet_card
+from modules.ui_components import inject_custom_css, check_password, render_tweet_card, get_secret
 from modules.twitter_scanner import TwitterScanner, DEFAULT_AI_ACCOUNTS
 from modules.style_manager import load_monitored_accounts
 
@@ -78,11 +78,11 @@ scan_clicked = st.button("🔍 Tara", type="primary", use_container_width=True, 
 # --- Results ---
 if scan_clicked:
     # Check API keys
-    bearer_token = st.secrets.get("twitter_bearer_token", "")
-    api_key = st.secrets.get("twitter_api_key", "")
-    api_secret = st.secrets.get("twitter_api_secret", "")
-    access_token = st.secrets.get("twitter_access_token", "")
-    access_secret = st.secrets.get("twitter_access_secret", "")
+    bearer_token = get_secret("twitter_bearer_token", "")
+    api_key = get_secret("twitter_api_key", "")
+    api_secret = get_secret("twitter_api_secret", "")
+    access_token = get_secret("twitter_access_token", "")
+    access_secret = get_secret("twitter_access_secret", "")
 
     if not bearer_token:
         st.error("Twitter API anahtarı yapılandırılmamış! Ayarlar sayfasından ekleyin.")

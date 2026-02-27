@@ -4,7 +4,7 @@ Twitter/X üzerinde AI gelişmelerini tarayıp doğal tweet üreten otomasyon si
 """
 import streamlit as st
 import datetime
-from modules.ui_components import inject_custom_css, check_password, render_stat_box
+from modules.ui_components import inject_custom_css, check_password, render_stat_box, get_secret
 from modules.style_manager import load_post_history, load_draft_tweets
 
 # Page config
@@ -35,8 +35,8 @@ with st.sidebar:
     # API status indicators
     st.markdown("**API Durumu:**")
 
-    has_twitter = bool(st.secrets.get("twitter_bearer_token", ""))
-    has_ai = bool(st.secrets.get("anthropic_api_key", "") or st.secrets.get("openai_api_key", ""))
+    has_twitter = bool(get_secret("twitter_bearer_token", ""))
+    has_ai = bool(get_secret("anthropic_api_key", "") or get_secret("openai_api_key", ""))
 
     if has_twitter:
         st.success("Twitter API ✓", icon="🐦")

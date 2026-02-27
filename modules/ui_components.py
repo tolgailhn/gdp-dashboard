@@ -5,6 +5,14 @@ Reusable Streamlit components for the X AI Automation Dashboard
 import streamlit as st
 
 
+def get_secret(key: str, default: str = "") -> str:
+    """Safely get a secret value - works both locally and on Streamlit Cloud"""
+    try:
+        return st.secrets.get(key, default)
+    except Exception:
+        return default
+
+
 def setup_page_config(title: str = "X AI Otomasyon", icon: str = "🤖"):
     """Configure page with mobile-friendly settings"""
     st.set_page_config(
@@ -297,7 +305,7 @@ def check_password() -> bool:
     password = st.text_input("Şifre", type="password", key="login_password")
 
     if st.button("Giriş Yap", type="primary", use_container_width=True):
-        correct_password = st.secrets.get("app_password", "admin123")
+        correct_password = get_secret("app_password", "admin123")
         if password == correct_password:
             st.session_state.authenticated = True
             st.rerun()

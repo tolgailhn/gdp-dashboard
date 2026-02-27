@@ -1189,17 +1189,46 @@ def render_discover_page():
     elif engine.auth_token and engine.ct0:
         st.success(f"✅ Cookie Auth aktif")
     else:
-        st.warning("⚠️ Token bulunamadı ama varsayılan token kullanılacak")
+        st.error("❌ Bearer Token bulunamadı - Aşağıdan token gir")
 
-    # Bağlantı testi butonu
-    with st.expander("🔧 Bağlantı Testi", expanded=False):
-        if st.button("🧪 Bağlantıyı Test Et", key="discover_connection_test"):
-            with st.spinner("Test ediliyor..."):
-                success, msg = engine.test_connection()
-                if success:
-                    st.success(msg)
+    # Token girişi ve bağlantı testi
+    with st.expander("🔑 Bearer Token Ayarları", expanded=not engine.bearer_token):
+        st.markdown("""
+        **X Developer Portal'dan Bearer Token al:**
+        1. [developer.x.com](https://developer.x.com) → Projects & Apps
+        2. App seç → Keys and tokens
+        3. Bearer Token'ı kopyala
+        """)
+
+        new_token = st.text_input(
+            "Bearer Token",
+            value="",
+            type="password",
+            placeholder="AAAAAAAAAAAAAAAAAAAAAA...",
+            key="discover_bearer_token_input"
+        )
+
+        col_save, col_test = st.columns(2)
+
+        with col_save:
+            if st.button("💾 Token'ı Kaydet", key="save_bearer_token", use_container_width=True):
+                if new_token and len(new_token) > 50:
+                    if engine.save_bearer_token(new_token):
+                        st.success("✅ Token kaydedildi!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Kaydetme hatası")
                 else:
-                    st.error(msg)
+                    st.warning("⚠️ Geçerli bir token gir")
+
+        with col_test:
+            if st.button("🧪 Bağlantıyı Test Et", key="discover_connection_test", use_container_width=True):
+                with st.spinner("Test ediliyor..."):
+                    success, msg = engine.test_connection()
+                    if success:
+                        st.success(msg)
+                    else:
+                        st.error(msg)
 
     # Tab'lar: Keşfet | Hesaplar
     tab1, tab2 = st.tabs(["🔍 Keşfet", "👥 Takip Edilen Hesaplar"])

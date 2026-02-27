@@ -522,19 +522,27 @@ class AIContentEngine:
     - Format seçimi (micro → mega)
     """
 
-    # Varsayılan Bearer Token (X API v2 - Pay-per-use)
-    DEFAULT_BEARER_TOKEN = "AAAAAAAAAAAAAAAAAAAAAI%2BY7wEAAAAAC3B4B3daAmvOj%2FBsB5v5M6PjJ6Y%3DHgtVtwVgHII7npxqKc4swFhHsAZ9hr7Yg1tOwVYUe564wzPEj7"
+    # Varsayılan Bearer Token yok - kullanıcı kendi token'ını girmeli
+    # Environment variable veya config'den al
+    DEFAULT_BEARER_TOKEN = ""
 
     def __init__(self, auth_token: str = None, ct0: str = None, bearer_token: str = None):
         # Cookie auth (yedek yöntem)
         self.auth_token = auth_token if auth_token else ""
         self.ct0 = ct0 if ct0 else ""
 
-        # Twitter API v2 Bearer Token (pay-per-use aktif)
+        # Twitter API v2 Bearer Token
+        # Öncelik: parametre > env variable > config dosyası
         if bearer_token:
             self.bearer_token = urllib.parse.unquote(bearer_token)
         else:
-            self.bearer_token = urllib.parse.unquote(self.DEFAULT_BEARER_TOKEN)
+            # Environment variable'dan dene
+            env_token = os.environ.get("TWITTER_BEARER_TOKEN", "")
+            if env_token:
+                self.bearer_token = urllib.parse.unquote(env_token)
+            else:
+                # Config dosyasından dene
+                self.bearer_token = self._load_bearer_from_config()
 
         self.session = requests.Session()
 
@@ -567,6 +575,48 @@ class AIContentEngine:
 
         # API modu: "v2" (pay-per-use) veya "cookie" (yedek)
         self.api_mode = "v2" if self.bearer_token else "cookie"
+
+    def _load_bearer_from_config(self) -> str:
+        """Config dosyasından Bearer Token yükle"""
+        config_path = os.path.expanduser("~/.gdp_dashboard/twitter_config.json")
+        try:
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+                    token = config.get("bearer_token", "")
+                    if token:
+                        return urllib.parse.unquote(token)
+        except Exception as e:
+            logger.debug(f"Config yüklenemedi: {e}")
+        return ""
+
+    def save_bearer_token(self, token: str) -> bool:
+        """Bearer Token'ı config dosyasına kaydet"""
+        config_path = os.path.expanduser("~/.gdp_dashboard/twitter_config.json")
+        try:
+            os.makedirs(os.path.dirname(config_path), exist_ok=True)
+
+            # Mevcut config'i oku
+            config = {}
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+
+            # Token'ı güncelle
+            config["bearer_token"] = token
+
+            with open(config_path, 'w') as f:
+                json.dump(config, f, indent=2)
+
+            # Mevcut instance'ı güncelle
+            self.bearer_token = urllib.parse.unquote(token)
+            self.api_v2_headers["Authorization"] = f"Bearer {self.bearer_token}"
+            self.api_mode = "v2"
+
+            return True
+        except Exception as e:
+            logger.error(f"Token kaydedilemedi: {e}")
+            return False
 
     # ==========================================================================
     # BAĞLANTI TESTİ

@@ -1119,7 +1119,17 @@ def render_discover_page():
             AIContentEngine, WRITING_STYLES, AVAILABLE_MODELS,
             CONTENT_FORMATS, DEFAULT_AI_ACCOUNTS
         )
-        engine = AIContentEngine()
+        # Token'ları al
+        auth_token = os.environ.get("TWITTER_AUTH_TOKEN", "")
+        ct0_token = os.environ.get("TWITTER_CT0", "")
+
+        # Eğer env'de yoksa trending_discovery'den al
+        if not auth_token and hasattr(trending_discovery, 'twitter_auth_token'):
+            auth_token = trending_discovery.twitter_auth_token or ""
+        if not ct0_token and hasattr(trending_discovery, 'twitter_ct0'):
+            ct0_token = trending_discovery.twitter_ct0 or ""
+
+        engine = AIContentEngine(auth_token=auth_token, ct0=ct0_token)
         engine_available = True
     except Exception as e:
         st.error(f"Content engine yüklenemedi: {e}")
@@ -1129,6 +1139,10 @@ def render_discover_page():
     # Üst bilgi - Model bilgisi
     model_info = AVAILABLE_MODELS.get(engine.current_model, {})
     st.caption(f"🤖 Model: **{model_info.get('name', 'Claude Sonnet')}** | 🔧 XPatla v4")
+
+    # Token kontrolü
+    if not auth_token or not ct0_token:
+        st.warning("⚠️ X/Twitter token'ları ayarlanmamış. Sidebar'dan X Credentials'a git ve token'ları gir!")
 
     # Tab'lar: Keşfet | Hesaplar
     tab1, tab2 = st.tabs(["🔍 Keşfet", "👥 Takip Edilen Hesaplar"])
@@ -1210,7 +1224,12 @@ def render_discover_page():
         category = st.session_state.get("discover_category", "ai")
 
         if st.button("🔄 Haberleri Tara", type="primary", use_container_width=True):
-            with st.spinner(f"🔍 {category.upper()} haberleri aranıyor (son {hours} saat)...\n\n⚡ gm/hello gibi tweetler filtreleniyor"):
+            # Token kontrolü
+            if not auth_token or not ct0_token:
+                st.error("❌ Token'lar eksik! Sidebar'dan X Credentials'a git ve token'ları gir.")
+                st.stop()
+
+            with st.spinner(f"🔍 {category.upper()} haberleri aranıyor (son {hours} saat)...\n\n⚡ bird CLI kullanılıyor..."):
                 try:
                     if category == "ai":
                         tweets, error = engine.get_ai_news(hours=hours, limit=15)
@@ -1221,10 +1240,18 @@ def render_discover_page():
                     st.session_state.selected_style = selected_style
                     st.session_state.selected_format = selected_format
                     st.session_state.discover_error = error
+
+                    # Debug info
+                    if error:
+                        st.warning(f"⚠️ Bazı sorgularda hata: {error}")
+
                 except Exception as e:
+                    import traceback
                     tweets = []
                     st.session_state.discover_tweets = []
                     st.session_state.discover_error = str(e)
+                    st.error(f"❌ Exception: {str(e)}")
+                    st.code(traceback.format_exc(), language="python")
 
             if tweets:
                 st.success(f"✅ {len(tweets)} değerli haber bulundu! (boş tweetler filtrelendi)")

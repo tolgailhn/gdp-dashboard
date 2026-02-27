@@ -702,11 +702,75 @@ def render_profile_page():
         </div>
         """, unsafe_allow_html=True)
 
+    # Twitter/X API Ayarları
+    st.markdown("---")
+    st.markdown("### 🔑 X/Twitter Bağlantısı")
+    st.caption("X'ten trend çekmek için auth token'larını gir")
+
+    with st.expander("🔧 X Auth Token Ayarları", expanded=False):
+        st.markdown("""
+        **Token'ları nasıl bulursun:**
+        1. twitter.com'a giriş yap
+        2. F12 ile DevTools aç
+        3. Application > Cookies > twitter.com
+        4. `auth_token` ve `ct0` değerlerini kopyala
+        """)
+
+        auth_token = st.text_input(
+            "Auth Token",
+            type="password",
+            placeholder="auth_token cookie değeri",
+            help="twitter.com cookies'den auth_token"
+        )
+
+        ct0_token = st.text_input(
+            "CT0 Token",
+            type="password",
+            placeholder="ct0 cookie değeri",
+            help="twitter.com cookies'den ct0 (CSRF token)"
+        )
+
+        if st.button("💾 Token'ları Kaydet", use_container_width=True):
+            if auth_token and ct0_token:
+                # Environment variable olarak kaydet (session için)
+                import os
+                os.environ["TWITTER_AUTH_TOKEN"] = auth_token
+                os.environ["TWITTER_CT0"] = ct0_token
+
+                # trending_discovery'yi güncelle
+                trending_discovery.twitter_auth_token = auth_token
+                trending_discovery.twitter_ct0 = ct0_token
+
+                st.success("✅ Token'lar kaydedildi! Gündem sayfasında X trendleri görünecek.")
+            else:
+                st.warning("Her iki token'ı da gir")
+
+        # Test butonu
+        if st.button("🧪 Bağlantıyı Test Et"):
+            if trending_discovery.twitter_auth_token and trending_discovery.twitter_ct0:
+                with st.spinner("X'e bağlanılıyor..."):
+                    topics = trending_discovery._get_x_trends_graphql()
+                    if topics:
+                        st.success(f"✅ Bağlantı başarılı! {len(topics)} trend bulundu")
+                        for t in topics[:3]:
+                            st.markdown(f"• {t.title}")
+                    else:
+                        st.warning("Trend bulunamadı, token'ları kontrol et")
+            else:
+                st.warning("Önce token'ları kaydet")
+
 
 def render_trending_page():
-    """Gündem - Reddit, HackerNews, Tech haberlerinden trending konular"""
+    """Gündem - X, Reddit, HackerNews'ten trending konular"""
     st.markdown("## 📡 Şu An Ne Konuşuluyor?")
-    st.markdown("Reddit, HackerNews ve teknoloji haberlerinden anlık gündem")
+
+    # X bağlantı durumu
+    if trending_discovery.twitter_auth_token and trending_discovery.twitter_ct0:
+        st.markdown("🐦 **X/Twitter** • 🔴 Reddit • 🟠 HackerNews'ten anlık gündem")
+    else:
+        st.markdown("🔴 Reddit • 🟠 HackerNews'ten anlık gündem")
+        st.caption("💡 X trendlerini görmek için Profil > X Auth Token Ayarları'nı kullan")
+
     st.caption("🔵 X Premium desteği - Uzun, detaylı içerikler oluştur!")
 
     # Kategori seçimi
@@ -753,6 +817,7 @@ def render_trending_page():
             with st.container():
                 # Kaynak ikonu
                 source_icons = {
+                    "twitter": "🐦",
                     "reddit": "🔴",
                     "hackernews": "🟠",
                     "techcrunch": "💚",

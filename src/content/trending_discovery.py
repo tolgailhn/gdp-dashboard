@@ -72,9 +72,14 @@ class TrendingDiscovery:
 
         # Twitter API config
         self.twitter_bearer_token = None
+        self.twitter_auth_token = None  # cookie auth token
+        self.twitter_ct0 = None  # csrf token
         try:
-            from config.settings import config
+            from config.settings import config, get_secret
             self.twitter_bearer_token = config.twitter.bearer_token
+            # Cookie-based auth tokens
+            self.twitter_auth_token = get_secret("TWITTER_AUTH_TOKEN", "")
+            self.twitter_ct0 = get_secret("TWITTER_CT0", "")
         except:
             pass
 
@@ -105,14 +110,178 @@ class TrendingDiscovery:
         """x/twitter'dan türkiye trendlerini çek"""
         topics = []
 
-        # twitter api varsa kullan
+        # 1. cookie auth varsa graphql api kullan (en güvenilir)
+        if self.twitter_auth_token and self.twitter_ct0:
+            topics = self._get_x_trends_graphql()
+            if topics:
+                logger.info(f"x graphql'den {len(topics)} trend alındı")
+                return topics
+
+        # 2. bearer token varsa v1.1 api kullan
         if self.twitter_bearer_token:
             topics = self._get_x_trends_api()
             if topics:
                 return topics
 
-        # api yoksa alternatif kaynakları dene
+        # 3. api yoksa alternatif kaynakları dene
         topics = self._get_x_trends_scrape()
+        return topics
+
+    def _get_x_trends_graphql(self) -> List[TrendingTopic]:
+        """twitter graphql api ile trendleri çek (cookie auth)"""
+        if not self.twitter_auth_token or not self.twitter_ct0:
+            return []
+
+        topics = []
+        try:
+            # twitter graphql endpoint
+            url = "https://twitter.com/i/api/graphql/gCxVCBwLgT0Dv3KGxTNYlQ/GenericTimelineById"
+
+            # explore/tabs endpoint daha iyi çalışıyor
+            url = "https://twitter.com/i/api/2/guide.json"
+            params = {
+                "include_profile_interstitial_type": "1",
+                "include_blocking": "1",
+                "include_blocked_by": "1",
+                "include_followed_by": "1",
+                "include_want_retweets": "1",
+                "include_mute_edge": "1",
+                "include_can_dm": "1",
+                "include_can_media_tag": "1",
+                "include_ext_has_nft_avatar": "1",
+                "skip_status": "1",
+                "cards_platform": "Web-12",
+                "include_cards": "1",
+                "include_ext_alt_text": "true",
+                "include_quote_count": "true",
+                "include_reply_count": "1",
+                "tweet_mode": "extended",
+                "include_entities": "true",
+                "include_user_entities": "true",
+                "include_ext_media_color": "true",
+                "include_ext_media_availability": "true",
+                "send_error_codes": "true",
+                "simple_quoted_tweet": "true",
+                "count": "20",
+                "cursor": "",
+                "ext": "mediaStats,highlightedLabel",
+            }
+
+            headers = {
+                "Authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs=1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA",
+                "Cookie": f"auth_token={self.twitter_auth_token}; ct0={self.twitter_ct0}",
+                "X-Csrf-Token": self.twitter_ct0,
+                "X-Twitter-Auth-Type": "OAuth2Session",
+                "X-Twitter-Active-User": "yes",
+                "X-Twitter-Client-Language": "tr",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+                "Accept": "*/*",
+                "Accept-Language": "tr-TR,tr;q=0.9",
+                "Referer": "https://twitter.com/explore",
+            }
+
+            response = requests.get(url, params=params, headers=headers, timeout=15)
+
+            if response.status_code == 200:
+                data = response.json()
+                # timeline'dan trendleri çıkar
+                timeline = data.get("timeline", {}).get("instructions", [])
+
+                for instruction in timeline:
+                    entries = instruction.get("addEntries", {}).get("entries", [])
+                    for entry in entries:
+                        content = entry.get("content", {})
+                        items = content.get("timelineModule", {}).get("items", [])
+
+                        for item in items:
+                            trend_data = item.get("item", {}).get("content", {}).get("trend", {})
+                            if trend_data:
+                                name = trend_data.get("name", "")
+                                tweet_count = trend_data.get("trendMetadata", {}).get("metaDescription", "")
+
+                                # tweet sayısını parse et
+                                volume = 0
+                                if tweet_count:
+                                    import re
+                                    numbers = re.findall(r'[\d,]+', tweet_count)
+                                    if numbers:
+                                        volume = int(numbers[0].replace(",", ""))
+
+                                topic = TrendingTopic(
+                                    title=name,
+                                    source="twitter",
+                                    category=self._detect_category(name),
+                                    url=f"https://twitter.com/search?q={urllib.parse.quote(name)}",
+                                    description=tweet_count or "x'te trend",
+                                    upvotes=volume,
+                                    comments=0,
+                                    time_ago="şimdi",
+                                )
+                                topics.append(topic)
+
+                if topics:
+                    return topics[:15]
+
+        except Exception as e:
+            logger.debug(f"x graphql hatası: {e}")
+
+        # fallback: search ile ai konularını bul
+        return self._search_x_topics()
+
+    def _search_x_topics(self, query: str = "AI OR yapay zeka OR ChatGPT OR teknoloji") -> List[TrendingTopic]:
+        """x'te belirli konuları ara (cookie auth ile)"""
+        if not self.twitter_auth_token or not self.twitter_ct0:
+            return []
+
+        topics = []
+        try:
+            # twitter search api
+            url = "https://twitter.com/i/api/2/search/adaptive.json"
+            params = {
+                "q": query,
+                "tweet_search_mode": "live",
+                "query_source": "typed_query",
+                "count": "20",
+                "result_filter": "top",
+            }
+
+            headers = {
+                "Authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs=1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA",
+                "Cookie": f"auth_token={self.twitter_auth_token}; ct0={self.twitter_ct0}",
+                "X-Csrf-Token": self.twitter_ct0,
+                "X-Twitter-Auth-Type": "OAuth2Session",
+                "X-Twitter-Active-User": "yes",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            }
+
+            response = requests.get(url, params=params, headers=headers, timeout=15)
+
+            if response.status_code == 200:
+                data = response.json()
+                tweets = data.get("globalObjects", {}).get("tweets", {})
+
+                for tweet_id, tweet_data in list(tweets.items())[:10]:
+                    text = tweet_data.get("full_text", "")[:150]
+                    likes = tweet_data.get("favorite_count", 0)
+                    retweets = tweet_data.get("retweet_count", 0)
+
+                    topic = TrendingTopic(
+                        title=text,
+                        source="twitter",
+                        category="ai",
+                        url=f"https://twitter.com/i/status/{tweet_id}",
+                        description=f"❤️ {likes:,} | 🔄 {retweets:,}",
+                        upvotes=likes + retweets,
+                        comments=0,
+                        time_ago="güncel",
+                    )
+                    topics.append(topic)
+
+                logger.info(f"x search'ten {len(topics)} tweet bulundu")
+
+        except Exception as e:
+            logger.debug(f"x search hatası: {e}")
+
         return topics
 
     def _get_x_trends_api(self) -> List[TrendingTopic]:

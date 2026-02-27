@@ -162,16 +162,27 @@ with st.expander("Ek Seçenekler"):
         )
     with col2:
         if ai_provider == "anthropic":
+            model_labels = {
+                "claude-opus-4-6": "Opus 4.6 (En Güçlü)",
+                "claude-sonnet-4-6": "Sonnet 4.6 (Dengeli)",
+                "claude-haiku-4-5-20251001": "Haiku 4.5 (Hızlı/Ucuz)",
+            }
             ai_model = st.selectbox(
                 "Model",
-                options=["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-haiku-4-5-20251001"],
-                format_func=lambda x: x.split("-")[1].capitalize() + " " + x.split("-")[2].replace("20250514", "4").replace("20251001", "4.5"),
+                options=list(model_labels.keys()),
+                format_func=lambda x: model_labels[x],
                 key="ai_model_anthropic"
             )
         else:
+            openai_labels = {
+                "gpt-4.1": "GPT-4.1 (En Güçlü)",
+                "gpt-4o": "GPT-4o (Dengeli)",
+                "gpt-4o-mini": "GPT-4o Mini (Hızlı/Ucuz)",
+            }
             ai_model = st.selectbox(
                 "Model",
-                options=["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
+                options=list(openai_labels.keys()),
+                format_func=lambda x: openai_labels[x],
                 key="ai_model_openai"
             )
 
@@ -207,7 +218,7 @@ if generate_clicked or regenerate_clicked:
     ai_provider = st.session_state.get("ai_provider", "anthropic")
     if ai_provider == "anthropic":
         api_key = get_secret("anthropic_api_key", "")
-        model = st.session_state.get("ai_model_anthropic", "claude-sonnet-4-20250514")
+        model = st.session_state.get("ai_model_anthropic", "claude-sonnet-4-6")
     else:
         api_key = get_secret("openai_api_key", "")
         model = st.session_state.get("ai_model_openai", "gpt-4o")
@@ -366,7 +377,7 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
                 ai_provider = st.session_state.get("ai_provider", "anthropic")
                 if ai_provider == "anthropic":
                     api_key = get_secret("anthropic_api_key", "")
-                    model = st.session_state.get("ai_model_anthropic", "claude-sonnet-4-20250514")
+                    model = st.session_state.get("ai_model_anthropic", "claude-sonnet-4-6")
                 else:
                     api_key = get_secret("openai_api_key", "")
                     model = st.session_state.get("ai_model_openai", "gpt-4o")

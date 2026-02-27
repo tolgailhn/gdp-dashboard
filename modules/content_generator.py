@@ -136,7 +136,7 @@ class ContentGenerator:
         self.custom_persona = custom_persona
 
         if provider == "anthropic":
-            self.model = model or "claude-sonnet-4-20250514"
+            self.model = model or "claude-sonnet-4-6"
             self.client = anthropic.Anthropic(api_key=api_key) if api_key else None
         elif provider == "openai":
             self.model = model or "gpt-4o"

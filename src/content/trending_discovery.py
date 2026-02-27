@@ -109,11 +109,16 @@ class TrendingDiscovery:
                         if story_response.status_code == 200:
                             story = story_response.json()
 
+                            # HTML temizle
+                            title = self._clean_html(story.get("title", ""))
+                            text = self._clean_html(story.get("text", "") or "")
+
                             topic = TrendingTopic(
-                                title=story.get("title", ""),
+                                title=title,
                                 source="hackernews",
-                                category=self._detect_category(story.get("title", "")),
+                                category=self._detect_category(title),
                                 url=story.get("url", f"https://news.ycombinator.com/item?id={story_id}"),
+                                description=text[:500] if text else "",
                                 upvotes=story.get("score", 0),
                                 comments=story.get("descendants", 0),
                                 time_ago=self._format_time(story.get("time", 0)),
@@ -512,8 +517,21 @@ class TrendingDiscovery:
             return ""
 
     def _clean_html(self, text: str) -> str:
-        """HTML taglerini temizle"""
-        clean = re.sub(r'<[^>]+>', '', text)
+        """HTML taglerini ve özel karakterleri temizle"""
+        if not text:
+            return ""
+        # HTML taglerini kaldır
+        clean = re.sub(r'<[^>]+>', ' ', text)
+        # HTML entities
+        clean = clean.replace('&amp;', '&')
+        clean = clean.replace('&lt;', '<')
+        clean = clean.replace('&gt;', '>')
+        clean = clean.replace('&quot;', '"')
+        clean = clean.replace('&#x27;', "'")
+        clean = clean.replace('&nbsp;', ' ')
+        clean = clean.replace('&#39;', "'")
+        # Fazla boşlukları temizle
+        clean = re.sub(r'\s+', ' ', clean)
         return clean.strip()
 
 
@@ -586,47 +604,38 @@ class InformativeThreadGenerator:
         # Başlıktan konu özeti çıkar
         title = topic.title
 
-        prompt = f"""SEN TÜRKÇE YAZAN BİR İÇERİK ÜRETİCİSİSİN.
+        prompt = f"""sen bi arkadaşına konu anlatıyorsun gibi yaz. robotik değil, samimi.
 
-🚨 EN ÖNEMLİ KURAL: SADECE TÜRKÇE YAZ!
-- İngilizce kelime YASAK
-- İngilizce cümle YASAK
-- Teknik terim varsa Türkçe karşılığını yaz
+konu: {title}
 
-KONU BAŞLIĞI: {title}
+ÖNEMLİ KURALLAR:
+- küçük harfle yaz (başlık hariç hep küçük)
+- türkçe yaz, ingilizce kelime kullanma
+- emoji kullanma ya da çok az kullan (max 1)
+- "bu nedir, neden önemli" gibi kalıplar kullanma
+- doğal konuş, sanki mesajlaşıyorsun gibi
 
-BU KONUYU TÜRKÇE ANLAT. Konuyu biliyormuş gibi, uzman gibi açıkla.
+nasıl yazmalısın:
+- kısa cümleler kur
+- "ya şimdi şöyle bi durum var" gibi başla
+- "bence", "aslında", "yani" gibi bağlaçlar kullan
+- bazen düşünceni sor "sizce nasıl olur?"
+- çok resmi olma, samimi ol
 
-YAZI YAPISI:
-1. Dikkat çekici başlık (emoji ile)
-2. "Bu nedir?" kısmı - basitçe açıkla
-3. "Neden önemli?" - 3-4 madde halinde
-4. "Benim görüşüm" - kişisel yorum
-5. Soru ile bitir (etkileşim için)
+ÖRNEK (bu tarz yaz):
 
-ÖRNEK:
-🚀 Mass hesabından çıkış yapılması: Meta'nın yeni hamlesi
+meta bi özellik getirmiş, tüm cihazlardan tek tıkla çıkış yapabiliyosun artık
 
-Meta, kullanıcıların tüm cihazlardan tek tıkla çıkış yapabilmesini sağlayan yeni bir özellik getirdi.
+yani şöyle düşün, telefonunu kaybettin diyelim. normalde her cihaza tek tek girip çıkış yapman lazımdı. şimdi bi tuşla hepsinden atıyosun kendini
 
-Bu ne demek?
-Artık hesabınıza giriş yaptığınız tüm cihazları görebilir ve tek tuşla hepsinden çıkış yapabilirsiniz.
+bence güzel bi hareket. geç kaldılar ama olsun, hiç yoktan iyidir
 
-Neden önemli?
-• Güvenlik açısından büyük kolaylık
-• Kayıp/çalıntı cihazlarda hesap koruması
-• Şüpheli girişleri anında tespit edebilme
+siz ne düşünüyosunuz bu konuda?
 
-Bence bu özellik çok geç geldi ama geç olsun güç olmasın. Özellikle güvenliğine önem verenler için vazgeçilmez olacak.
-
-Siz hesap güvenliği için ne tür önlemler alıyorsunuz? 👇
-
-YAZIM KURALLARI:
-- 1000-1500 karakter
-- Samimi ama bilgilendirici
-- 2-3 emoji maximum
-- Hashtag EKLEME
-- SADECE Türkçe metin yaz, başka bir şey yazma"""
+YAZIM:
+- 800-1200 karakter arası
+- hashtag ekleme
+- sadece türkçe metin yaz"""
 
         try:
             response = ai_client._call_ai(prompt)
@@ -667,103 +676,14 @@ YAZIM KURALLARI:
         research_context: str,
         user_voice: str
     ) -> ThreadContent:
-        """Şablondan içerik oluştur - İngilizce veri KULLANMA, sadece Türkçe yaz"""
+        """Şablondan içerik oluştur - Başlıktan AKILLI bilgi çıkar"""
 
-        # Başlıktan ürün/konu adını çıkar
         title = topic.title
-        if " - " in title:
-            product_name = title.split(" - ")[0].strip()
-            topic_desc = title.split(" - ")[1].strip() if len(title.split(" - ")) > 1 else ""
-        elif ": " in title:
-            product_name = title.split(": ")[0].strip()
-            topic_desc = title.split(": ")[1].strip() if len(title.split(": ")) > 1 else ""
-        else:
-            words = title.split()
-            product_name = words[0] if words else "Bu konu"
-            topic_desc = " ".join(words[1:]) if len(words) > 1 else ""
 
-        # Kategori bazlı Türkçe içerik (İngilizce araştırma verisini KULLANMA)
-        templates = {
-            "ai": f"""🤖 Yapay Zeka Dünyasından Sıcak Gelişme!
+        # Başlıktan detaylı bilgi çıkar
+        analysis = cls._analyze_title_for_content(title)
 
-{product_name} hakkında konuşalım.
-
-Bu ne?
-Yapay zeka alanında yeni bir gelişme var. Reddit'te çok konuşuluyor ve teknoloji camiası heyecanlı.
-
-Neden önemli?
-• AI araçları her geçen gün daha erişilebilir hale geliyor
-• Geliştiriciler ve kullanıcılar için yeni fırsatlar doğuyor
-• Bu tarz yenilikler sektörü şekillendiriyor
-
-Benim görüşüm:
-Yapay zeka alanı inanılmaz hızlı ilerliyor. Bugün "deneysel" dediğimiz şeyler yarın günlük hayatımızın parçası oluyor.
-
-Siz AI araçlarını ne için kullanıyorsunuz? 👇""",
-
-            "tech": f"""💻 Teknoloji Gündeminden Önemli Bir Haber!
-
-{product_name} - bu ismi duymuş olabilirsiniz.
-
-Ne oldu?
-Teknoloji dünyasında yeni bir gelişme var. Özellikle yazılım ve açık kaynak camiasında gündem oldu.
-
-Dikkat çeken noktalar:
-• Açık kaynak projelerin gücü bir kez daha ortaya çıktı
-• Topluluk desteği çok önemli
-• Herkesin kullanabileceği araçlar artıyor
-
-Neden takip etmelisiniz?
-Teknoloji demokratikleşiyor. Eskiden büyük şirketlerin tekelinde olan araçlar artık herkesin erişimine açık.
-
-Bu tarz projeleri takip ediyor musunuz? 👇""",
-
-            "crypto": f"""₿ Kripto Dünyasından Güncel Haber!
-
-{product_name} konusunda neler oluyor?
-
-Durum:
-Kripto piyasasında her gün yeni gelişmeler yaşanıyor. Bu da onlardan biri.
-
-Dikkat edilecekler:
-• Piyasa volatilitesi her zaman yüksek
-• DYOR (Kendi araştırmanı yap) kuralı geçerli
-• Risk yönetimi şart
-
-⚠️ Önemli: Bu yatırım tavsiyesi değildir. Sadece bilgilendirme amaçlıdır.
-
-Kripto hakkında ne düşünüyorsunuz? 👇""",
-
-            "world": f"""🌍 Dünya Gündeminden Bir Gelişme!
-
-{product_name} konusu gündemde.
-
-Ne oldu?
-Dünya genelinde önemli bir gelişme yaşandı. Sosyal medyada çok konuşuluyor.
-
-Önemli noktalar:
-• Bu gelişme birçok kişiyi etkileyebilir
-• Uzun vadeli sonuçları olabilir
-• Takip etmekte fayda var
-
-Sizce bu gelişme nasıl sonuçlanır? 👇""",
-
-            "default": f"""🔥 Gündemden Sıcak Bir Konu!
-
-{product_name} bugün çok konuşuluyor.
-
-Neler oluyor?
-Reddit ve teknoloji çevrelerinde bu konu gündem oldu. İlgi çekici gelişmeler var.
-
-Öne çıkanlar:
-• Konu hakkında farklı görüşler mevcut
-• Detaylar henüz netleşiyor
-• Takipte kalmakta fayda var
-
-Bu konu hakkında ne düşünüyorsunuz? Yorumlarınızı bekliyorum 👇"""
-        }
-
-        content = templates.get(topic.category, templates["default"])
+        content = cls._build_smart_content(analysis, topic.category)
 
         return ThreadContent(
             topic=topic.title,
@@ -776,6 +696,189 @@ Bu konu hakkında ne düşünüyorsunuz? Yorumlarınızı bekliyorum 👇"""
             word_count=len(content.split()),
             char_count=len(content),
         )
+
+    @classmethod
+    def _analyze_title_for_content(cls, title: str) -> dict:
+        """Başlıktan detaylı analiz çıkar"""
+        import re
+
+        analysis = {
+            "company": "",
+            "action": "",
+            "subject": "",
+            "details": [],
+            "title_tr": title,
+        }
+
+        title_lower = title.lower()
+
+        # Şirket/ürün adı (ilk kelime veya parantez öncesi)
+        if "(" in title:
+            analysis["company"] = title.split("(")[0].strip()
+        elif " - " in title:
+            analysis["company"] = title.split(" - ")[0].strip()
+        elif ": " in title:
+            analysis["company"] = title.split(": ")[0].strip()
+        else:
+            analysis["company"] = title.split()[0] if title.split() else "Bu konu"
+
+        # Y Combinator tespiti
+        yc_match = re.search(r'\(YC ([WSF]\d{2})\)', title)
+        if yc_match:
+            batch = yc_match.group(1)
+            season = {"W": "Kış", "S": "Yaz", "F": "Güz"}.get(batch[0], "")
+            year = f"20{batch[1:]}"
+            analysis["details"].append(f"Y Combinator {season} {year} programı mezunu bir startup")
+            analysis["details"].append("Y Combinator, dünyanın en prestijli startup hızlandırıcısı (Airbnb, Dropbox, Stripe buradan çıktı)")
+
+        # İşe alım tespiti
+        if "hiring" in title_lower or "job" in title_lower or "career" in title_lower:
+            analysis["action"] = "işe_alim"
+
+            # Pozisyon tespiti
+            positions = {
+                "researcher": "Araştırmacı",
+                "engineer": "Mühendis",
+                "developer": "Geliştirici",
+                "designer": "Tasarımcı",
+                "manager": "Yönetici",
+                "scientist": "Bilim İnsanı",
+                "analyst": "Analist",
+                "intern": "Stajyer",
+            }
+            for eng, tr in positions.items():
+                if eng in title_lower:
+                    analysis["subject"] = tr
+                    break
+
+            # Alan tespiti
+            fields = {
+                "ml": "Makine Öğrenimi",
+                "machine learning": "Makine Öğrenimi",
+                "ai": "Yapay Zeka",
+                "data": "Veri",
+                "backend": "Backend",
+                "frontend": "Frontend",
+                "fullstack": "Full Stack",
+                "mobile": "Mobil",
+                "devops": "DevOps",
+                "security": "Güvenlik",
+            }
+            for eng, tr in fields.items():
+                if eng in title_lower:
+                    analysis["subject"] = f"{tr} {analysis['subject']}".strip()
+                    analysis["details"].append(f"{tr} alanında uzman arıyorlar")
+                    break
+
+        # Lansman/duyuru tespiti
+        elif "launch" in title_lower or "release" in title_lower or "announce" in title_lower:
+            analysis["action"] = "lansman"
+            analysis["details"].append("Yeni bir ürün/özellik duyuruldu")
+
+        # Satın alma tespiti
+        elif "acqui" in title_lower or "bought" in title_lower or "purchase" in title_lower:
+            analysis["action"] = "satin_alma"
+            analysis["details"].append("Önemli bir satın alma/birleşme haberi")
+
+        # Yatırım tespiti
+        elif "funding" in title_lower or "raise" in title_lower or "series" in title_lower or "million" in title_lower:
+            analysis["action"] = "yatirim"
+            # Miktar bul
+            amount_match = re.search(r'\$(\d+(?:\.\d+)?)\s*(M|B|million|billion)?', title, re.IGNORECASE)
+            if amount_match:
+                amount = amount_match.group(1)
+                unit = amount_match.group(2) or ""
+                if unit.upper() in ["M", "MILLION"]:
+                    analysis["details"].append(f"{amount} milyon dolar yatırım aldılar")
+                elif unit.upper() in ["B", "BILLION"]:
+                    analysis["details"].append(f"{amount} milyar dolar yatırım aldılar")
+
+        # Açık kaynak tespiti
+        elif "open source" in title_lower or "opensource" in title_lower:
+            analysis["action"] = "acik_kaynak"
+            analysis["details"].append("Açık kaynak bir proje - herkes kullanabilir ve katkıda bulunabilir")
+
+        return analysis
+
+    @classmethod
+    def _build_smart_content(cls, analysis: dict, category: str) -> str:
+        """Analiz sonucuna göre akıllı içerik oluştur"""
+
+        company = analysis["company"]
+        action = analysis["action"]
+        subject = analysis["subject"]
+        details = analysis["details"]
+
+        # Detayları bullet point olarak formatla
+        # İnsansı içerik oluştur (küçük harf, samimi, doğal)
+        details_clean = "\n".join([f"- {d.lower()}" for d in details]) if details else ""
+        company_lower = company.lower() if company else "bu şirket"
+
+        if action == "işe_alim":
+            return f"""{company} ekip arkadaşı arıyor
+
+{company_lower}, {(subject.lower() if subject else 'yeni pozisyonlar')} için birilerini arıyormuş
+
+{details_clean}
+
+ya şimdi şöyle bi durum var, teknoloji sektöründe iş bulmak isteyenler için fırsatlar artıyor. özellikle yapay zeka ve yazılım tarafında yetenekli insanlara ihtiyaç var
+
+türkiyeden de başvurulabiliyor bu tarz pozisyonlara. uzaktan çalışma imkanı sunanlar da var
+
+siz hangi alanda çalışmak isterdiniz?"""
+
+        elif action == "yatirim":
+            return f"""{company} yatırım almış
+
+{company_lower} ciddi bi yatırım kapattı
+
+{details_clean}
+
+yatırımcılar bu şirkete güveniyor demek ki. büyüme planları var, sektörde rekabet kızışıyor
+
+aslında teknoloji tarafında yatırımlar hız kesmiyor. bu tarz haberler sektörün nereye gittiğini gösteriyor biraz
+
+girişimcilik hakkında ne düşünüyorsunuz?"""
+
+        elif action == "lansman":
+            return f"""{company} yeni bi şey duyurdu
+
+{company_lower} ilginç bi duyuru yaptı
+
+{details_clean}
+
+teknoloji sürekli gelişiyor ya, yeni araçlar çıkıyor. rekabet arttıkça biz kullanıcılar kazanıyoruz aslında
+
+bu tarz yenilikleri takip etmekte fayda var. bugün çıkan bi araç yarın işini kolaylaştırabilir
+
+yeni teknolojileri denemeyi sever misiniz?"""
+
+        elif action == "acik_kaynak":
+            return f"""{company} açık kaynak
+
+{company_lower} açık kaynak bi proje
+
+{details_clean}
+
+açık kaynak neden önemli biliyo musunuz? herkes kullanabilir, ücretsiz. topluluk geliştiriyor, şeffaf
+
+linux, git, python... hepsi açık kaynak. teknolojinin temeli bunlar aslında
+
+siz açık kaynak projelere katkıda bulunuyo musunuz?"""
+
+        else:
+            # Genel template
+            return f"""{company} gündemde
+
+{company_lower} hakkında konuşuluyor
+
+{details_clean}
+
+teknoloji camiası bu konuyu tartışıyor. farklı görüşler var
+
+bence takip etmekte fayda var. teknoloji dünyasında her gün yeni şeyler oluyor
+
+siz bu konu hakkında ne düşünüyorsunuz?"""
 
     @classmethod
     def _simple_translate_title(cls, text: str) -> str:

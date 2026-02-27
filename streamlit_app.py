@@ -47,98 +47,290 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# MOBİL UYUMLU CSS
+# MODERN VE ŞIK CSS - Dark Theme
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 1.8rem;
-        font-weight: bold;
-        color: #1DA1F2;
-        text-align: center;
-        margin-bottom: 0.5rem;
+    /* Genel sayfa stili */
+    .stApp {
+        background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
     }
+
+    /* Ana başlık */
+    .main-header {
+        font-size: 2.2rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-align: center;
+        margin-bottom: 0.3rem;
+        letter-spacing: -0.5px;
+    }
+
     .sub-header {
         text-align: center;
-        color: #657786;
-        font-size: 0.9rem;
-        margin-bottom: 1rem;
+        color: #8892b0;
+        font-size: 0.95rem;
+        margin-bottom: 1.5rem;
+        font-weight: 300;
     }
+
+    /* Tweet kutusu - glassmorphism */
     .tweet-box {
-        background: #ffffff;
-        border: 2px solid #1DA1F2;
-        border-radius: 15px;
-        padding: 20px;
-        margin: 15px 0;
-        font-size: 1.1rem;
-        line-height: 1.5;
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 24px;
+        margin: 20px 0;
+        font-size: 1.05rem;
+        line-height: 1.7;
+        color: #e6e6e6;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     }
+
+    .tweet-box:hover {
+        border-color: rgba(102, 126, 234, 0.4);
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.15);
+    }
+
+    /* Kopyalama ipucu */
     .copy-hint {
-        background: #e8f5fe;
-        border: 1px solid #1DA1F2;
-        border-radius: 10px;
-        padding: 10px;
+        background: rgba(102, 126, 234, 0.1);
+        border: 1px solid rgba(102, 126, 234, 0.3);
+        border-radius: 12px;
+        padding: 12px;
         text-align: center;
-        margin: 10px 0;
+        margin: 12px 0;
+        color: #a8b2d1;
     }
+
+    /* Haber kartı */
     .news-card {
-        background: #f8f9fa;
-        border-left: 3px solid #1DA1F2;
-        padding: 10px;
-        margin: 5px 0;
-        border-radius: 0 8px 8px 0;
+        background: rgba(255, 255, 255, 0.02);
+        border-left: 3px solid #667eea;
+        padding: 16px;
+        margin: 10px 0;
+        border-radius: 0 16px 16px 0;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
     }
+
+    .news-card:hover {
+        background: rgba(255, 255, 255, 0.05);
+        border-left-color: #f093fb;
+        transform: translateX(5px);
+    }
+
+    /* Butonlar */
     .stButton > button {
         width: 100%;
-        padding: 15px 20px;
-        font-size: 1.1rem;
-        border-radius: 25px;
+        padding: 16px 24px;
+        font-size: 1rem;
+        font-weight: 600;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
     }
+
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    /* Karakter sayacı */
     .char-counter {
         text-align: right;
         font-size: 0.85rem;
-        color: #657786;
+        color: #8892b0;
+        font-family: 'SF Mono', monospace;
     }
-    .char-ok { color: #17bf63; }
-    .char-warn { color: #ffad1f; }
-    .char-over { color: #e0245e; }
+    .char-ok { color: #64ffda; }
+    .char-warn { color: #ffd93d; }
+    .char-over { color: #ff6b6b; }
+
+    /* Adım göstergesi */
     .step-indicator {
-        background: linear-gradient(90deg, #1DA1F2, #17bf63);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        padding: 8px 15px;
-        border-radius: 20px;
-        font-weight: bold;
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-weight: 600;
         display: inline-block;
+        margin-bottom: 15px;
+        font-size: 0.9rem;
+        letter-spacing: 0.5px;
+    }
+
+    /* Viral skor */
+    .viral-score {
+        background: linear-gradient(135deg, #ff6b6b 0%, #feca57 50%, #64ffda 100%);
+        padding: 20px;
+        border-radius: 20px;
+        text-align: center;
+        color: #1a1a2e;
+        font-weight: 700;
+        margin: 15px 0;
+        font-size: 1.1rem;
+    }
+
+    /* İpucu kutusu */
+    .tip-box {
+        background: rgba(255, 217, 61, 0.1);
+        border: 1px solid rgba(255, 217, 61, 0.3);
+        border-radius: 16px;
+        padding: 16px;
+        margin: 15px 0;
+        color: #ffd93d;
+    }
+
+    /* Başarı kutusu */
+    .success-box {
+        background: rgba(100, 255, 218, 0.1);
+        border: 1px solid rgba(100, 255, 218, 0.3);
+        border-radius: 16px;
+        padding: 16px;
+        margin: 15px 0;
+        color: #64ffda;
+    }
+
+    /* Profil kartı */
+    .profile-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 20px;
+        margin: 15px 0;
+        backdrop-filter: blur(10px);
+    }
+
+    /* Trend kartı */
+    .trend-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 18px;
+        margin: 12px 0;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .trend-card:hover {
+        background: rgba(102, 126, 234, 0.1);
+        border-color: rgba(102, 126, 234, 0.3);
+        transform: scale(1.02);
+    }
+
+    /* Stats badge */
+    .stats-badge {
+        background: rgba(100, 255, 218, 0.15);
+        color: #64ffda;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+        margin: 2px;
+    }
+
+    /* Kategori seçici */
+    .category-btn {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 25px;
+        padding: 8px 16px;
+        color: #a8b2d1;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        display: inline-block;
+        margin: 4px;
+    }
+
+    .category-btn:hover, .category-btn.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: transparent;
+    }
+
+    /* Input alanları */
+    .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 12px !important;
+        color: #e6e6e6 !important;
+    }
+
+    .stTextInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus {
+        border-color: rgba(102, 126, 234, 0.5) !important;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1) !important;
+    }
+
+    /* Selectbox */
+    .stSelectbox > div > div {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 12px !important;
+    }
+
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background: transparent;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 12px;
+        color: #a8b2d1;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    /* Expander */
+    .streamlit-expanderHeader {
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 12px;
+        color: #e6e6e6 !important;
+    }
+
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 100%);
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Hide Streamlit branding */
+    #MainMenu, footer, header {
+        visibility: hidden;
+    }
+
+    /* Emoji büyütme */
+    .big-emoji {
+        font-size: 2.5rem;
+        display: block;
+        text-align: center;
         margin-bottom: 10px;
     }
-    .viral-score {
-        background: linear-gradient(90deg, #ff6b6b, #feca57, #1dd1a1);
-        padding: 15px;
-        border-radius: 15px;
-        text-align: center;
-        color: white;
-        font-weight: bold;
-        margin: 10px 0;
+
+    /* Glow efekti */
+    .glow {
+        animation: glow 2s ease-in-out infinite alternate;
     }
-    .tip-box {
-        background: #fff3cd;
-        border: 1px solid #ffc107;
-        border-radius: 10px;
-        padding: 10px;
-        margin: 10px 0;
-    }
-    .success-box {
-        background: #d4edda;
-        border: 1px solid #28a745;
-        border-radius: 10px;
-        padding: 10px;
-        margin: 10px 0;
-    }
-    .profile-card {
-        background: #f8f9fa;
-        border: 2px solid #1DA1F2;
-        border-radius: 15px;
-        padding: 15px;
-        margin: 10px 0;
+
+    @keyframes glow {
+        from { box-shadow: 0 0 10px rgba(102, 126, 234, 0.3); }
+        to { box-shadow: 0 0 20px rgba(102, 126, 234, 0.6); }
     }
 </style>
 """, unsafe_allow_html=True)

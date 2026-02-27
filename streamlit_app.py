@@ -47,19 +47,19 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# MODERN VE ŞIK CSS - Dark Theme
+# MODERN VE ŞIK CSS - Light Theme
 st.markdown("""
 <style>
-    /* Genel sayfa stili */
+    /* Genel sayfa stili - AÇIK TEMA */
     .stApp {
-        background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f1f5f9 100%);
     }
 
     /* Ana başlık */
     .main-header {
         font-size: 2.2rem;
         font-weight: 800;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -70,92 +70,92 @@ st.markdown("""
 
     .sub-header {
         text-align: center;
-        color: #8892b0;
+        color: #64748b;
         font-size: 0.95rem;
         margin-bottom: 1.5rem;
-        font-weight: 300;
+        font-weight: 400;
     }
 
-    /* Tweet kutusu - glassmorphism */
+    /* Tweet kutusu */
     .tweet-box {
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: white;
+        border: 1px solid #e2e8f0;
         border-radius: 20px;
         padding: 24px;
         margin: 20px 0;
         font-size: 1.05rem;
         line-height: 1.7;
-        color: #e6e6e6;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        color: #1e293b;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     }
 
     .tweet-box:hover {
-        border-color: rgba(102, 126, 234, 0.4);
-        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.15);
+        border-color: #a855f7;
+        box-shadow: 0 8px 30px rgba(168, 85, 247, 0.15);
     }
 
     /* Kopyalama ipucu */
     .copy-hint {
-        background: rgba(102, 126, 234, 0.1);
-        border: 1px solid rgba(102, 126, 234, 0.3);
+        background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+        border: 1px solid #a855f7;
         border-radius: 12px;
         padding: 12px;
         text-align: center;
         margin: 12px 0;
-        color: #a8b2d1;
+        color: #6b21a8;
     }
 
     /* Haber kartı */
     .news-card {
-        background: rgba(255, 255, 255, 0.02);
-        border-left: 3px solid #667eea;
+        background: white;
+        border-left: 4px solid #8b5cf6;
         padding: 16px;
         margin: 10px 0;
         border-radius: 0 16px 16px 0;
-        backdrop-filter: blur(10px);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
         transition: all 0.3s ease;
+        color: #334155;
     }
 
     .news-card:hover {
-        background: rgba(255, 255, 255, 0.05);
-        border-left-color: #f093fb;
+        background: #faf5ff;
+        border-left-color: #a855f7;
         transform: translateX(5px);
     }
 
     /* Butonlar */
     .stButton > button {
         width: 100%;
-        padding: 16px 24px;
+        padding: 14px 24px;
         font-size: 1rem;
         font-weight: 600;
-        border-radius: 16px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 14px;
+        background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
         border: none;
         color: white;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
     }
 
     .stButton > button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
     }
 
     /* Karakter sayacı */
     .char-counter {
         text-align: right;
         font-size: 0.85rem;
-        color: #8892b0;
-        font-family: 'SF Mono', monospace;
+        color: #64748b;
+        font-family: monospace;
     }
-    .char-ok { color: #64ffda; }
-    .char-warn { color: #ffd93d; }
-    .char-over { color: #ff6b6b; }
+    .char-ok { color: #22c55e; }
+    .char-warn { color: #f59e0b; }
+    .char-over { color: #ef4444; }
 
     /* Adım göstergesi */
     .step-indicator {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
         color: white;
         padding: 10px 20px;
         border-radius: 25px;
@@ -163,72 +163,74 @@ st.markdown("""
         display: inline-block;
         margin-bottom: 15px;
         font-size: 0.9rem;
-        letter-spacing: 0.5px;
     }
 
     /* Viral skor */
     .viral-score {
-        background: linear-gradient(135deg, #ff6b6b 0%, #feca57 50%, #64ffda 100%);
+        background: linear-gradient(135deg, #f97316 0%, #eab308 50%, #22c55e 100%);
         padding: 20px;
         border-radius: 20px;
         text-align: center;
-        color: #1a1a2e;
+        color: white;
         font-weight: 700;
         margin: 15px 0;
         font-size: 1.1rem;
+        box-shadow: 0 4px 15px rgba(249, 115, 22, 0.3);
     }
 
     /* İpucu kutusu */
     .tip-box {
-        background: rgba(255, 217, 61, 0.1);
-        border: 1px solid rgba(255, 217, 61, 0.3);
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
         border-radius: 16px;
         padding: 16px;
         margin: 15px 0;
-        color: #ffd93d;
+        color: #92400e;
     }
 
     /* Başarı kutusu */
     .success-box {
-        background: rgba(100, 255, 218, 0.1);
-        border: 1px solid rgba(100, 255, 218, 0.3);
+        background: #dcfce7;
+        border: 1px solid #22c55e;
         border-radius: 16px;
         padding: 16px;
         margin: 15px 0;
-        color: #64ffda;
+        color: #166534;
     }
 
     /* Profil kartı */
     .profile-card {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: white;
+        border: 1px solid #e2e8f0;
         border-radius: 20px;
         padding: 20px;
         margin: 15px 0;
-        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        color: #334155;
     }
 
     /* Trend kartı */
     .trend-card {
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: white;
+        border: 1px solid #e2e8f0;
         border-radius: 16px;
         padding: 18px;
         margin: 12px 0;
         cursor: pointer;
         transition: all 0.3s ease;
+        color: #334155;
     }
 
     .trend-card:hover {
-        background: rgba(102, 126, 234, 0.1);
-        border-color: rgba(102, 126, 234, 0.3);
+        background: #faf5ff;
+        border-color: #a855f7;
         transform: scale(1.02);
     }
 
     /* Stats badge */
     .stats-badge {
-        background: rgba(100, 255, 218, 0.15);
-        color: #64ffda;
+        background: #dcfce7;
+        color: #166534;
         padding: 4px 10px;
         border-radius: 20px;
         font-size: 0.8rem;
@@ -239,11 +241,11 @@ st.markdown("""
 
     /* Kategori seçici */
     .category-btn {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: white;
+        border: 1px solid #e2e8f0;
         border-radius: 25px;
         padding: 8px 16px;
-        color: #a8b2d1;
+        color: #64748b;
         font-size: 0.9rem;
         transition: all 0.2s ease;
         cursor: pointer;
@@ -252,7 +254,7 @@ st.markdown("""
     }
 
     .category-btn:hover, .category-btn.active {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
         color: white;
         border-color: transparent;
     }
@@ -260,22 +262,22 @@ st.markdown("""
     /* Input alanları */
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea {
-        background: rgba(255, 255, 255, 0.03) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        background: white !important;
+        border: 1px solid #e2e8f0 !important;
         border-radius: 12px !important;
-        color: #e6e6e6 !important;
+        color: #1e293b !important;
     }
 
     .stTextInput > div > div > input:focus,
     .stTextArea > div > div > textarea:focus {
-        border-color: rgba(102, 126, 234, 0.5) !important;
-        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1) !important;
+        border-color: #a855f7 !important;
+        box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1) !important;
     }
 
     /* Selectbox */
     .stSelectbox > div > div {
-        background: rgba(255, 255, 255, 0.03) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        background: white !important;
+        border: 1px solid #e2e8f0 !important;
         border-radius: 12px !important;
     }
 
@@ -286,28 +288,37 @@ st.markdown("""
     }
 
     .stTabs [data-baseweb="tab"] {
-        background: rgba(255, 255, 255, 0.03);
+        background: white;
         border-radius: 12px;
-        color: #a8b2d1;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #64748b;
+        border: 1px solid #e2e8f0;
     }
 
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
         color: white;
     }
 
     /* Expander */
     .streamlit-expanderHeader {
-        background: rgba(255, 255, 255, 0.03);
+        background: white;
         border-radius: 12px;
-        color: #e6e6e6 !important;
+        color: #334155 !important;
     }
 
     /* Sidebar */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 100%);
-        border-right: 1px solid rgba(255, 255, 255, 0.05);
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        border-right: 1px solid #e2e8f0;
+    }
+
+    /* Text colors for readability */
+    h1, h2, h3, h4, h5, h6 {
+        color: #1e293b !important;
+    }
+
+    p, span, div {
+        color: #334155;
     }
 
     /* Hide Streamlit branding */
@@ -315,22 +326,12 @@ st.markdown("""
         visibility: hidden;
     }
 
-    /* Emoji büyütme */
+    /* Big emoji */
     .big-emoji {
         font-size: 2.5rem;
         display: block;
         text-align: center;
         margin-bottom: 10px;
-    }
-
-    /* Glow efekti */
-    .glow {
-        animation: glow 2s ease-in-out infinite alternate;
-    }
-
-    @keyframes glow {
-        from { box-shadow: 0 0 10px rgba(102, 126, 234, 0.3); }
-        to { box-shadow: 0 0 20px rgba(102, 126, 234, 0.6); }
     }
 </style>
 """, unsafe_allow_html=True)

@@ -56,12 +56,11 @@ class ThreadContent:
 class TrendingDiscovery:
     """
     Trending konu keşif ve içerik oluşturma sistemi.
-    Reddit, HackerNews, Tech haberleri tarar.
+    X/Twitter, Reddit, HackerNews tarar.
     """
 
     def __init__(self):
         self.session = requests.Session()
-        # Daha güçlü headers - Reddit bot engellemesini aş
         self.session.headers.update({
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -71,24 +70,167 @@ class TrendingDiscovery:
             "Upgrade-Insecure-Requests": "1",
         })
 
+        # Twitter API config
+        self.twitter_bearer_token = None
+        try:
+            from config.settings import config
+            self.twitter_bearer_token = config.twitter.bearer_token
+        except:
+            pass
+
     def get_all_trending(self, category: str = "all") -> List[TrendingTopic]:
-        """Sadece Reddit'ten trending konuları getir"""
+        """tüm kaynaklardan trending konuları getir - önce x, sonra reddit"""
         all_topics = []
 
-        # Sadece Reddit kullan (en kaliteli kaynak)
+        # 1. önce x/twitter trendlerini dene
+        x_topics = self.get_x_trending()
+        all_topics.extend(x_topics)
+
+        # 2. reddit'i dene
         reddit_topics = self.get_reddit_trending(category)
         all_topics.extend(reddit_topics)
 
-        # Reddit başarısız olduysa HackerNews'i dene
+        # 3. hiçbiri olmazsa hackernews
         if not all_topics:
-            logger.warning("Reddit'ten veri alınamadı, HackerNews deneniyor...")
+            logger.warning("x ve reddit'ten veri alınamadı, hackernews deneniyor...")
             hn_topics = self.get_hackernews_trending()
             all_topics.extend(hn_topics)
 
-        # Sırala (upvotes + comments)
+        # sırala
         all_topics.sort(key=lambda x: x.upvotes + x.comments * 2, reverse=True)
 
         return all_topics[:15]
+
+    def get_x_trending(self) -> List[TrendingTopic]:
+        """x/twitter'dan türkiye trendlerini çek"""
+        topics = []
+
+        # twitter api varsa kullan
+        if self.twitter_bearer_token:
+            topics = self._get_x_trends_api()
+            if topics:
+                return topics
+
+        # api yoksa alternatif kaynakları dene
+        topics = self._get_x_trends_scrape()
+        return topics
+
+    def _get_x_trends_api(self) -> List[TrendingTopic]:
+        """twitter api v2 ile trendleri çek"""
+        if not self.twitter_bearer_token:
+            return []
+
+        try:
+            # türkiye woeid: 23424969
+            url = "https://api.twitter.com/1.1/trends/place.json?id=23424969"
+            headers = {
+                "Authorization": f"Bearer {self.twitter_bearer_token}",
+            }
+
+            response = requests.get(url, headers=headers, timeout=10)
+
+            if response.status_code == 200:
+                data = response.json()
+                if data and len(data) > 0:
+                    trends = data[0].get("trends", [])
+
+                    for trend in trends[:10]:
+                        name = trend.get("name", "")
+                        tweet_volume = trend.get("tweet_volume") or 0
+
+                        topic = TrendingTopic(
+                            title=name,
+                            source="twitter",
+                            category=self._detect_category(name),
+                            url=trend.get("url", ""),
+                            description=f"şu an x'te gündemde",
+                            upvotes=tweet_volume,
+                            comments=0,
+                            time_ago="şimdi",
+                        )
+                        topics.append(topic)
+
+                    logger.info(f"x api'den {len(topics)} trend alındı")
+                    return topics
+
+        except Exception as e:
+            logger.debug(f"twitter api hatası: {e}")
+
+        return []
+
+    def _get_x_trends_scrape(self) -> List[TrendingTopic]:
+        """alternatif kaynaklardan x trendlerini çek"""
+        topics = []
+
+        # trends24.in sitesinden türkiye trendlerini çek
+        try:
+            url = "https://trends24.in/turkey/"
+            response = self.session.get(url, timeout=10)
+
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+
+                # trend listesini bul
+                trend_cards = soup.select('.trend-card__list li a')
+
+                for i, trend in enumerate(trend_cards[:15]):
+                    name = trend.get_text(strip=True)
+                    if not name or name.startswith("http"):
+                        continue
+
+                    topic = TrendingTopic(
+                        title=name,
+                        source="twitter",
+                        category=self._detect_category(name),
+                        url=f"https://twitter.com/search?q={urllib.parse.quote(name)}",
+                        description="x'te trend olan konu",
+                        upvotes=1000 - (i * 50),  # sıralamaya göre tahmini
+                        comments=0,
+                        time_ago="şimdi",
+                    )
+                    topics.append(topic)
+
+                if topics:
+                    logger.info(f"trends24'ten {len(topics)} trend alındı")
+                    return topics
+
+        except Exception as e:
+            logger.debug(f"trends24 hatası: {e}")
+
+        # getdaytrends.com sitesinden dene
+        try:
+            url = "https://getdaytrends.com/turkey/"
+            response = self.session.get(url, timeout=10)
+
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+
+                trend_items = soup.select('.main-trend-name a, .trend-name a')
+
+                for i, trend in enumerate(trend_items[:15]):
+                    name = trend.get_text(strip=True)
+                    if not name:
+                        continue
+
+                    topic = TrendingTopic(
+                        title=name,
+                        source="twitter",
+                        category=self._detect_category(name),
+                        url=f"https://twitter.com/search?q={urllib.parse.quote(name)}",
+                        description="x'te trend olan konu",
+                        upvotes=1000 - (i * 50),
+                        comments=0,
+                        time_ago="şimdi",
+                    )
+                    topics.append(topic)
+
+                if topics:
+                    logger.info(f"getdaytrends'ten {len(topics)} trend alındı")
+
+        except Exception as e:
+            logger.debug(f"getdaytrends hatası: {e}")
+
+        return topics
 
     def get_hackernews_trending(self) -> List[TrendingTopic]:
         """Hacker News'ten trending konuları getir (Reddit backup)"""

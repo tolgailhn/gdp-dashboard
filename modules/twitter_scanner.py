@@ -77,7 +77,22 @@ SPAM_PATTERNS = [
     r"(?i)(follow me|like and retweet|rt to win)",
     r"(?i)(affordable|cheap|discount|promo code|coupon)",
     r"(?i)(join my|subscribe to my|check my link)",
+    # Promotional / corporate fluff
+    r"(?i)(thank you for|teşekkür ederiz|uzun süredir|proud to announce|excited to share|thrilled to)",
+    r"(?i)(we('re| are) hiring|job opening|apply now|join our team|career opportunity)",
+    r"(?i)(happy birthday|congratulations|congrats to|shout ?out to)",
+    r"(?i)(don'?t miss|register now|sign up today|limited time|early bird|save \d+%)",
+    r"(?i)(webinar|workshop|meetup|conference|event|live stream).*?(register|join|sign up|link in bio)",
+    r"(?i)(check out our|read our latest|our new blog|new blog post|read more at)",
+    # Low-quality engagement bait
+    r"(?i)^(agree|disagree|thoughts|this|wow|amazing|incredible|game.?changer)[.!?]?$",
+    r"(?i)(retweet if|like if|who else|raise your hand|tag someone)",
+    r"(?i)(alpha leak|insider info|you won'?t believe|secret.{0,10}reveal)",
 ]
+
+# Minimum content quality thresholds
+MIN_TWEET_LENGTH = 50  # Skip very short tweets
+
 
 # Category keywords for classification
 CATEGORY_KEYWORDS = {
@@ -95,9 +110,20 @@ CATEGORY_KEYWORDS = {
 
 def is_spam(text: str) -> bool:
     """Check if a tweet is likely spam or irrelevant"""
+    # Too short to be meaningful AI content
+    if len(text.strip()) < MIN_TWEET_LENGTH:
+        return True
+
+    # Pattern-based filtering
     for pattern in SPAM_PATTERNS:
         if re.search(pattern, text):
             return True
+
+    # Link-only tweets (just a URL with minimal text)
+    text_no_urls = re.sub(r'https?://\S+', '', text).strip()
+    if len(text_no_urls) < 30:
+        return True
+
     return False
 
 

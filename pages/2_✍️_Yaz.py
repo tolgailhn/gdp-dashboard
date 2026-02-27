@@ -9,6 +9,7 @@ from modules.ui_components import (inject_custom_css, check_password,
                                    get_secret)
 from modules.content_generator import ContentGenerator, get_available_styles, get_style_info
 from modules.tweet_publisher import TweetPublisher
+from modules.deep_research import extract_tweet_id, research_topic
 from modules.style_manager import (
     load_user_samples, load_custom_persona,
     add_to_post_history, add_draft, load_draft_tweets
@@ -33,62 +34,208 @@ selected_topic = st.session_state.get("selected_topic", None)
 quote_topic = st.session_state.get("quote_topic", None)
 
 # --- Header ---
-if write_mode == "quote" and quote_topic:
-    st.markdown("""
-    <div class="main-header">
-        <h1>💬 Quote Tweet Yaz</h1>
-        <p style="color:#8899a6;">Seçilen tweet'e doğal bir yorum yaz</p>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <div class="main-header">
-        <h1>✍️ Tweet Yazıcı</h1>
-        <p style="color:#8899a6;">AI ile doğal, insan gibi tweet üret</p>
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown("""
+<div class="main-header">
+    <h1>✍️ Tweet Yazıcı</h1>
+    <p style="color:#8899a6;">AI ile doğal, insan gibi tweet üret</p>
+</div>
+""", unsafe_allow_html=True)
 
-# --- Topic Input ---
-st.markdown("### 📌 Konu")
+# --- Mode Tabs ---
+mode_tab1, mode_tab2, mode_tab3 = st.tabs([
+    "📝 Tweet Yaz",
+    "🔬 Araştırmalı Quote Tweet",
+    "💬 Hızlı Quote Tweet",
+])
 
-if write_mode == "quote" and quote_topic:
-    st.markdown(f"""
-    <div class="tweet-card" style="border-color:#1DA1F2;">
-        <div>
-            <span class="tweet-author">Orijinal Tweet</span>
-            <span class="tweet-username">@{quote_topic.get('author', '')}</span>
+# Track which tab is active
+research_summary = ""
+
+with mode_tab2:
+    st.markdown("""
+    <div style="background:#16213e; border:1px solid #1DA1F2; border-radius:12px;
+                padding:16px; margin-bottom:16px;">
+        <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">🔬 Araştırmalı Quote Tweet</div>
+        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+            Tweet URL'si ver → Web'de ve X'te araştır → Bilgi topla → Akıllı quote yaz
         </div>
-        <div class="tweet-text">{quote_topic.get('text', '')}</div>
     </div>
     """, unsafe_allow_html=True)
-    topic_text = quote_topic.get("text", "")
-    topic_source = quote_topic.get("author", "")
 
-    if st.button("Quote modu kapat", key="clear_quote"):
-        st.session_state.write_mode = "normal"
-        st.session_state.quote_topic = None
-        st.rerun()
-
-elif selected_topic:
-    st.info(f"📌 Seçilen konu: {selected_topic.get('text', '')[:100]}...")
-    topic_text = selected_topic.get("text", "")
-    topic_source = selected_topic.get("url", "")
-
-    if st.button("Konuyu temizle", key="clear_topic"):
-        st.session_state.selected_topic = None
-        st.rerun()
-else:
-    topic_text = st.text_area(
-        "Konu / AI Gelişmesi",
-        placeholder="Tweet yazmak istediğiniz konuyu veya AI gelişmesini buraya yazın...\n\nÖrnek: Qwen 3 modeli çıktı, coding benchmark'larında GPT-4o'yu geçti",
-        height=120,
-        key="manual_topic"
+    quote_url = st.text_input(
+        "Tweet URL'si",
+        placeholder="https://x.com/kullanici/status/123456789...",
+        key="research_quote_url"
     )
-    topic_source = st.text_input(
-        "Kaynak (opsiyonel)",
-        placeholder="Tweet URL'si veya kaynak",
-        key="topic_source"
-    )
+
+    col_r1, col_r2 = st.columns(2)
+    with col_r1:
+        research_clicked = st.button(
+            "🔬 Araştır ve Yaz",
+            type="primary",
+            use_container_width=True,
+            key="research_btn",
+            disabled=not quote_url
+        )
+    with col_r2:
+        research_only = st.button(
+            "🔍 Sadece Araştır",
+            use_container_width=True,
+            key="research_only_btn",
+            disabled=not quote_url
+        )
+
+    if research_clicked or research_only:
+        tweet_id = extract_tweet_id(quote_url)
+        if not tweet_id:
+            st.error("Geçersiz tweet URL'si! Örn: https://x.com/user/status/123456")
+        else:
+            # Fetch tweet from Twitter
+            bearer_token = get_secret("twitter_bearer_token", "")
+            scanner = None
+            original_tweet = None
+
+            if bearer_token:
+                from modules.twitter_scanner import TwitterScanner
+                scanner = TwitterScanner(bearer_token=bearer_token)
+                with st.spinner("Tweet çekiliyor..."):
+                    original_tweet = scanner.get_tweet_by_id(tweet_id)
+
+            if not original_tweet and not bearer_token:
+                st.warning("Twitter API yapılandırılmamış. Tweet metnini manuel girin.")
+                manual_tweet_text = st.text_area(
+                    "Tweet metni",
+                    placeholder="Quote edeceğiniz tweet'in metnini yapıştırın...",
+                    key="manual_quote_text"
+                )
+                if manual_tweet_text:
+                    original_tweet_text = manual_tweet_text
+                    original_author = "unknown"
+                else:
+                    st.stop()
+            elif not original_tweet:
+                st.error("Tweet bulunamadı. URL'yi kontrol edin.")
+                st.stop()
+            else:
+                original_tweet_text = original_tweet.text
+                original_author = original_tweet.author_username
+
+                st.markdown(f"""
+                <div class="tweet-card" style="border-color:#1DA1F2;">
+                    <div>
+                        <span class="tweet-author">{original_tweet.author_name}</span>
+                        <span class="tweet-username">@{original_author}</span>
+                    </div>
+                    <div class="tweet-text">{original_tweet_text}</div>
+                    <div style="color:#8899a6; font-size:12px; margin-top:8px;">
+                        ❤️ {original_tweet.like_count:,} · 🔁 {original_tweet.retweet_count:,}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # Deep research
+            progress_text = st.empty()
+            with st.spinner("Derin araştırma yapılıyor..."):
+                research = research_topic(
+                    tweet_text=original_tweet_text,
+                    tweet_author=original_author,
+                    tweet_id=tweet_id,
+                    scanner=scanner,
+                    progress_callback=lambda msg: progress_text.caption(msg),
+                )
+                progress_text.empty()
+
+            # Show research results
+            st.session_state.research_data = research
+            research_summary = research.summary
+
+            with st.expander("📊 Araştırma Sonuçları", expanded=True):
+                if research.web_results:
+                    st.markdown("**Web Sonuçları:**")
+                    for wr in research.web_results[:6]:
+                        st.markdown(f"- **{wr['title']}**\n  {wr['body'][:150]}...")
+                if research.related_tweets:
+                    st.markdown("**İlgili Tweet'ler:**")
+                    for rt in research.related_tweets[:3]:
+                        st.markdown(f"- @{rt['author']}: _{rt['text'][:120]}_...")
+
+            if research_clicked:
+                # Auto-generate quote tweet with research
+                st.session_state.write_mode = "quote"
+                st.session_state.quote_topic = {
+                    "id": tweet_id,
+                    "text": original_tweet_text,
+                    "author": original_author,
+                }
+                st.session_state.research_summary = research_summary
+            elif research_only:
+                st.success("Araştırma tamamlandı! Sonuçları inceleyip '📝 Tweet Yaz' sekmesine geçebilirsiniz.")
+                st.session_state.selected_topic = {
+                    "text": f"[Araştırma] {original_tweet_text}",
+                    "url": quote_url,
+                }
+                st.session_state.research_summary = research_summary
+
+    # Show stored research if exists
+    if "research_data" in st.session_state and not (research_clicked or research_only):
+        rd = st.session_state.research_data
+        if rd.web_results or rd.related_tweets:
+            with st.expander("📊 Önceki Araştırma Sonuçları"):
+                if rd.web_results:
+                    for wr in rd.web_results[:4]:
+                        st.markdown(f"- **{wr['title']}**: {wr['body'][:120]}...")
+                if rd.related_tweets:
+                    for rt in rd.related_tweets[:3]:
+                        st.markdown(f"- @{rt['author']}: _{rt['text'][:100]}_...")
+
+with mode_tab3:
+    if write_mode == "quote" and quote_topic:
+        st.markdown(f"""
+        <div class="tweet-card" style="border-color:#1DA1F2;">
+            <div>
+                <span class="tweet-author">Orijinal Tweet</span>
+                <span class="tweet-username">@{quote_topic.get('author', '')}</span>
+            </div>
+            <div class="tweet-text">{quote_topic.get('text', '')}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        topic_text = quote_topic.get("text", "")
+        topic_source = quote_topic.get("author", "")
+
+        if st.button("Quote modu kapat", key="clear_quote"):
+            st.session_state.write_mode = "normal"
+            st.session_state.quote_topic = None
+            st.rerun()
+    else:
+        st.info("Tara sayfasından bir tweet seçip 'Quote Tweet' butonuna tıklayın, veya '🔬 Araştırmalı Quote Tweet' sekmesini kullanın.")
+        topic_text = ""
+        topic_source = ""
+
+with mode_tab1:
+    if selected_topic and write_mode != "quote":
+        st.info(f"📌 Seçilen konu: {selected_topic.get('text', '')[:100]}...")
+        topic_text = selected_topic.get("text", "")
+        topic_source = selected_topic.get("url", "")
+
+        if st.button("Konuyu temizle", key="clear_topic"):
+            st.session_state.selected_topic = None
+            st.rerun()
+    elif write_mode != "quote":
+        topic_text = st.text_area(
+            "Konu / AI Gelişmesi",
+            placeholder="Tweet yazmak istediğiniz konuyu veya AI gelişmesini buraya yazın...\n\nÖrnek: Qwen 3 modeli çıktı, coding benchmark'larında GPT-4o'yu geçti",
+            height=120,
+            key="manual_topic"
+        )
+        topic_source = st.text_input(
+            "Kaynak (opsiyonel)",
+            placeholder="Tweet URL'si veya kaynak",
+            key="topic_source"
+        )
+
+# Get research summary if available (from research tab)
+if "research_summary" in st.session_state:
+    research_summary = st.session_state.research_summary
 
 st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
 
@@ -265,13 +412,14 @@ if generate_clicked or regenerate_clicked:
             max_length = 0 if st.session_state.get("use_premium", True) else 280
 
             if write_mode == "quote" and quote_topic:
-                # Quote tweet mode
+                # Quote tweet mode (with or without research)
                 result = generator.generate_quote_tweet(
                     original_tweet=topic_text,
                     original_author=topic_source,
                     style=selected_style,
                     additional_context=additional,
                     user_samples=user_samples if user_samples else None,
+                    research_summary=research_summary,
                 )
                 st.session_state.generated_tweet = result
                 st.session_state.generated_thread = None

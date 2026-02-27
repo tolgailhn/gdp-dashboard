@@ -70,17 +70,20 @@ class TrendingDiscovery:
             "Upgrade-Insecure-Requests": "1",
         })
 
-        # Twitter API config - senin token'ların
-        self.twitter_bearer_token = None
-        self.twitter_auth_token = "75dbe5f8894451b851b2d362d6bec9760d59272b"
-        self.twitter_ct0 = "9b77d23bbc8b17f6289acce782f90070201db154d3507f32acd5999039766982512ebd8cc4b54b1461448dc62c1167a599e1dac53304d6cd2d5ce4a63041c367a31fd8de37425c287c0fadf1908d3324"
+        # Twitter API config - Bearer Token (pay-per-use)
+        import urllib.parse
+        self.twitter_bearer_token = urllib.parse.unquote("AAAAAAAAAAAAAAAAAAAAAI%2BY7wEAAAAAC3B4B3daAmvOj%2FBsB5v5M6PjJ6Y%3DHgtVtwVgHII7npxqKc4swFhHsAZ9hr7Yg1tOwVYUe564wzPEj7")
+        self.twitter_auth_token = ""
+        self.twitter_ct0 = ""
 
         try:
             from config.settings import config, get_secret
-            self.twitter_bearer_token = config.twitter.bearer_token
             # env'den override
+            env_bearer = get_secret("TWITTER_BEARER_TOKEN", "")
             env_auth = get_secret("TWITTER_AUTH_TOKEN", "")
             env_ct0 = get_secret("TWITTER_CT0", "")
+            if env_bearer:
+                self.twitter_bearer_token = urllib.parse.unquote(env_bearer)
             if env_auth:
                 self.twitter_auth_token = env_auth
             if env_ct0:
@@ -115,17 +118,18 @@ class TrendingDiscovery:
         """x/twitter'dan türkiye trendlerini çek"""
         topics = []
 
-        # 1. cookie auth varsa graphql api kullan (en güvenilir)
+        # 1. bearer token varsa API v2 kullan (pay-per-use)
+        if self.twitter_bearer_token:
+            topics = self._get_x_trends_api_v2()
+            if topics:
+                logger.info(f"x api v2'den {len(topics)} trend alındı")
+                return topics
+
+        # 2. cookie auth varsa graphql api kullan (yedek)
         if self.twitter_auth_token and self.twitter_ct0:
             topics = self._get_x_trends_graphql()
             if topics:
                 logger.info(f"x graphql'den {len(topics)} trend alındı")
-                return topics
-
-        # 2. bearer token varsa v1.1 api kullan
-        if self.twitter_bearer_token:
-            topics = self._get_x_trends_api()
-            if topics:
                 return topics
 
         # 3. api yoksa alternatif kaynakları dene
@@ -331,6 +335,72 @@ class TrendingDiscovery:
             logger.debug(f"twitter api hatası: {e}")
 
         return []
+
+    def _get_x_trends_api_v2(self) -> List[TrendingTopic]:
+        """Twitter API v2 ile popüler içerikleri çek (pay-per-use)"""
+        if not self.twitter_bearer_token:
+            return []
+
+        topics = []
+        try:
+            # API v2 ile popüler tweet'leri ara (Türkçe)
+            url = "https://api.twitter.com/2/tweets/search/recent"
+            headers = {
+                "Authorization": f"Bearer {self.twitter_bearer_token}",
+                "User-Agent": "GDP-Dashboard/1.0",
+            }
+
+            # Türkçe popüler konuları ara
+            params = {
+                "query": "lang:tr -is:retweet",
+                "max_results": "20",
+                "tweet.fields": "public_metrics,created_at",
+            }
+
+            response = requests.get(url, params=params, headers=headers, timeout=10)
+
+            if response.status_code == 200:
+                data = response.json()
+                tweets = data.get("data", [])
+
+                # Tweet'lerden hashtag ve konuları çıkar
+                import re
+                seen_topics = set()
+                for tweet in tweets:
+                    text = tweet.get("text", "")
+                    metrics = tweet.get("public_metrics", {})
+
+                    # Hashtag'leri bul
+                    hashtags = re.findall(r'#(\w+)', text)
+
+                    for tag in hashtags:
+                        if tag.lower() not in seen_topics and len(tag) > 2:
+                            seen_topics.add(tag.lower())
+                            topic = TrendingTopic(
+                                title=f"#{tag}",
+                                source="twitter",
+                                category=self._detect_category(tag),
+                                url=f"https://twitter.com/search?q=%23{tag}",
+                                description="X'te gündemde",
+                                upvotes=metrics.get("like_count", 0),
+                                comments=metrics.get("reply_count", 0),
+                                time_ago="şimdi",
+                            )
+                            topics.append(topic)
+
+                if topics:
+                    logger.info(f"API v2'den {len(topics)} trend bulundu")
+                    return topics[:10]
+
+            elif response.status_code == 401:
+                logger.warning("API v2: Bearer Token geçersiz")
+            elif response.status_code == 403:
+                logger.warning("API v2: Erişim reddedildi")
+
+        except Exception as e:
+            logger.debug(f"API v2 trend hatası: {e}")
+
+        return topics
 
     def _get_x_trends_scrape(self) -> List[TrendingTopic]:
         """alternatif kaynaklardan x trendlerini çek"""

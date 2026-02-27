@@ -522,17 +522,19 @@ class AIContentEngine:
     - Format seçimi (micro → mega)
     """
 
+    # Varsayılan Bearer Token (X API v2 - Pay-per-use)
+    DEFAULT_BEARER_TOKEN = "AAAAAAAAAAAAAAAAAAAAAI%2BY7wEAAAAAC3B4B3daAmvOj%2FBsB5v5M6PjJ6Y%3DHgtVtwVgHII7npxqKc4swFhHsAZ9hr7Yg1tOwVYUe564wzPEj7"
+
     def __init__(self, auth_token: str = None, ct0: str = None, bearer_token: str = None):
-        # Cookie auth (birincil yöntem - ücretsiz)
+        # Cookie auth (yedek yöntem)
         self.auth_token = auth_token if auth_token else ""
         self.ct0 = ct0 if ct0 else ""
 
-        # Twitter API v2 Bearer Token (sadece Basic+ tier için)
-        # NOT: Free tier'da Search API yok, Basic tier $100/ay
+        # Twitter API v2 Bearer Token (pay-per-use aktif)
         if bearer_token:
             self.bearer_token = urllib.parse.unquote(bearer_token)
         else:
-            self.bearer_token = ""
+            self.bearer_token = urllib.parse.unquote(self.DEFAULT_BEARER_TOKEN)
 
         self.session = requests.Session()
 
@@ -563,9 +565,8 @@ class AIContentEngine:
         self.current_format = "thunder"
         self.current_style = "samimi"
 
-        # API modu: "cookie" (ücretsiz, birincil) veya "v2" (Basic+ tier)
-        # Cookie auth varsayılan çünkü API v2 Search $100/ay gerektiriyor
-        self.api_mode = "cookie"
+        # API modu: "v2" (pay-per-use) veya "cookie" (yedek)
+        self.api_mode = "v2" if self.bearer_token else "cookie"
 
     # ==========================================================================
     # BAĞLANTI TESTİ
@@ -574,38 +575,12 @@ class AIContentEngine:
     def test_connection(self) -> Tuple[bool, str]:
         """
         Twitter/X bağlantısını test et.
-        Cookie auth öncelikli (ücretsiz), API v2 sadece Basic+ tier için.
+        API v2 öncelikli (pay-per-use), cookie auth yedek.
 
         Returns:
             (success, message)
         """
-        # 1. Cookie auth ile dene (birincil - ücretsiz)
-        if self.auth_token and self.ct0:
-            try:
-                url = "https://twitter.com/i/api/2/search/adaptive.json"
-                params = {"q": "test", "count": "1"}
-                response = self.session.get(url, params=params, headers=self.base_headers, timeout=10)
-
-                if response.status_code == 200:
-                    self.api_mode = "cookie"
-                    return True, "✅ Bağlantı başarılı! (Cookie Auth)"
-                elif response.status_code == 401:
-                    return False, "❌ Cookie token geçersiz veya süresi dolmuş. Yeni token al."
-                elif response.status_code == 429:
-                    return False, "⚠️ Rate limit - 15 dk bekle"
-                elif response.status_code == 403:
-                    return False, "❌ Erişim reddedildi. Token'ları kontrol et."
-                else:
-                    return False, f"❌ API hatası: {response.status_code}"
-
-            except requests.exceptions.Timeout:
-                return False, "❌ Bağlantı zaman aşımı"
-            except requests.exceptions.ConnectionError:
-                return False, "❌ Bağlantı hatası - internet bağlantını kontrol et"
-            except Exception as e:
-                return False, f"❌ Hata: {str(e)[:50]}"
-
-        # 2. API v2 ile dene (sadece Basic+ tier - $100/ay)
+        # 1. API v2 ile dene (pay-per-use aktif)
         if self.bearer_token:
             try:
                 url = "https://api.twitter.com/2/tweets/search/recent"
@@ -619,13 +594,47 @@ class AIContentEngine:
 
                 if response.status_code == 200:
                     self.api_mode = "v2"
-                    return True, "✅ Twitter API v2 bağlantısı başarılı!"
+                    return True, "✅ X API v2 bağlantısı başarılı! (Pay-per-use)"
                 elif response.status_code == 401:
-                    return False, "❌ Bearer Token geçersiz"
+                    # API v2 başarısız, cookie auth dene
+                    pass
                 elif response.status_code == 403:
-                    return False, "❌ API v2 Search için Basic tier ($100/ay) gerekli"
+                    return False, "❌ API erişimi reddedildi. Developer Portal'dan kontrol et."
                 elif response.status_code == 429:
                     return False, "⚠️ Rate limit - 15 dk bekle"
+                else:
+                    # Diğer hatalar için cookie auth dene
+                    pass
+
+            except Exception as e:
+                logger.warning(f"API v2 test failed: {e}")
+
+        # 2. Cookie auth ile dene (yedek)
+        if self.auth_token and self.ct0:
+            try:
+                url = "https://twitter.com/i/api/2/search/adaptive.json"
+                params = {"q": "test", "count": "1"}
+                response = self.session.get(url, params=params, headers=self.base_headers, timeout=10)
+
+                if response.status_code == 200:
+                    self.api_mode = "cookie"
+                    return True, "✅ Bağlantı başarılı! (Cookie Auth)"
+                elif response.status_code == 401:
+                    return False, "❌ Cookie token geçersiz veya süresi dolmuş."
+                elif response.status_code == 429:
+                    return False, "⚠️ Rate limit - 15 dk bekle"
+                elif response.status_code == 403:
+                    return False, "❌ Erişim reddedildi."
+                else:
+                    return False, f"❌ API hatası: {response.status_code}"
+
+            except Exception as e:
+                return False, f"❌ Hata: {str(e)[:50]}"
+
+        # Her iki yöntem de başarısız
+        if self.bearer_token:
+            return False, "❌ Bearer Token geçersiz. Developer Portal'dan yeniden oluştur."
+        return False, "❌ Token ayarlanmamış."
                 else:
                     return False, f"❌ API v2 hatası: {response.status_code}"
 

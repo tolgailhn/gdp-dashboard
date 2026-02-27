@@ -1,16 +1,18 @@
 """
-AI Content Engine v2 - Gerçek AI Haber Keşfi
+AI Content Engine v3 - Bird CLI ile X Arama
 =============================================
 
-X'ten gerçek AI haberlerini bulur:
+bird CLI kullanarak X'ten gerçek AI haberlerini bulur:
 - Yeni model duyuruları (GPT-5, Claude 4, Gemini 2 vs.)
 - Özellik güncellemeleri
-- Benchmark sonuçları
-- Araştırma makaleleri
+- Kullanıcı tweetleri
+
+Kurulum: npm install -g @steipete/bird
 
 Araştırma yapıp, seçtiğin tonda yeniden yazar.
 """
 
+import subprocess
 import requests
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
@@ -19,8 +21,12 @@ import logging
 import json
 import re
 import urllib.parse
+import shutil
 
 logger = logging.getLogger(__name__)
+
+# Bird CLI var mı kontrol et
+BIRD_CLI_AVAILABLE = shutil.which("bird") is not None
 
 
 # ==============================================================================
@@ -288,18 +294,104 @@ class AIContentEngine:
         return matches >= 2
 
     def _search_ai_tweets(self, query: str, hours: int) -> tuple:
-        """AI konulu tweet ara - returns (tweets, error)"""
+        """AI konulu tweet ara - BIRD CLI ile - returns (tweets, error)"""
+
+        # Önce bird CLI dene
+        if BIRD_CLI_AVAILABLE:
+            tweets, error = self._search_with_bird(query, hours)
+            if tweets or not error:
+                return tweets, error
+            logger.info(f"bird CLI başarısız: {error}, API'ye geçiliyor...")
+
+        # Fallback: direkt API
+        return self._search_with_api(query, hours)
+
+    def _search_with_bird(self, query: str, hours: int) -> tuple:
+        """Bird CLI ile arama yap"""
+        tweets = []
+        error = None
+
+        try:
+            # Zaman filtresi
+            since_time = datetime.now() - timedelta(hours=hours)
+            since_str = since_time.strftime("%Y-%m-%d")
+
+            full_query = f"{query} since:{since_str}"
+
+            # bird search komutu
+            cmd = [
+                "bird", "search", full_query,
+                "--auth-token", self.auth_token,
+                "--ct0", self.ct0,
+                "--json",
+                "--count", "15"
+            ]
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            if result.returncode == 0 and result.stdout:
+                try:
+                    data = json.loads(result.stdout)
+
+                    # bird CLI JSON formatını parse et
+                    if isinstance(data, list):
+                        for item in data[:10]:
+                            text = item.get("text", "") or item.get("full_text", "")
+
+                            if text.startswith("RT @"):
+                                continue
+
+                            tweet = SourceTweet(
+                                id=str(item.get("id", "")),
+                                author=item.get("user", {}).get("screen_name", "") or item.get("author", ""),
+                                author_name=item.get("user", {}).get("name", "") or item.get("authorName", ""),
+                                text=text,
+                                url=item.get("url", f"https://twitter.com/i/status/{item.get('id', '')}"),
+                                likes=item.get("favorite_count", 0) or item.get("likes", 0),
+                                retweets=item.get("retweet_count", 0) or item.get("retweets", 0),
+                                replies=item.get("reply_count", 0) or item.get("replies", 0),
+                                created_at=item.get("created_at", ""),
+                                is_ai_news=True,
+                            )
+                            tweets.append(tweet)
+
+                    logger.info(f"bird CLI: '{query}' için {len(tweets)} tweet bulundu")
+                except json.JSONDecodeError as e:
+                    error = f"bird JSON parse hatası: {str(e)[:50]}"
+            else:
+                stderr = result.stderr.strip() if result.stderr else ""
+                if "401" in stderr or "Unauthorized" in stderr:
+                    error = "Token geçersiz. Yeni token al."
+                elif "rate" in stderr.lower():
+                    error = "Rate limit. Biraz bekle."
+                else:
+                    error = f"bird hatası: {stderr[:100]}" if stderr else "bird arama başarısız"
+
+        except subprocess.TimeoutExpired:
+            error = "bird CLI zaman aşımı (30s)"
+        except FileNotFoundError:
+            error = "bird CLI bulunamadı. npm install -g @steipete/bird"
+        except Exception as e:
+            error = f"bird hatası: {str(e)[:100]}"
+
+        return tweets, error
+
+    def _search_with_api(self, query: str, hours: int) -> tuple:
+        """Direkt API ile arama (fallback)"""
         tweets = []
         error = None
 
         try:
             url = "https://twitter.com/i/api/2/search/adaptive.json"
 
-            # Zaman filtresi
             since_time = datetime.now() - timedelta(hours=hours)
             since_str = since_time.strftime("%Y-%m-%d")
 
-            # Min engagement filtresi
             full_query = f"{query} min_faves:50 since:{since_str} -filter:replies"
 
             params = {
@@ -328,7 +420,6 @@ class AIContentEngine:
 
                     text = tweet_info.get("full_text", "")
 
-                    # RT'leri atla
                     if text.startswith("RT @"):
                         continue
 
@@ -346,22 +437,101 @@ class AIContentEngine:
                     )
                     tweets.append(tweet)
 
-                logger.info(f"'{query}' aramasından {len(tweets)} tweet bulundu")
+                logger.info(f"API: '{query}' için {len(tweets)} tweet bulundu")
             elif response.status_code == 401:
-                error = "Token geçersiz veya süresi dolmuş. Yeni token al."
+                error = "Token geçersiz veya süresi dolmuş."
             elif response.status_code == 429:
-                error = "Rate limit aşıldı. Biraz bekle."
+                error = "Rate limit aşıldı."
             else:
-                error = f"Twitter API hatası: {response.status_code}"
+                error = f"API hatası: {response.status_code}"
 
         except Exception as e:
             error = f"Bağlantı hatası: {str(e)[:100]}"
-            logger.debug(f"Arama hatası '{query}': {e}")
 
         return tweets, error
 
     def _get_user_recent_tweets(self, username: str, hours: int) -> tuple:
-        """Kullanıcının son tweetlerini çek - returns (tweets, error)"""
+        """Kullanıcının son tweetlerini çek - BIRD CLI ile"""
+
+        # Önce bird CLI dene
+        if BIRD_CLI_AVAILABLE:
+            tweets, error = self._get_user_tweets_bird(username, hours)
+            if tweets or not error:
+                return tweets, error
+
+        # Fallback: API
+        return self._get_user_tweets_api(username, hours)
+
+    def _get_user_tweets_bird(self, username: str, hours: int) -> tuple:
+        """Bird CLI ile kullanıcı tweetlerini çek"""
+        tweets = []
+        error = None
+
+        try:
+            cmd = [
+                "bird", "user-tweets", username,
+                "--auth-token", self.auth_token,
+                "--ct0", self.ct0,
+                "--json",
+                "--count", "10"
+            ]
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            if result.returncode == 0 and result.stdout:
+                try:
+                    data = json.loads(result.stdout)
+                    cutoff_time = datetime.now() - timedelta(hours=hours)
+
+                    if isinstance(data, list):
+                        for item in data[:10]:
+                            # Zaman kontrolü
+                            created_str = item.get("created_at", "")
+                            if created_str:
+                                try:
+                                    created = datetime.strptime(created_str, "%a %b %d %H:%M:%S %z %Y")
+                                    if created.replace(tzinfo=None) < cutoff_time:
+                                        continue
+                                except:
+                                    pass
+
+                            text = item.get("text", "") or item.get("full_text", "")
+
+                            if text.startswith("RT @"):
+                                continue
+
+                            tweet = SourceTweet(
+                                id=str(item.get("id", "")),
+                                author=username,
+                                author_name=item.get("user", {}).get("name", username),
+                                text=text,
+                                url=f"https://twitter.com/{username}/status/{item.get('id', '')}",
+                                likes=item.get("favorite_count", 0) or item.get("likes", 0),
+                                retweets=item.get("retweet_count", 0) or item.get("retweets", 0),
+                                created_at=created_str,
+                            )
+                            tweets.append(tweet)
+
+                    logger.info(f"bird CLI: @{username} için {len(tweets)} tweet")
+                except json.JSONDecodeError:
+                    error = "JSON parse hatası"
+            else:
+                error = result.stderr[:100] if result.stderr else "bird hatası"
+
+        except subprocess.TimeoutExpired:
+            error = "Zaman aşımı"
+        except Exception as e:
+            error = str(e)[:50]
+
+        return tweets, error
+
+    def _get_user_tweets_api(self, username: str, hours: int) -> tuple:
+        """API ile kullanıcı tweetlerini çek (fallback)"""
         tweets = []
         error = None
 

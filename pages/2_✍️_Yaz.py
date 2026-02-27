@@ -291,11 +291,11 @@ st.markdown("### 🎨 Yazım Tarzı")
 
 styles = get_available_styles()
 
-# Don't show quote_tweet in normal mode
+# Don't show quote_tweet in normal mode, show all styles in quote mode
 if write_mode != "quote":
     display_styles = {k: v for k, v in styles.items() if k != "quote_tweet"}
 else:
-    display_styles = {"quote_tweet": styles["quote_tweet"]}
+    display_styles = styles
 
 style_options = list(display_styles.keys())
 style_labels = [display_styles[k]["name"] for k in style_options]

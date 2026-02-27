@@ -138,12 +138,13 @@ WRITING_STYLES = {
         "description": "Arkadaşınla sohbet eder gibi, rahat ve samimi",
         "prompt": """
 Yazım tarzı: SAMİMİ ve GÜNLÜK
-- Arkadaşınla WhatsApp'ta konuşur gibi yaz
-- "ya, valla, harbiden, lan, cidden" gibi ifadeler kullanabilirsin
-- Kısa cümleler, bazen yarım cümleler
-- Emoji kullanabilirsin ama abartma (1-2 tane)
+- Arkadaşınla konuşur gibi, rahat ve samimi yaz
+- "ya, valla, harbiden, cidden, bi baktım" gibi günlük dil kullan
+- Kısa cümleler, bazen yarım cümleler OK
 - Şaşkınlık ve heyecanını doğal göster
-- Örnek: "Qwen yeni model çıkarmış ya, ben test ettim az önce - coding'de GPT-4o'yu geçmiş cidden. Özellikle math reasoning kısmı çok iyi olmuş. Bunu açık kaynak yapmaları da ayrı güzel."
+- Kişisel deneyimlerini ekle ("test ettim", "bi baktım", "gördüğüm kadarıyla")
+- Emoji 0-2 tane, stratejik kullan
+- Örnek: "Qwen tarafı sessiz sedasız çok acayip bir yere geldi ya.\n\nBen test ettim az önce - coding'de GPT-4o'yu geçmiş cidden. Math reasoning kısmı özellikle çok iyi olmuş.\n\nBunu açık kaynak yapmaları da ayrı güzel. Bence bu open-source tarafının dönüm noktası olabilir."
 """,
     },
     "profesyonel": {
@@ -151,25 +152,26 @@ Yazım tarzı: SAMİMİ ve GÜNLÜK
         "description": "Bilgi odaklı, profesyonel ama sıcak",
         "prompt": """
 Yazım tarzı: PROFESYONEL ama SICAK
-- Bilgilendirici ve detaylı yaz
-- Teknik detayları açıkla ama herkesin anlayacağı şekilde
-- Kendi analizini ve görüşünü ekle
-- Sayılar ve karşılaştırmalar kullan
+- Bilgilendirici ve detaylı yaz ama robot gibi değil
+- Teknik detayları açıkla, herkesin anlayacağı şekilde
+- Kendi analizini ve görüşünü mutlaka ekle
+- Spesifik sayılar, isimler ve karşılaştırmalar kullan
 - Emoji minimal (0-1 tane)
-- Örnek: "Anthropic'in yeni Claude modeli ilginç bir yaklaşımla gelmiş. Extended thinking özelliği reasoning benchmark'larında önemli bir fark yaratmış. Özellikle MATH ve GPQA'da %15+ iyileşme var. Bu, chain-of-thought'un model seviyesinde entegrasyonu açısından önemli bir adım."
+- Örnek: "Anthropic'in yeni Claude modeli reasoning tarafında ciddi bir sıçrama yapmış.\n\nExtended thinking özelliği MATH benchmark'ta %15+ iyileşme sağlamış. GPQA'da da benzer artış var.\n\nBu yaklaşım bence önümüzdeki 6 ayda standart olur. Herkes kendi reasoning stack'ini kuracak."
 """,
     },
     "hook": {
         "name": "Hook / Viral Tarz",
-        "description": "Dikkat çekici açılış, viral potansiyeli yüksek",
+        "description": "Güçlü açılış, cesur fikirler, viral potansiyeli yüksek",
         "prompt": """
 Yazım tarzı: HOOK / VİRAL
-- İlk cümle MUTLAKA dikkat çekici olmalı (şok edici bilgi, soru, cesur iddia)
-- Merak uyandır, "devamını okumak istiyorum" hissi ver
-- Kısa, punchline tarzı cümleler
-- Thread formatına uygun (ilk tweet hook, sonrakiler bilgi)
-- Güçlü bir kapanış (görüş, tahmin veya soru)
-- Örnek: "OpenAI sessizce bir şey yaptı ve kimse fark etmedi.\n\nGPT-4'ün yeni versiyonu API'de live oldu. Fark:\n- Coding %40 daha iyi\n- 2x hızlı\n- Fiyat aynı\n\nBu Google'ın Gemini planlarını ciddi etkiler. İşte neden 👇"
+- İlk cümle MUTLAKA merak uyandırmalı — konuyu tanıt ama detayı verme
+- Cesur iddialar, provokatif görüşler yaz
+- Kısa, vurucu cümleler kullan
+- Okuyucunun "bu ne demek?" deyip devamını okumasını sağla
+- Güçlü bir kapanış (tahmin, soru veya cesur görüş)
+- Asla "İşte neden 👇" veya "Gelin bakalım" gibi klişeler kullanma
+- Örnek: "Google DeepMind bir şey yaptı ve bu sefer gerçekten önemli.\n\nReasoning tarafını model seviyesinde entegre etmişler. MATH benchmark'ta %15+ artış. OpenAI zaten o1'de yapıyordu ama Google'ın yaklaşımı daha verimli.\n\nBence 6 ay içinde bu standart olur. Herkes kendi reasoning stack'ini kurmak zorunda kalacak."
 """,
     },
     "analitik": {
@@ -177,29 +179,30 @@ Yazım tarzı: HOOK / VİRAL
         "description": "Derinlemesine analiz, karşılaştırma ve tahminler",
         "prompt": """
 Yazım tarzı: ANALİTİK / DERİNLEMESİNE
-- Konuyu derinlemesine analiz et
-- Karşılaştırmalar yap (önceki modeller, rakipler)
-- Sayısal veriler ve benchmark'lar kullan
-- Piyasa etkisini değerlendir
+- Konuyu derinlemesine analiz et, yüzeysel yorum yapma
+- Rakamları parçala, karşılaştırmaları somutlaştır
+- Paradoksları ve çelişkileri yakala
+- Piyasa etkisini ve stratejik boyutu değerlendir
 - Kendi tahminlerini ekle
-- Thread formatı ideal
-- Örnek: "Llama 4'ün açık kaynak stratejisi üzerine bir analiz:\n\n1/ Meta'nın bu hamlesi sadece bir model release değil. Piyasaya etkisi:\n\n- OpenAI'ın enterprise fiyatlamasına baskı\n- Küçük şirketler için fine-tuning maliyeti %80 düşüyor\n- Avrupa'daki AI regülasyonlarına karşı bir hamle\n\n2/ Benchmark'lara bakınca..."
+- Doğal paragraflar halinde yaz, madde işareti veya numara listesi KULLANMA
+- Örnek: "Meta'nın açık kaynak stratejisi artık sadece PR değil, piyasayı değiştiriyor.\n\nLlama 4 ile birlikte küçük şirketler için fine-tuning maliyeti %80 düşüyor. Bu doğrudan OpenAI'ın enterprise fiyatlamasına baskı yapıyor.\n\nAma asıl ilginç olan şu: Meta bunu bedavaya veriyor çünkü asıl geliri reklamdan. Yani AI model yarışını subsidize edebilir, diğerleri edemez.\n\nBu yapısal avantaj bence 2 yıl içinde piyasayı çok farklı bir yere taşır."
 """,
     },
     "quote_tweet": {
-        "name": "Quote Tweet",
-        "description": "Başka bir tweete yorum/quote tweet",
+        "name": "Quote Tweet / Yorum",
+        "description": "Tweet'e kendi yorumunu ekle, doğal ve samimi",
         "prompt": """
-Yazım tarzı: QUOTE TWEET
+Yazım tarzı: QUOTE TWEET / YORUM
 
+Orijinal tweet'in konusu hakkında KENDİ YORUMUNU yaz.
 ASLA orijinal tweet'i Türkçeye çevirme veya tekrarlama!
-Tweet'in KONUSU hakkında KENDİ YORUMUNU yaz.
+Tweet'teki verileri kullanarak kendi bakış açını ekle.
 
-İyi quote tweet örnekleri:
-- "Bunu test ettim, coding'de gerçekten fark var. Özellikle Türkçe prompt'larda bile reasoning kalitesi artmış"
-- "Herkes bunu konuşuyor ama asıl ilginç olan pricing kısmı - API fiyatını %40 düşürmüşler, bu küçük startuplar için büyük fark yaratır"
-- "ya bunu gördüm de hemen denedim, bi önceki versiyona göre context window'u gerçekten uzun dökümanları anlıyor artık"
-- "Bence asıl rekabet burada başlıyor. Open-source tarafı bu kadar güçlenince OpenAI'ın fiyat politikası değişmek zorunda"
+- Kendi deneyim ve görüşünü kat
+- Tweet'teki verilerden yola çıkarak analiz yap
+- Doğal Türkçe, samimi ama bilgili
+- Bazen şaşkınlık, bazen eleştiri, bazen heyecan göster
+- Örnek: "Kling 3.0 video tarafında sessiz sedasız 1. sıraya oturmuş.\n\nFiyatlara bakınca daha da ilginç - 480p'de $0.032/sn, yani rakiplerin yarı fiyatına. Hem kalite hem maliyet avantajı aynı anda.\n\nVideo AI tarafında Çinli şirketlerin bu kadar baskın olması tesadüf değil bence. Runway ve Sora ciddi düşünmeli."
 """,
     },
 }
@@ -284,8 +287,8 @@ class ContentGenerator:
         system_prompt = self._build_system_prompt(style, user_samples)
 
         if research_summary:
-            # Override system prompt for research mode
-            system_prompt = self._build_research_system_prompt(user_samples, length_preference)
+            # Override system prompt for research mode (with style)
+            system_prompt = self._build_research_system_prompt(user_samples, length_preference, style)
             # Build length-aware instructions
             length_instructions = self._get_length_instructions(length_preference)
             # RESEARCH MODE: AI has full context, write analytical post
@@ -501,7 +504,8 @@ Sadece yeni tweet metnini yaz."""
 - Sona 1-2 hashtag ekle"""
 
     def _build_research_system_prompt(self, user_samples: list = None,
-                                      length_preference: str = "orta") -> str:
+                                      length_preference: str = "orta",
+                                      style: str = "quote_tweet") -> str:
         """Build system prompt optimized for research-based detailed analysis"""
         persona = self.custom_persona or BASE_SYSTEM_PROMPT
 
@@ -511,9 +515,14 @@ Sadece yeni tweet metnini yaz."""
             "uzun": "UZUN ve DERİNLEMESİNE bir analiz (501-1000 karakter)",
         }
 
+        # Get style-specific instructions
+        style_info = WRITING_STYLES.get(style, WRITING_STYLES["quote_tweet"])
+
         prompt = f"""{persona}
 
 {X_ALGORITHM_RULES}
+
+{style_info['prompt']}
 
 ## ARAŞTIRMA MODU:
 Araştırma verilerini kullanarak {length_desc.get(length_preference, length_desc['orta'])} yazıyorsun.

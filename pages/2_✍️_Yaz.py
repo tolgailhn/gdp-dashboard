@@ -504,6 +504,10 @@ if generate_clicked or regenerate_clicked:
             else:
                 additional = length_instruction
 
+            # Clear edit widget state so text_area picks up the new value
+            if "edit_tweet" in st.session_state:
+                del st.session_state["edit_tweet"]
+
             if write_mode == "quote" and quote_topic:
                 # Quote tweet mode (with or without research)
                 result = generator.generate_quote_tweet(

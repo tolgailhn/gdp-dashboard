@@ -172,14 +172,54 @@ class TwitterScanner:
 
     def __init__(self, bearer_token: str = None, api_key: str = None,
                  api_secret: str = None, access_token: str = None,
-                 access_secret: str = None):
+                 access_secret: str = None,
+                 twikit_username: str = None, twikit_password: str = None,
+                 twikit_email: str = None):
         self.bearer_token = bearer_token
         self.api_key = api_key
         self.api_secret = api_secret
         self.access_token = access_token
         self.access_secret = access_secret
         self.client = None
+        self.twikit_client = None
+        self.use_twikit = False
+        self._init_twikit(twikit_username, twikit_password, twikit_email)
         self._init_client()
+
+    def _init_twikit(self, username: str = None, password: str = None,
+                     email: str = None):
+        """Initialize Twikit client for free Twitter search"""
+        try:
+            from modules.twikit_client import TwikitSearchClient, COOKIES_PATH
+            if username and password:
+                self.twikit_client = TwikitSearchClient(username, password, email or "")
+                if self.twikit_client.authenticate():
+                    self.use_twikit = True
+            elif COOKIES_PATH.exists():
+                self.twikit_client = TwikitSearchClient()
+                if self.twikit_client.authenticate():
+                    self.use_twikit = True
+        except ImportError:
+            print("twikit not installed. Using Twitter API only.")
+        except Exception as e:
+            print(f"Twikit init error: {e}")
+
+    def _dict_to_topic(self, d: dict) -> AITopic:
+        """Convert a twikit result dict to an AITopic object"""
+        return AITopic(
+            id=d['id'],
+            text=d['text'],
+            author_name=d['author_name'],
+            author_username=d['author_username'],
+            author_profile_image=d.get('author_profile_image', ''),
+            created_at=d['created_at'],
+            like_count=d.get('like_count', 0),
+            retweet_count=d.get('retweet_count', 0),
+            reply_count=d.get('reply_count', 0),
+            impression_count=d.get('impression_count', 0),
+            url=f"https://x.com/{d['author_username']}/status/{d['id']}",
+            media_urls=d.get('media_urls', []),
+        )
 
     def _init_client(self):
         """Initialize Twitter API client"""
@@ -209,8 +249,8 @@ class TwitterScanner:
         Returns:
             List of AITopic objects sorted by relevance
         """
-        if not self.client:
-            raise ValueError("Twitter API client not initialized. Check your API keys.")
+        if not self.client and not self.use_twikit:
+            raise ValueError("Twitter API client not initialized. Check your API keys or Twikit credentials.")
 
         all_topics = []
         seen_ids = set()
@@ -265,7 +305,26 @@ class TwitterScanner:
 
     def _search_tweets(self, query: str, start_time: datetime.datetime,
                        max_results: int) -> list[AITopic]:
-        """Search tweets using Twitter API v2"""
+        """Search tweets using Twikit (primary) or Twitter API v2 (fallback)"""
+        # Try Twikit first (free, no API cost)
+        if self.use_twikit and self.twikit_client:
+            try:
+                since_date = start_time.strftime("%Y-%m-%d")
+                results = self.twikit_client.search_tweets(
+                    query, count=max_results, since_date=since_date
+                )
+                topics = []
+                for d in results:
+                    if d.get('created_at') and d['created_at'] >= start_time:
+                        topics.append(self._dict_to_topic(d))
+                return topics
+            except Exception as e:
+                print(f"Twikit search error, falling back to API: {e}")
+
+        # Fallback: Twitter API v2
+        if not self.client:
+            return []
+
         topics = []
 
         try:
@@ -336,7 +395,23 @@ class TwitterScanner:
 
     def _get_user_tweets(self, username: str, start_time: datetime.datetime,
                          max_results: int) -> list[AITopic]:
-        """Get recent tweets from a specific user"""
+        """Get recent tweets using Twikit (primary) or Twitter API v2 (fallback)"""
+        # Try Twikit first (free, no API cost)
+        if self.use_twikit and self.twikit_client:
+            try:
+                results = self.twikit_client.get_user_tweets(username, count=max_results)
+                topics = []
+                for d in results:
+                    if d.get('created_at') and d['created_at'] >= start_time:
+                        topics.append(self._dict_to_topic(d))
+                return topics
+            except Exception as e:
+                print(f"Twikit user tweets error, falling back to API: {e}")
+
+        # Fallback: Twitter API v2
+        if not self.client:
+            return []
+
         topics = []
 
         try:

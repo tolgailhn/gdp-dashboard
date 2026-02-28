@@ -84,8 +84,13 @@ if scan_clicked:
     access_token = get_secret("twitter_access_token", "")
     access_secret = get_secret("twitter_access_secret", "")
 
-    if not bearer_token:
-        st.error("Twitter API anahtarı yapılandırılmamış! Ayarlar sayfasından ekleyin.")
+    # Twikit credentials (free alternative)
+    twikit_username = get_secret("twikit_username", "")
+    twikit_password = get_secret("twikit_password", "")
+    twikit_email = get_secret("twikit_email", "")
+
+    if not bearer_token and not twikit_username:
+        st.error("Twitter API veya Twikit bilgileri yapılandırılmamış! Ayarlar sayfasından ekleyin.")
         st.stop()
 
     with st.spinner("X'te AI gelişmeleri taranıyor..."):
@@ -96,7 +101,15 @@ if scan_clicked:
                 api_secret=api_secret,
                 access_token=access_token,
                 access_secret=access_secret,
+                twikit_username=twikit_username,
+                twikit_password=twikit_password,
+                twikit_email=twikit_email,
             )
+
+            if scanner.use_twikit:
+                st.success("Twikit ile taranıyor (ücretsiz)")
+            elif scanner.client:
+                st.info("Twitter API ile taranıyor")
 
             # Get custom accounts
             custom_accounts = load_monitored_accounts()

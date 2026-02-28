@@ -86,6 +86,62 @@ with tab1:
         else:
             st.warning("Access Token/Secret: Eksik")
 
+    st.markdown("---")
+
+    st.markdown("### Twikit (Ücretsiz Arama)")
+    st.markdown("""
+    > Twikit, Twitter API'ye **ücretsiz alternatif** olarak tweet arama yapmanızı sağlar.
+    > Bearer Token maliyetini düşürmek için kullanılır. Yazma işlemi yapmaz, sadece okur.
+
+    **Nasıl çalışır:** Twitter hesabınızla giriş yapar, cookie kaydeder, sonraki aramalarda cookie kullanır.
+    """)
+
+    twikit_user = get_secret("twikit_username", "")
+    twikit_pass = get_secret("twikit_password", "")
+    twikit_email = get_secret("twikit_email", "")
+
+    col_tw1, col_tw2 = st.columns(2)
+    with col_tw1:
+        if twikit_user:
+            st.success(f"Twikit Kullanıcı: @{twikit_user} ✓")
+        else:
+            st.warning("Twikit: Yapılandırılmamış")
+
+    with col_tw2:
+        from pathlib import Path
+        cookies_path = Path(__file__).parent.parent / "data" / "twikit_cookies.json"
+        if cookies_path.exists():
+            st.success("Twikit Cookie: Kayıtlı ✓")
+        else:
+            st.info("Twikit Cookie: Henüz oluşturulmadı")
+
+    col_test1, col_test2 = st.columns(2)
+    with col_test1:
+        if st.button("🔗 Twikit Bağlantısını Test Et", use_container_width=True):
+            if twikit_user and twikit_pass:
+                with st.spinner("Twikit ile giriş yapılıyor..."):
+                    try:
+                        from modules.twikit_client import TwikitSearchClient
+                        tc = TwikitSearchClient(twikit_user, twikit_pass, twikit_email)
+                        if tc.authenticate():
+                            st.success("Twikit bağlantısı başarılı! Cookie kaydedildi.")
+                        else:
+                            st.error("Twikit giriş başarısız! Kullanıcı adı/şifre kontrol edin.")
+                    except Exception as e:
+                        st.error(f"Twikit hatası: {e}")
+            else:
+                st.error("Twikit kullanıcı adı ve şifre gerekli! secrets.toml'a ekleyin.")
+
+    with col_test2:
+        if st.button("🗑️ Twikit Cookie Sil", use_container_width=True):
+            if cookies_path.exists():
+                cookies_path.unlink()
+                st.success("Cookie silindi! Sonraki taramada yeniden giriş yapılacak.")
+            else:
+                st.info("Silinecek cookie yok.")
+
+    st.markdown("---")
+
     with col2:
         st.markdown("**AI API**")
         minimax_key = get_secret("minimax_api_key", "")
@@ -115,12 +171,17 @@ with tab1:
     st.code("""# App password
 app_password = "your_secure_password_here"
 
-# Twitter/X API Keys
+# Twitter/X API Keys (ücretli - opsiyonel, Twikit varsa gerekli değil)
 twitter_bearer_token = "your_bearer_token"
 twitter_api_key = "your_api_key"
 twitter_api_secret = "your_api_secret"
 twitter_access_token = "your_access_token"
 twitter_access_secret = "your_access_secret"
+
+# Twikit (ücretsiz Twitter arama - Bearer Token yerine)
+twikit_username = "your_twitter_username"
+twikit_password = "your_twitter_password"
+twikit_email = "your_twitter_email"
 
 # AI API Keys (en az birini doldurun)
 minimax_api_key = "your_minimax_api_key"

@@ -63,25 +63,6 @@ class TwikitSearchClient:
         """Authenticate with Twitter. Returns True on success."""
         return _run_async(self._auth_async())
 
-    async def _validate_cookies(self, client) -> bool:
-        """Verify cookies actually work by making a lightweight API call."""
-        try:
-            # Try to get own user info — lightweight call
-            await client.user()
-            return True
-        except Exception as e:
-            err_name = type(e).__name__
-            err_str = str(e)
-            if "404" in err_str or "NotFound" in err_name:
-                self.last_error = "Cookie'ler geçersiz veya süresi dolmuş (404). Yeni cookie'ler gerekli."
-            elif "401" in err_str or "Unauthorized" in err_name:
-                self.last_error = "Cookie'ler yetkisiz (401). Yeni cookie'ler gerekli."
-            elif "403" in err_str or "Forbidden" in err_name:
-                self.last_error = "Cookie'ler reddedildi (403). Hesap kilitlenmiş olabilir."
-            else:
-                self.last_error = f"Cookie doğrulama hatası: {err_name}: {err_str}"
-            return False
-
     async def _auth_async(self) -> bool:
         client = self._get_client()
         self.last_error = ""
@@ -96,10 +77,8 @@ class TwikitSearchClient:
                     "auth_token": secret_auth,
                     "ct0": secret_ct0,
                 })
-                if await self._validate_cookies(client):
-                    self._authenticated = True
-                    return True
-                # Cookies from secrets are invalid — continue to try file/login
+                self._authenticated = True
+                return True
         except Exception:
             pass
 
@@ -107,14 +86,8 @@ class TwikitSearchClient:
         if COOKIES_PATH.exists():
             try:
                 client.load_cookies(str(COOKIES_PATH))
-                if await self._validate_cookies(client):
-                    self._authenticated = True
-                    return True
-                # Cookies expired, delete and try fresh login
-                try:
-                    COOKIES_PATH.unlink()
-                except Exception:
-                    pass
+                self._authenticated = True
+                return True
             except Exception as e:
                 self.last_error = f"Cookie yükleme hatası: {e}"
                 try:

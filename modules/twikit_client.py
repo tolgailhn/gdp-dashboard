@@ -67,7 +67,22 @@ class TwikitSearchClient:
         client = self._get_client()
         self.last_error = ""
 
-        # Try loading saved cookies first
+        # 1. Try cookies from st.secrets (persistent on Streamlit Cloud)
+        try:
+            import streamlit as _st
+            secret_auth = _st.secrets.get("twikit_auth_token", "")
+            secret_ct0 = _st.secrets.get("twikit_ct0", "")
+            if secret_auth and secret_ct0:
+                client.set_cookies({
+                    "auth_token": secret_auth,
+                    "ct0": secret_ct0,
+                })
+                self._authenticated = True
+                return True
+        except Exception:
+            pass
+
+        # 2. Try loading saved cookies from file
         if COOKIES_PATH.exists():
             try:
                 client.load_cookies(str(COOKIES_PATH))
@@ -81,7 +96,7 @@ class TwikitSearchClient:
                 except Exception:
                     pass
 
-        # Login with credentials
+        # 3. Login with credentials
         if not (self.username and self.password):
             self.last_error = "Kullanıcı adı ve şifre gerekli"
             return False

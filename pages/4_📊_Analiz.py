@@ -11,7 +11,7 @@ import json
 import streamlit as st
 import openai as _openai
 import anthropic as _anthropic
-from modules.ui_components import inject_custom_css, check_password, get_secret
+from modules.ui_components import inject_custom_css, check_password, get_secret, render_sidebar_nav
 from modules.twikit_client import TwikitSearchClient
 from modules.tweet_analyzer import (
     pull_user_tweets, analyze_tweets, generate_ai_analysis,
@@ -25,13 +25,15 @@ st.set_page_config(
     page_title="Tweet Analiz | X AI Otomasyon",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="auto",
 )
 
 inject_custom_css()
 
 if not check_password():
     st.stop()
+
+render_sidebar_nav(current_page="analiz")
 
 # --- Header ---
 st.markdown("""

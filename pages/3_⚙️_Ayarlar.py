@@ -4,7 +4,7 @@ API anahtarları, monitör edilen hesaplar, yazım tarzı eğitimi
 """
 import streamlit as st
 import json
-from modules.ui_components import inject_custom_css, check_password, get_secret
+from modules.ui_components import inject_custom_css, check_password, get_secret, render_sidebar_nav
 from modules.content_generator import ContentGenerator
 from modules.tweet_publisher import TweetPublisher
 from modules.twitter_scanner import DEFAULT_AI_ACCOUNTS
@@ -20,13 +20,15 @@ st.set_page_config(
     page_title="Ayarlar | X AI Otomasyon",
     page_icon="⚙️",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="auto",
 )
 
 inject_custom_css()
 
 if not check_password():
     st.stop()
+
+render_sidebar_nav(current_page="ayarlar")
 
 # --- Header ---
 st.markdown("""
@@ -183,20 +185,31 @@ with tab1:
 
     # Cookie section
     st.markdown("---")
-    st.markdown("### Manuel Cookie Girişi (403 Hatası Çözümü)")
-    st.markdown("""
-    > **403 hatası mı alıyorsun?** Twitter, cloud sunucu IP'lerinden girişi engelleyebilir.
-    >
-    > **Çözüm:** Tarayıcıdan cookie'leri al ve buraya yapıştır:
-    > 1. **twitter.com**'a giriş yap (tarayıcında)
-    > 2. **F12** tuşuna bas → **Application** (veya Storage) sekmesi
-    > 3. Sol menüde **Cookies** → `https://x.com` tıkla
-    > 4. Aşağıdaki cookie'leri bul ve değerlerini kopyala
-    """)
+    st.markdown("### Cookie Ayarları (403 Hatası Çözümü)")
+
+    # Check if cookies are already in secrets (permanent)
+    _has_secret_cookies = bool(get_secret("twikit_auth_token", "")) and bool(get_secret("twikit_ct0", ""))
+
+    if _has_secret_cookies:
+        st.success("Cookie'ler `secrets.toml` içinde kayıtlı (kalıcı)")
+    else:
+        st.markdown("""
+        > **403 hatası mı alıyorsun?** Twitter, cloud sunucu IP'lerinden girişi engelleyebilir.
+        >
+        > **Kalıcı Çözüm (Tavsiye):** Cookie'leri `secrets.toml`'a ekle - bir kez yap, hep çalışsın:
+        > ```
+        > twikit_auth_token = "auth_token_değerin"
+        > twikit_ct0 = "ct0_değerin"
+        > ```
+        > Streamlit Cloud: Settings → Secrets kısmına ekle.
+        >
+        > **Geçici Çözüm:** Aşağıdaki alanlara yapıştır (uygulama her açıldığında tekrar gerekir).
+        """)
 
     import json as _json
 
-    with st.expander("🍪 Tarayıcıdan Cookie Yapıştır", expanded=not cookies_path.exists()):
+    with st.expander("🍪 Tarayıcıdan Cookie Yapıştır (Geçici)" if not _has_secret_cookies else "🍪 Tarayıcıdan Cookie Yapıştır",
+                      expanded=not cookies_path.exists() and not _has_secret_cookies):
         st.markdown("""
         **F12 → Application → Cookies → x.com** altında bu değerleri bul:
         """)
@@ -250,6 +263,25 @@ with tab1:
    - `auth_token` → Value sütunundaki değeri kopyala
    - `ct0` → Value sütunundaki değeri kopyala
 6. Yukarıdaki alanlara yapıştır ve "Kaydet" butonuna bas
+        """)
+
+    with st.expander("💾 Kalıcı Kayıt (secrets.toml'a ekle)"):
+        st.markdown("""
+        Cookie'leri kalıcı yapmak için **Streamlit Cloud** üzerinden:
+
+        1. Uygulamanın **Settings** sayfasına git
+        2. **Secrets** sekmesine tıkla
+        3. Mevcut secrets'ların **altına** şu satırları ekle:
+
+        ```
+        twikit_auth_token = "BURAYA_AUTH_TOKEN_DEĞERINI_YAZ"
+        twikit_ct0 = "BURAYA_CT0_DEĞERINI_YAZ"
+        ```
+
+        4. **Save** butonuna bas
+        5. Uygulama otomatik yeniden başlar ve cookie'ler kalıcı olur!
+
+        > Cookie değerlerini yukarıdaki F12 adımlarıyla bulabilirsin.
         """)
 
     with st.expander("📁 Cookie Dosyası Yükle (Alternatif)"):

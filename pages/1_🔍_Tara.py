@@ -4,7 +4,7 @@ X/Twitter'da AI gelişmelerini tarar ve listeler
 """
 import streamlit as st
 import datetime
-from modules.ui_components import inject_custom_css, check_password, render_tweet_card, get_secret
+from modules.ui_components import inject_custom_css, check_password, render_tweet_card, get_secret, render_sidebar_nav
 from modules.twitter_scanner import TwitterScanner, DEFAULT_AI_ACCOUNTS
 from modules.style_manager import load_monitored_accounts
 
@@ -13,13 +13,15 @@ st.set_page_config(
     page_title="AI Tara | X AI Otomasyon",
     page_icon="🔍",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="auto",
 )
 
 inject_custom_css()
 
 if not check_password():
     st.stop()
+
+render_sidebar_nav(current_page="tara")
 
 # --- Header ---
 st.markdown("""

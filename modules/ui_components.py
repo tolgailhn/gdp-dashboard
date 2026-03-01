@@ -19,7 +19,7 @@ def setup_page_config(title: str = "X AI Otomasyon", icon: str = "🤖"):
         page_title=title,
         page_icon=icon,
         layout="wide",
-        initial_sidebar_state="collapsed",
+        initial_sidebar_state="auto",
     )
 
 
@@ -209,12 +209,113 @@ def inject_custom_css():
         border-color: #2a2a4a !important;
     }
 
-    /* Hide Streamlit branding */
+    /* Hide Streamlit branding but keep navigation */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
+
+    /* Sidebar navigation links */
+    .nav-link {
+        display: block;
+        padding: 8px 12px;
+        margin: 4px 0;
+        border-radius: 8px;
+        color: #f0f0f0 !important;
+        text-decoration: none !important;
+        transition: background 0.2s;
+    }
+    .nav-link:hover {
+        background: #16213e;
+    }
+    .nav-link.active {
+        background: #1DA1F2;
+        color: white !important;
+    }
     </style>
     """, unsafe_allow_html=True)
+
+
+def render_sidebar_nav(current_page: str = ""):
+    """Render sidebar navigation with clickable page links."""
+    with st.sidebar:
+        st.markdown("### 🤖 X AI Otomasyon")
+        st.markdown("---")
+
+        pages = [
+            ("🏠 Ana Sayfa", "streamlit_app.py", "home"),
+            ("🔍 Tara", "pages/1_🔍_Tara.py", "tara"),
+            ("✍️ Yaz", "pages/2_✍️_Yaz.py", "yaz"),
+            ("📊 Analiz", "pages/4_📊_Analiz.py", "analiz"),
+            ("👥 Takipçiler", "pages/5_👥_Takipçiler.py", "takipci"),
+            ("⚙️ Ayarlar", "pages/3_⚙️_Ayarlar.py", "ayarlar"),
+        ]
+
+        for label, page_path, page_id in pages:
+            if page_id == current_page:
+                st.page_link(page_path, label=f"**{label}**", icon=None)
+            else:
+                st.page_link(page_path, label=label, icon=None)
+
+        st.markdown("---")
+
+        # API status indicators
+        has_twitter = bool(get_secret("twitter_bearer_token", ""))
+        has_ai = bool(get_secret("minimax_api_key", "") or
+                      get_secret("anthropic_api_key", "") or
+                      get_secret("openai_api_key", ""))
+
+        if has_twitter:
+            st.success("Twitter API ✓", icon="🐦")
+        else:
+            st.warning("Twitter API eksik", icon="⚠️")
+
+        if has_ai:
+            st.success("AI API ✓", icon="🧠")
+        else:
+            st.warning("AI API eksik", icon="⚠️")
+
+        st.markdown("---")
+        import datetime
+        st.caption(f"v1.0 | {datetime.datetime.now().strftime('%d.%m.%Y')}")
+
+
+def render_sidebar_nav(current_page: str = ""):
+    """Render consistent sidebar navigation across all pages"""
+    with st.sidebar:
+        st.markdown("### 🤖 X AI Otomasyon")
+        st.markdown("---")
+
+        pages = [
+            ("🏠 Ana Sayfa", "streamlit_app.py", "home"),
+            ("🔍 Tara", "pages/1_🔍_Tara.py", "tara"),
+            ("✍️ Yaz", "pages/2_✍️_Yaz.py", "yaz"),
+            ("📊 Analiz", "pages/4_📊_Analiz.py", "analiz"),
+            ("👥 Takipçiler", "pages/5_👥_Takipçiler.py", "takipci"),
+            ("⚙️ Ayarlar", "pages/3_⚙️_Ayarlar.py", "ayarlar"),
+        ]
+
+        for label, path, key in pages:
+            page_type = "primary" if key == current_page else "secondary"
+            if st.button(label, key=f"nav_{key}", use_container_width=True,
+                         type=page_type):
+                st.switch_page(path)
+
+        st.markdown("---")
+
+        # API status
+        has_twitter = bool(get_secret("twitter_bearer_token", ""))
+        has_ai = bool(get_secret("minimax_api_key", "") or
+                      get_secret("anthropic_api_key", "") or
+                      get_secret("openai_api_key", ""))
+
+        if has_twitter:
+            st.success("Twitter API ✓", icon="🐦")
+        else:
+            st.warning("Twitter API eksik", icon="⚠️")
+
+        if has_ai:
+            st.success("AI API ✓", icon="🧠")
+        else:
+            st.warning("AI API eksik", icon="⚠️")
 
 
 def render_tweet_card(topic, show_select: bool = True, key_prefix: str = ""):

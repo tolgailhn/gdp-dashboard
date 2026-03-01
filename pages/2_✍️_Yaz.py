@@ -8,7 +8,7 @@ import re
 from urllib.parse import quote as url_quote
 from modules.ui_components import (inject_custom_css, check_password,
                                    render_generated_tweet, render_thread_preview,
-                                   get_secret)
+                                   get_secret, render_sidebar_nav)
 from modules.content_generator import ContentGenerator, get_available_styles, get_style_info
 from modules.tweet_publisher import TweetPublisher
 from modules.deep_research import extract_tweet_id, research_topic
@@ -23,13 +23,15 @@ st.set_page_config(
     page_title="Tweet Yaz | X AI Otomasyon",
     page_icon="✍️",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="auto",
 )
 
 inject_custom_css()
 
 if not check_password():
     st.stop()
+
+render_sidebar_nav(current_page="yaz")
 
 # --- Determine mode ---
 write_mode = st.session_state.get("write_mode", "normal")

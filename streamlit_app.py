@@ -4,7 +4,7 @@ Twitter/X üzerinde AI gelişmelerini tarayıp doğal tweet üreten otomasyon si
 """
 import streamlit as st
 import datetime
-from modules.ui_components import inject_custom_css, check_password, render_stat_box, get_secret
+from modules.ui_components import inject_custom_css, check_password, render_stat_box, get_secret, render_sidebar_nav
 from modules.style_manager import load_post_history, load_draft_tweets
 
 # Page config
@@ -12,7 +12,7 @@ st.set_page_config(
     page_title="X AI Otomasyon",
     page_icon="🤖",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="auto",
 )
 
 # Custom CSS
@@ -22,36 +22,11 @@ inject_custom_css()
 if not check_password():
     st.stop()
 
-# --- Sidebar ---
-with st.sidebar:
-    st.markdown("### 🤖 X AI Otomasyon")
-    st.markdown("---")
-    st.markdown("**Sayfalar:**")
-    st.markdown("- 🔍 **Tara** - AI gündem tarayıcı")
-    st.markdown("- ✍️ **Yaz** - Tweet yazıcı")
-    st.markdown("- 📊 **Analiz** - Tweet analizi & AI eğitimi")
-    st.markdown("- 👥 **Takipçiler** - Onaylı takipçi keşfi")
-    st.markdown("- ⚙️ **Ayarlar** - Sistem ayarları")
-    st.markdown("---")
+# --- Sidebar Navigation ---
+render_sidebar_nav(current_page="home")
 
-    # API status indicators
-    st.markdown("**API Durumu:**")
-
-    has_twitter = bool(get_secret("twitter_bearer_token", ""))
-    has_ai = bool(get_secret("minimax_api_key", "") or get_secret("anthropic_api_key", "") or get_secret("openai_api_key", ""))
-
-    if has_twitter:
-        st.success("Twitter API ✓", icon="🐦")
-    else:
-        st.warning("Twitter API yapılandırılmamış", icon="⚠️")
-
-    if has_ai:
-        st.success("AI API ✓", icon="🧠")
-    else:
-        st.warning("AI API yapılandırılmamış", icon="⚠️")
-
-    st.markdown("---")
-    st.caption(f"v1.0 | {datetime.datetime.now().strftime('%d.%m.%Y')}")
+has_twitter = bool(get_secret("twitter_bearer_token", ""))
+has_ai = bool(get_secret("minimax_api_key", "") or get_secret("anthropic_api_key", "") or get_secret("openai_api_key", ""))
 
 # --- Main Dashboard ---
 st.markdown("""

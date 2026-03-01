@@ -10,7 +10,7 @@ Streamlit Cloud uyumlulugu:
 import json
 import datetime
 import streamlit as st
-from modules.ui_components import inject_custom_css, check_password, get_secret
+from modules.ui_components import inject_custom_css, check_password, get_secret, render_sidebar_nav
 from modules.twikit_client import TwikitSearchClient
 
 # Page config
@@ -18,13 +18,15 @@ st.set_page_config(
     page_title="Takipciler | X AI Otomasyon",
     page_icon="👥",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="auto",
 )
 
 inject_custom_css()
 
 if not check_password():
     st.stop()
+
+render_sidebar_nav(current_page="takipci")
 
 
 # --- Session-state aware persistence ---

@@ -183,6 +183,109 @@ class TwikitSearchClient:
             'media_urls': media_urls,
         }
 
+    def get_user_info(self, username: str) -> dict | None:
+        """Get user profile info. Returns dict with user data."""
+        if not self._authenticated:
+            return None
+        return _run_async(self._user_info_async(username))
+
+    async def _user_info_async(self, username: str) -> dict | None:
+        try:
+            client = self._get_client()
+            user = await client.get_user_by_screen_name(username)
+            if not user:
+                return None
+
+            return {
+                "id": str(getattr(user, 'id', '')),
+                "name": getattr(user, 'name', ''),
+                "username": getattr(user, 'screen_name', username),
+                "bio": getattr(user, 'description', ''),
+                "followers_count": getattr(user, 'followers_count', 0) or 0,
+                "following_count": getattr(user, 'friends_count', 0) or 0,
+                "tweet_count": getattr(user, 'statuses_count', 0) or 0,
+                "is_blue_verified": getattr(user, 'is_blue_verified', False) or False,
+                "profile_image_url": getattr(user, 'profile_image_url', '') or '',
+                "profile_banner_url": getattr(user, 'profile_banner_url', '') or '',
+            }
+        except Exception as e:
+            print(f"Twikit user info error ({username}): {e}")
+            return None
+
+    def get_user_followers(self, username: str, limit: int = 200,
+                           verified_only: bool = False,
+                           progress_callback=None) -> list[dict]:
+        """
+        Get followers of a user. Optionally filter to verified (blue tick) only.
+        Returns list of user dicts.
+        """
+        if not self._authenticated:
+            return []
+        return _run_async(self._user_followers_async(
+            username, limit, verified_only, progress_callback
+        ))
+
+    async def _user_followers_async(self, username: str, limit: int,
+                                     verified_only: bool,
+                                     progress_callback) -> list[dict]:
+        results = []
+        try:
+            client = self._get_client()
+            user = await client.get_user_by_screen_name(username)
+            if not user:
+                return results
+
+            cursor = None
+            fetched = 0
+            max_pages = (limit // 20) + 1
+
+            for page in range(max_pages):
+                if fetched >= limit:
+                    break
+
+                if progress_callback:
+                    progress_callback(f"@{username} takipçileri çekiliyor... ({fetched}/{limit})")
+
+                try:
+                    if cursor:
+                        followers = await cursor.next()
+                    else:
+                        followers = await client.get_user_followers(user.id, count=20)
+
+                    if not followers:
+                        break
+
+                    cursor = followers
+
+                    for follower in followers:
+                        is_verified = getattr(follower, 'is_blue_verified', False) or False
+
+                        if verified_only and not is_verified:
+                            continue
+
+                        results.append({
+                            "id": str(getattr(follower, 'id', '')),
+                            "name": getattr(follower, 'name', ''),
+                            "username": getattr(follower, 'screen_name', ''),
+                            "bio": getattr(follower, 'description', '') or '',
+                            "followers_count": getattr(follower, 'followers_count', 0) or 0,
+                            "following_count": getattr(follower, 'friends_count', 0) or 0,
+                            "is_blue_verified": is_verified,
+                            "profile_image_url": getattr(follower, 'profile_image_url', '') or '',
+                        })
+                        fetched += 1
+
+                        if fetched >= limit:
+                            break
+
+                except Exception as e:
+                    print(f"Followers pagination error: {e}")
+                    break
+
+        except Exception as e:
+            print(f"Twikit followers error ({username}): {e}")
+        return results
+
     def clear_cookies(self):
         """Remove saved cookies to force re-login."""
         if COOKIES_PATH.exists():

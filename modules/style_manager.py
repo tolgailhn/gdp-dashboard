@@ -123,3 +123,38 @@ def delete_draft(index: int):
     if 0 <= index < len(drafts):
         drafts.pop(index)
         save_draft_tweets(drafts)
+
+
+def save_follower_suggestions(username: str, followers: list[dict]):
+    """Save follower suggestions for a target account"""
+    path = DATA_DIR / "follower_suggestions.json"
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+    import datetime
+    existing = load_all_follower_suggestions()
+    existing[username.lower()] = {
+        "username": username,
+        "fetched_at": datetime.datetime.now().isoformat(),
+        "followers": followers,
+    }
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(existing, f, ensure_ascii=False, indent=2)
+
+
+def load_all_follower_suggestions() -> dict:
+    """Load all saved follower suggestions"""
+    path = DATA_DIR / "follower_suggestions.json"
+    if path.exists():
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
+def delete_follower_suggestions(username: str):
+    """Delete follower suggestions for a target account"""
+    data = load_all_follower_suggestions()
+    if username.lower() in data:
+        del data[username.lower()]
+        path = DATA_DIR / "follower_suggestions.json"
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)

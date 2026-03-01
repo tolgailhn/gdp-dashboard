@@ -29,6 +29,8 @@ with st.sidebar:
     st.markdown("**Sayfalar:**")
     st.markdown("- 🔍 **Tara** - AI gündem tarayıcı")
     st.markdown("- ✍️ **Yaz** - Tweet yazıcı")
+    st.markdown("- 📊 **Analiz** - Tweet analizi & AI eğitimi")
+    st.markdown("- 👥 **Takipçiler** - Onaylı takipçi keşfi")
     st.markdown("- ⚙️ **Ayarlar** - Sistem ayarları")
     st.markdown("---")
 
@@ -128,6 +130,35 @@ with col3:
     if st.button("Ayarları Aç", key="settings_btn", use_container_width=True):
         st.switch_page("pages/3_⚙️_Ayarlar.py")
 
+# Second row of quick actions
+col4, col5 = st.columns(2)
+
+with col4:
+    st.markdown("""
+    <div class="stat-box">
+        <div style="font-size:36px; margin-bottom:8px;">📊</div>
+        <div style="color:#f0f0f0; font-weight:bold; font-size:16px;">Tweet Analizi</div>
+        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+            Hesap tweet'lerini analiz et, AI'ı eğit
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Analiz Yap", key="analysis_btn", use_container_width=True, type="primary"):
+        st.switch_page("pages/4_📊_Analiz.py")
+
+with col5:
+    st.markdown("""
+    <div class="stat-box">
+        <div style="font-size:36px; margin-bottom:8px;">👥</div>
+        <div style="color:#f0f0f0; font-weight:bold; font-size:16px;">Takipçi Keşfet</div>
+        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+            Onaylı takipçileri bul, kitlenin değerini artır
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Takipçi Bul", key="followers_btn", use_container_width=True):
+        st.switch_page("pages/5_👥_Takipçiler.py")
+
 st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
 
 # Recent activity
@@ -179,7 +210,17 @@ with st.expander("📖 Nasıl Kullanılır?"):
     - Oluşturulan tweet'i düzenleyin
     - Beğendiyseniz "Paylaş" ile X'te paylaşın
 
-    **4. Yazım Tarzı Eğitimi** (⚙️ Ayarlar)
+    **4. Tweet Analizi** (📊 Analiz)
+    - İlham aldığınız hesapların kullanıcı adını girin
+    - Son tweet'lerini çekip engagement analizi yapın
+    - AI bu verileri tweet yazarken otomatik kullanır
+
+    **5. Onaylı Takipçi Keşfi** (👥 Takipçiler)
+    - Nişinizdeki bir hesabın onaylı takipçilerini çekin
+    - Profillere tıklayarak manuel takip edin
+    - Geri takip ederlerse onaylı takipçi sayınız artar
+
+    **6. Yazım Tarzı Eğitimi** (⚙️ Ayarlar)
     - Kendi tweet örneklerinizi ekleyin
     - AI tarzınızı analiz etsin
     - Artık sizin gibi yazar!

@@ -256,7 +256,8 @@ class ContentGenerator:
     """AI-powered content generator for natural tweet writing"""
 
     def __init__(self, provider: str = "anthropic", api_key: str = None,
-                 model: str = None, custom_persona: str = None):
+                 model: str = None, custom_persona: str = None,
+                 training_context: str = None):
         """
         Initialize content generator
 
@@ -265,10 +266,12 @@ class ContentGenerator:
             api_key: API key for the provider
             model: Model to use (default: best available)
             custom_persona: Custom persona description to override default
+            training_context: Training data from tweet analyses (engagement data)
         """
         self.provider = provider
         self.api_key = api_key
         self.custom_persona = custom_persona
+        self.training_context = training_context or ""
 
         if provider == "anthropic":
             self.model = model or "claude-sonnet-4-6"
@@ -600,6 +603,12 @@ DİĞER KURALLAR:
 {samples_text}
 """
 
+        # Inject training data from tweet analyses
+        if self.training_context:
+            prompt += f"""
+{self.training_context}
+"""
+
         return prompt
 
     def _build_system_prompt(self, style: str, user_samples: list = None) -> str:
@@ -639,6 +648,12 @@ Bu bir tweet, blog yazısı değil. Şu kurallara kesinlikle uy:
 6. ASLA liste formatında başlama - "1. şu 2. bu" şeklinde başlama, doğal cümlelerle yaz
 7. ASLA "İşte" ile başlama
 8. Tırnak işareti ("") kullanma, tweet metnini direkt yaz
+"""
+
+        # Inject training data from tweet analyses
+        if self.training_context:
+            prompt += f"""
+{self.training_context}
 """
 
         return prompt

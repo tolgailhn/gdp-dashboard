@@ -16,6 +16,7 @@ from modules.style_manager import (
     load_user_samples, load_custom_persona,
     add_to_post_history, add_draft, load_draft_tweets
 )
+from modules.tweet_analyzer import load_all_analyses, build_training_context
 
 # Page config
 st.set_page_config(
@@ -461,6 +462,18 @@ with st.expander("Ek Seçenekler"):
 
         use_premium = st.checkbox("X Premium (karakter sınırı yok)", value=True, key="use_premium")
 
+    # Training data indicator
+    _analyses = load_all_analyses()
+    if _analyses:
+        usernames = [a.get("username", "?") for a in _analyses]
+        st.markdown(f"""
+        <div style="background:#16213e; border:1px solid #2a2a4a; border-radius:8px;
+                    padding:8px 12px; margin:4px 0; font-size:12px; color:#8899a6;">
+            🧠 Egitim verisi aktif: {', '.join(['@' + u for u in usernames[:5]])}
+            ({sum(a.get('analysis', {}).get('total_tweets', 0) for a in _analyses)} tweet analiz edilmis)
+        </div>
+        """, unsafe_allow_html=True)
+
     # AI Provider selection
     col1, col2 = st.columns(2)
     provider_labels = {
@@ -557,9 +570,13 @@ if generate_clicked or regenerate_clicked:
         st.error(f"{ai_provider.capitalize()} API anahtarı yapılandırılmamış! Ayarlar sayfasından ekleyin.")
         st.stop()
 
-    # Get user samples and persona
+    # Get user samples, persona, and training data
     user_samples = load_user_samples()
     custom_persona = load_custom_persona()
+
+    # Load training data from tweet analyses
+    analyses = load_all_analyses()
+    training_context = build_training_context(analyses) if analyses else ""
 
     with st.spinner("Tweet üretiliyor... 🤖"):
         try:
@@ -568,6 +585,7 @@ if generate_clicked or regenerate_clicked:
                 api_key=api_key,
                 model=model,
                 custom_persona=custom_persona if custom_persona else None,
+                training_context=training_context if training_context else None,
             )
 
             thread_mode = st.session_state.get("thread_mode", False)

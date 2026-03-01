@@ -63,6 +63,25 @@ class TwikitSearchClient:
         """Authenticate with Twitter. Returns True on success."""
         return _run_async(self._auth_async())
 
+    async def _validate_cookies(self, client) -> bool:
+        """Verify cookies actually work by making a lightweight API call."""
+        try:
+            # Try to get own user info — lightweight call
+            await client.user()
+            return True
+        except Exception as e:
+            err_name = type(e).__name__
+            err_str = str(e)
+            if "404" in err_str or "NotFound" in err_name:
+                self.last_error = "Cookie'ler geçersiz veya süresi dolmuş (404). Yeni cookie'ler gerekli."
+            elif "401" in err_str or "Unauthorized" in err_name:
+                self.last_error = "Cookie'ler yetkisiz (401). Yeni cookie'ler gerekli."
+            elif "403" in err_str or "Forbidden" in err_name:
+                self.last_error = "Cookie'ler reddedildi (403). Hesap kilitlenmiş olabilir."
+            else:
+                self.last_error = f"Cookie doğrulama hatası: {err_name}: {err_str}"
+            return False
+
     async def _auth_async(self) -> bool:
         client = self._get_client()
         self.last_error = ""
@@ -77,8 +96,10 @@ class TwikitSearchClient:
                     "auth_token": secret_auth,
                     "ct0": secret_ct0,
                 })
-                self._authenticated = True
-                return True
+                if await self._validate_cookies(client):
+                    self._authenticated = True
+                    return True
+                # Cookies from secrets are invalid — continue to try file/login
         except Exception:
             pass
 
@@ -86,11 +107,16 @@ class TwikitSearchClient:
         if COOKIES_PATH.exists():
             try:
                 client.load_cookies(str(COOKIES_PATH))
-                self._authenticated = True
-                return True
+                if await self._validate_cookies(client):
+                    self._authenticated = True
+                    return True
+                # Cookies expired, delete and try fresh login
+                try:
+                    COOKIES_PATH.unlink()
+                except Exception:
+                    pass
             except Exception as e:
                 self.last_error = f"Cookie yükleme hatası: {e}"
-                # Cookies corrupted, delete and try fresh login
                 try:
                     COOKIES_PATH.unlink()
                 except Exception:
@@ -190,7 +216,25 @@ class TwikitSearchClient:
             for tweet in tweets:
                 results.append(self._tweet_to_dict(tweet))
         except Exception as e:
-            self.last_error = f"Arama hatası: {type(e).__name__}: {e}"
+            err_name = type(e).__name__
+            # 404/401 usually means cookies expired — try re-auth once
+            if err_name in ("NotFound", "Unauthorized") and self.username and self.password:
+                print(f"Twikit search {err_name}, attempting re-auth...")
+                self._authenticated = False
+                self._client = None  # Reset client
+                if await self._auth_async():
+                    try:
+                        client = self._get_client()
+                        tweets = await client.search_tweet(query, 'Latest', count=count)
+                        for tweet in tweets:
+                            results.append(self._tweet_to_dict(tweet))
+                        return results
+                    except Exception as e2:
+                        self.last_error = f"Yeniden deneme hatası: {type(e2).__name__}: {e2}"
+                else:
+                    self.last_error = f"Cookie'ler geçersiz, yeniden giriş başarısız: {self.last_error}"
+            else:
+                self.last_error = f"Arama hatası: {err_name}: {e}"
             print(f"Twikit search error: {e}")
         return results
 

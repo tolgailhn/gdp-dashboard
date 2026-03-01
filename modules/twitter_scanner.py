@@ -51,10 +51,10 @@ DEFAULT_AI_ACCOUNTS = [
     "MistralAI", "huggingface", "nvidia", "GoogleAI",
     "stabilityai", "RunwayML",
     "perplexity_ai", "sama", "elonmusk", "karpathy",
-    "ylecun", "demishassabis", "darioamodei",
-    "jimfan_ai",
+    "ylecun", "demishassabis", "DarioAmodei",
+    "DrJimFan",
     "hardmaru", "swyx", "bindureddy",
-    "Qwen_LM",
+    "Alibaba_Qwen",
 ]
 
 # AI-related search queries

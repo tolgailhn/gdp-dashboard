@@ -29,4 +29,14 @@ echo Dashboard baslatiliyor: http://localhost:8501
 echo Kapatmak icin bu pencereyi kapatin.
 echo.
 
-streamlit run 🏠_Ana_Sayfa.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+:: Otomatik yeniden baslatma dongusu
+:: Streamlit durursa 5 saniye bekleyip tekrar baslatir
+:loop
+echo [%date% %time%] Streamlit baslatiliyor...
+git pull origin main >nul 2>&1
+streamlit run streamlit_app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+echo.
+echo Streamlit durdu. 5 saniye sonra yeniden baslatilacak...
+echo Kapatmak icin Ctrl+C basin veya pencereyi kapatin.
+timeout /t 5 /nobreak >nul
+goto loop

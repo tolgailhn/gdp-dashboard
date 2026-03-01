@@ -39,12 +39,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Tabs ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🔑 API Anahtarları",
     "👤 X Hesap Bilgileri",
     "👀 İzlenen Hesaplar",
     "✍️ Yazım Tarzı",
-    "📊 Geçmiş"
+    "📊 Geçmiş",
+    "🔄 Güncelleme"
 ])
 
 # ===================
@@ -749,3 +750,74 @@ with tab5:
             st.rerun()
     else:
         st.info("Henüz paylaşım geçmişi yok.")
+
+
+# ===================
+# TAB 6: Update
+# ===================
+with tab6:
+    st.markdown("### Uygulama Güncelleme")
+    st.markdown("""
+    GitHub'daki son değişiklikleri çekip uygulamayı yeniden başlatır.
+    Streamlit Cloud'daki **Reboot** butonuyla aynı işi yapar.
+    """)
+
+    import subprocess
+    from pathlib import Path
+
+    # Mevcut versiyon bilgisi
+    try:
+        project_dir = str(Path(__file__).parent.parent)
+        git_log = subprocess.run(
+            ["git", "log", "--oneline", "-5"],
+            cwd=project_dir, capture_output=True, text=True, timeout=5,
+        )
+        if git_log.returncode == 0:
+            st.markdown("**Son güncellemeler:**")
+            st.code(git_log.stdout.strip(), language="text")
+    except Exception:
+        pass
+
+    st.markdown("---")
+
+    col_up1, col_up2 = st.columns(2)
+
+    with col_up1:
+        if st.button("🔄 Güncelle ve Yeniden Başlat", type="primary", use_container_width=True):
+            with st.spinner("GitHub'dan güncelleniyor..."):
+                try:
+                    result = subprocess.run(
+                        ["git", "pull", "origin", "main"],
+                        cwd=project_dir,
+                        capture_output=True, text=True, timeout=30,
+                    )
+
+                    if result.returncode == 0:
+                        if "Already up to date" in result.stdout:
+                            st.info("Zaten güncel! Değişiklik yok.")
+                        else:
+                            # Yeni bagimlilik varsa kur
+                            subprocess.run(
+                                ["pip", "install", "-r", "requirements.txt", "--quiet"],
+                                cwd=project_dir,
+                                capture_output=True, timeout=60,
+                            )
+                            st.success("Güncelleme tamamlandı! Sayfa yeniden yükleniyor...")
+                            st.rerun()
+                    else:
+                        st.error(f"Git hatası: {result.stderr}")
+
+                except subprocess.TimeoutExpired:
+                    st.error("Güncelleme zaman aşımına uğradı. İnternet bağlantınızı kontrol edin.")
+                except Exception as e:
+                    st.error(f"Güncelleme hatası: {e}")
+
+    with col_up2:
+        if st.button("🔃 Sayfayı Yeniden Yükle", use_container_width=True):
+            st.rerun()
+
+    st.markdown("---")
+    st.markdown("""
+    **Not:** Uygulama her başlatıldığında GitHub'dan otomatik güncellenir.
+    Bu buton sadece uygulama açıkken yeni güncelleme geldiğinde kullanılır.
+    """)

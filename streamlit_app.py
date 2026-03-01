@@ -4,8 +4,30 @@ Twitter/X üzerinde AI gelişmelerini tarayıp doğal tweet üreten otomasyon si
 """
 import streamlit as st
 import datetime
+import subprocess
+from pathlib import Path
 from modules.ui_components import inject_custom_css, check_password, render_stat_box, get_secret, render_sidebar_nav
 from modules.style_manager import load_post_history, load_draft_tweets
+
+# --- Auto-update: Her baslatmada GitHub'dan son halini cek ---
+if "auto_updated" not in st.session_state:
+    st.session_state.auto_updated = True
+    try:
+        project_dir = str(Path(__file__).parent)
+        result = subprocess.run(
+            ["git", "pull", "origin", "main"],
+            cwd=project_dir,
+            capture_output=True, text=True, timeout=15,
+        )
+        if "Already up to date" not in result.stdout:
+            # Yeni bagimlilik varsa kur
+            subprocess.run(
+                ["pip", "install", "-r", "requirements.txt", "--quiet"],
+                cwd=project_dir,
+                capture_output=True, timeout=60,
+            )
+    except Exception:
+        pass  # Offline veya git yoksa sessizce gec
 
 # Page config
 st.set_page_config(

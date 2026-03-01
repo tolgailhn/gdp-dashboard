@@ -334,6 +334,61 @@ with tab1:
 
     st.markdown("---")
 
+    st.markdown("### Telegram Bildirimleri")
+    st.markdown("""
+    > Zamanlayıcı her taramada yeni konuları Telegram'a bildirim olarak gönderir.
+    > iPhone/Android'den anında takip edebilirsin.
+    """)
+
+    tg_token = get_secret("telegram_bot_token", "")
+    tg_chat_id = get_secret("telegram_chat_id", "")
+
+    col_tg1, col_tg2 = st.columns(2)
+    with col_tg1:
+        if tg_token:
+            st.success("Telegram Bot Token: Yapılandırılmış ✓")
+        else:
+            st.warning("Telegram Bot Token: Eksik")
+    with col_tg2:
+        if tg_chat_id:
+            st.success(f"Telegram Chat ID: {tg_chat_id} ✓")
+        else:
+            st.warning("Telegram Chat ID: Eksik")
+
+    if tg_token and tg_chat_id:
+        if st.button("📨 Telegram Test Mesajı Gönder", use_container_width=True):
+            from modules.telegram_notifier import TelegramNotifier
+            notifier = TelegramNotifier(tg_token, tg_chat_id)
+            info = notifier.test_connection()
+            if info["ok"]:
+                if notifier.send_message("✅ AI Gündem Dashboard bağlantısı başarılı!"):
+                    st.success(f"Test mesajı gönderildi! Bot: @{info['bot_username']}")
+                else:
+                    st.error("Bot bağlandı ama mesaj gönderilemedi. Chat ID'yi kontrol edin.")
+            else:
+                st.error(f"Telegram bağlantı hatası: {info['error']}")
+
+    with st.expander("Telegram Bot Nasıl Kurulur?"):
+        st.markdown("""
+1. Telegram'da **@BotFather**'ı aç
+2. `/newbot` yaz, bir isim ver (örnek: `AI Gundem Bot`)
+3. Sana bir **token** verecek → `secrets.toml`'a ekle:
+   ```
+   telegram_bot_token = "1234567890:ABCdef..."
+   ```
+4. Oluşturduğun botu bul ve `/start` yaz
+5. **Chat ID** almak için:
+   - Botuna herhangi bir mesaj at
+   - Tarayıcıda bu URL'yi aç: `https://api.telegram.org/bot<TOKEN>/getUpdates`
+   - `"chat":{"id":123456789}` değerini bul
+   - `secrets.toml`'a ekle:
+   ```
+   telegram_chat_id = "123456789"
+   ```
+        """)
+
+    st.markdown("---")
+
     st.markdown("### secrets.toml Şablonu")
     st.markdown("Aşağıdaki şablonu `.streamlit/secrets.toml` dosyanıza kopyalayın:")
 
@@ -357,6 +412,10 @@ twikit_totp_secret = ""  # 2FA açıksa TOTP secret (opsiyonel)
 minimax_api_key = "your_minimax_api_key"
 anthropic_api_key = "your_anthropic_api_key"
 openai_api_key = "your_openai_api_key"
+
+# Telegram Bildirimleri (opsiyonel)
+telegram_bot_token = "your_bot_token"
+telegram_chat_id = "your_chat_id"
 """, language="toml")
 
     # Test connections

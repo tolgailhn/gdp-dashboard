@@ -13,6 +13,16 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 ANALYSES_DIR = DATA_DIR / "tweet_analyses"
 
 
+def _safe_int(val) -> int:
+    """Safely convert a value to int (twikit sometimes returns strings)."""
+    if val is None:
+        return 0
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return 0
+
+
 def pull_user_tweets(twikit_client, username: str, count: int = 500,
                      progress_callback=None) -> list[dict]:
     """
@@ -51,10 +61,10 @@ def calculate_engagement_score(tweet: dict) -> float:
     Calculate weighted engagement score based on X algorithm weights.
     RT = 20x, Reply = 13.5x, Like = 1x, Bookmark ≈ 10x
     """
-    rt = tweet.get("retweet_count", 0) or 0
-    reply = tweet.get("reply_count", 0) or 0
-    like = tweet.get("like_count", 0) or 0
-    impressions = tweet.get("impression_count", 0) or 0
+    rt = _safe_int(tweet.get("retweet_count", 0))
+    reply = _safe_int(tweet.get("reply_count", 0))
+    like = _safe_int(tweet.get("like_count", 0))
+    impressions = _safe_int(tweet.get("impression_count", 0))
 
     score = (rt * 20) + (reply * 13.5) + (like * 1)
 
@@ -195,9 +205,9 @@ def analyze_tweets(tweets: list[dict]) -> dict:
     )[:15]
 
     # Overall stats
-    total_likes = sum(t.get("like_count", 0) or 0 for t in tweets)
-    total_rts = sum(t.get("retweet_count", 0) or 0 for t in tweets)
-    total_replies = sum(t.get("reply_count", 0) or 0 for t in tweets)
+    total_likes = sum(_safe_int(t.get("like_count", 0)) for t in tweets)
+    total_rts = sum(_safe_int(t.get("retweet_count", 0)) for t in tweets)
+    total_replies = sum(_safe_int(t.get("reply_count", 0)) for t in tweets)
     avg_engagement = avg_score(tweets)
 
     # Posting time analysis (hour distribution)

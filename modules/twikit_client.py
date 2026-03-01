@@ -18,6 +18,16 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 COOKIES_PATH = DATA_DIR / "twikit_cookies.json"
 
 
+def _safe_int(val) -> int:
+    """Safely convert a value to int (twikit sometimes returns strings)."""
+    if val is None:
+        return 0
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return 0
+
+
 def _run_async(coro):
     """Run an async coroutine synchronously, compatible with Streamlit."""
     try:
@@ -274,10 +284,10 @@ class TwikitSearchClient:
             'author_username': getattr(user, 'screen_name', 'unknown') if user else 'unknown',
             'author_profile_image': (getattr(user, 'profile_image_url', '') or '') if user else '',
             'created_at': created_at,
-            'like_count': getattr(tweet, 'favorite_count', 0) or 0,
-            'retweet_count': getattr(tweet, 'retweet_count', 0) or 0,
-            'reply_count': getattr(tweet, 'reply_count', 0) or 0,
-            'impression_count': getattr(tweet, 'view_count', 0) or 0,
+            'like_count': _safe_int(getattr(tweet, 'favorite_count', 0)),
+            'retweet_count': _safe_int(getattr(tweet, 'retweet_count', 0)),
+            'reply_count': _safe_int(getattr(tweet, 'reply_count', 0)),
+            'impression_count': _safe_int(getattr(tweet, 'view_count', 0)),
             'media_urls': media_urls,
         }
 

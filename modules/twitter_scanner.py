@@ -94,6 +94,16 @@ SPAM_PATTERNS = [
 MIN_TWEET_LENGTH = 50  # Skip very short tweets
 
 
+def _safe_int(val) -> int:
+    """Safely convert a value to int (twikit sometimes returns strings)."""
+    if val is None:
+        return 0
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return 0
+
+
 # Category keywords for classification
 CATEGORY_KEYWORDS = {
     "Yeni Model": ["new model", "release", "launch", "introducing", "announce", "unveiled"],
@@ -234,10 +244,10 @@ class TwitterScanner:
             author_username=d['author_username'],
             author_profile_image=d.get('author_profile_image', ''),
             created_at=d['created_at'],
-            like_count=d.get('like_count', 0),
-            retweet_count=d.get('retweet_count', 0),
-            reply_count=d.get('reply_count', 0),
-            impression_count=d.get('impression_count', 0),
+            like_count=_safe_int(d.get('like_count', 0)),
+            retweet_count=_safe_int(d.get('retweet_count', 0)),
+            reply_count=_safe_int(d.get('reply_count', 0)),
+            impression_count=_safe_int(d.get('impression_count', 0)),
             url=f"https://x.com/{d['author_username']}/status/{d['id']}",
             media_urls=d.get('media_urls', []),
         )

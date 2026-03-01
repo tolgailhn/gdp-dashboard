@@ -190,6 +190,7 @@ class TwikitSearchClient:
             for tweet in tweets:
                 results.append(self._tweet_to_dict(tweet))
         except Exception as e:
+            self.last_error = f"Arama hatası: {type(e).__name__}: {e}"
             print(f"Twikit search error: {e}")
         return results
 
@@ -215,6 +216,7 @@ class TwikitSearchClient:
                 d['author_profile_image'] = getattr(user, 'profile_image_url', '') or ''
                 results.append(d)
         except Exception as e:
+            self.last_error = f"Kullanıcı tweet hatası (@{username}): {type(e).__name__}: {e}"
             print(f"Twikit user tweets error ({username}): {e}")
         return results
 

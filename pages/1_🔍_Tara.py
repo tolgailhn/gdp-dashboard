@@ -112,6 +112,13 @@ if scan_clicked:
                 st.success("Twikit ile taranıyor (ücretsiz)")
             elif scanner.client:
                 st.info("Twitter API ile taranıyor")
+            else:
+                twikit_err = getattr(scanner, 'twikit_error', '')
+                if twikit_err:
+                    st.error(f"Twikit bağlantı hatası: {twikit_err}")
+                else:
+                    st.error("Ne Twikit ne de Twitter API bağlanamadı. Ayarlar sayfasından kontrol edin.")
+                st.stop()
 
             # Get custom accounts
             custom_accounts = load_monitored_accounts()
@@ -128,6 +135,16 @@ if scan_clicked:
                 custom_accounts=custom_accounts,
                 custom_queries=custom_queries,
             )
+
+            # Show search errors if any
+            errors = getattr(scanner, 'search_errors', [])
+            if errors:
+                unique_errors = list(dict.fromkeys(errors))[:5]
+                with st.expander(f"⚠️ {len(errors)} arama hatası oluştu", expanded=not topics):
+                    for err in unique_errors:
+                        st.warning(err)
+                    if len(errors) > 5:
+                        st.caption(f"...ve {len(errors) - 5} hata daha")
 
             # Apply filters
             if category_filter != "Tümü":

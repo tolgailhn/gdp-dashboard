@@ -47,14 +47,14 @@ class AITopic:
 
 # Default important AI accounts to monitor
 DEFAULT_AI_ACCOUNTS = [
-    "OpenAI", "AnthropicAI", "GoogleDeepMind", "xaborai", "MetaAI",
-    "MistralAI", "Aborai", "huggingface", "nvidia", "GoogleAI",
-    "ylaboratory", "stabilityai", "midaborni", "RunwayML",
-    "peraborlexity_ai", "sama", "elaboronmusk", "karpaborathy",
-    "ylaborecun", "demisaborrhassabis", "aaborimasad", "daborarioamodei",
-    "jimfan_ai", "alexaborialbert", "emadabormost", "ClaboremenDelangue",
-    "hardmaru", "aborbor_gaborurib", "swyx", "bindureddy",
-    "Qwen_LM", "aliaborbabagroup"
+    "OpenAI", "AnthropicAI", "GoogleDeepMind", "xai", "MetaAI",
+    "MistralAI", "huggingface", "nvidia", "GoogleAI",
+    "stabilityai", "RunwayML",
+    "perplexity_ai", "sama", "elonmusk", "karpathy",
+    "ylecun", "demishassabis", "darioamodei",
+    "jimfan_ai",
+    "hardmaru", "swyx", "bindureddy",
+    "Qwen_LM",
 ]
 
 # AI-related search queries
@@ -183,6 +183,8 @@ class TwitterScanner:
         self.client = None
         self.twikit_client = None
         self.use_twikit = False
+        self.twikit_error = ""
+        self.search_errors = []
         self._init_twikit(twikit_username, twikit_password, twikit_email)
         self._init_client()
 
@@ -191,18 +193,37 @@ class TwitterScanner:
         """Initialize Twikit client for free Twitter search"""
         try:
             from modules.twikit_client import TwikitSearchClient, COOKIES_PATH
+
+            # Check if cookies exist in st.secrets
+            has_secret_cookies = False
+            try:
+                import streamlit as _st
+                has_secret_cookies = (
+                    bool(_st.secrets.get("twikit_auth_token", ""))
+                    and bool(_st.secrets.get("twikit_ct0", ""))
+                )
+            except Exception:
+                pass
+
             if username and password:
                 self.twikit_client = TwikitSearchClient(username, password, email or "")
                 if self.twikit_client.authenticate():
                     self.use_twikit = True
-            elif COOKIES_PATH.exists():
+            elif has_secret_cookies or COOKIES_PATH.exists():
+                # Cookies in secrets.toml or on disk — no username/password needed
                 self.twikit_client = TwikitSearchClient()
                 if self.twikit_client.authenticate():
                     self.use_twikit = True
+
+            # Store last error for display
+            if self.twikit_client and not self.use_twikit:
+                self.twikit_error = self.twikit_client.last_error
+            else:
+                self.twikit_error = ""
         except ImportError:
-            print("twikit not installed. Using Twitter API only.")
+            self.twikit_error = "twikit paketi kurulu değil"
         except Exception as e:
-            print(f"Twikit init error: {e}")
+            self.twikit_error = f"Twikit başlatma hatası: {e}"
 
     def _dict_to_topic(self, d: dict) -> AITopic:
         """Convert a twikit result dict to an AITopic object"""
@@ -254,6 +275,7 @@ class TwitterScanner:
 
         all_topics = []
         seen_ids = set()
+        self.search_errors = []  # Track errors for UI display
 
         start_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=time_range_hours)
 
@@ -271,7 +293,7 @@ class TwitterScanner:
                         seen_ids.add(topic.id)
                         all_topics.append(topic)
             except Exception as e:
-                print(f"Query error: {query} - {e}")
+                self.search_errors.append(f"Sorgu hatası: {e}")
                 continue
 
         # Search by monitored accounts
@@ -287,7 +309,7 @@ class TwitterScanner:
                         seen_ids.add(topic.id)
                         all_topics.append(topic)
             except Exception as e:
-                print(f"Account error: {account} - {e}")
+                self.search_errors.append(f"Hesap hatası (@{account}): {e}")
                 continue
 
         # Filter spam and calculate relevance
@@ -313,13 +335,15 @@ class TwitterScanner:
                 results = self.twikit_client.search_tweets(
                     query, count=max_results, since_date=since_date
                 )
+                if not results and self.twikit_client.last_error:
+                    self.search_errors.append(self.twikit_client.last_error)
                 topics = []
                 for d in results:
                     if d.get('created_at') and d['created_at'] >= start_time:
                         topics.append(self._dict_to_topic(d))
                 return topics
             except Exception as e:
-                print(f"Twikit search error, falling back to API: {e}")
+                self.search_errors.append(f"Twikit arama hatası: {e}")
 
         # Fallback: Twitter API v2
         if not self.client:
@@ -400,13 +424,15 @@ class TwitterScanner:
         if self.use_twikit and self.twikit_client:
             try:
                 results = self.twikit_client.get_user_tweets(username, count=max_results)
+                if not results and self.twikit_client.last_error:
+                    self.search_errors.append(self.twikit_client.last_error)
                 topics = []
                 for d in results:
                     if d.get('created_at') and d['created_at'] >= start_time:
                         topics.append(self._dict_to_topic(d))
                 return topics
             except Exception as e:
-                print(f"Twikit user tweets error, falling back to API: {e}")
+                self.search_errors.append(f"Twikit kullanıcı tweet hatası (@{username}): {e}")
 
         # Fallback: Twitter API v2
         if not self.client:

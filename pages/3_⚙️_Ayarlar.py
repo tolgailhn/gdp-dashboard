@@ -99,6 +99,7 @@ with tab1:
     twikit_user = get_secret("twikit_username", "")
     twikit_pass = get_secret("twikit_password", "")
     twikit_email = get_secret("twikit_email", "")
+    twikit_totp = get_secret("twikit_totp_secret", "")
 
     col_tw1, col_tw2 = st.columns(2)
     with col_tw1:
@@ -119,16 +120,56 @@ with tab1:
     with col_test1:
         if st.button("🔗 Twikit Bağlantısını Test Et", use_container_width=True):
             if twikit_user and twikit_pass:
-                with st.spinner("Twikit ile giriş yapılıyor..."):
+                with st.spinner("Twikit ile giriş yapılıyor... (bu 10-20 saniye sürebilir)"):
                     try:
                         from modules.twikit_client import TwikitSearchClient
-                        tc = TwikitSearchClient(twikit_user, twikit_pass, twikit_email)
+                        tc = TwikitSearchClient(
+                            twikit_user, twikit_pass, twikit_email,
+                            totp_secret=twikit_totp
+                        )
                         if tc.authenticate():
                             st.success("Twikit bağlantısı başarılı! Cookie kaydedildi.")
                         else:
-                            st.error("Twikit giriş başarısız! Kullanıcı adı/şifre kontrol edin.")
+                            st.error(f"Twikit giriş başarısız!")
+                            if tc.last_error:
+                                st.warning(f"**Hata detayı:** {tc.last_error}")
+
+                            # Show troubleshooting tips
+                            with st.expander("🔧 Sorun Giderme"):
+                                st.markdown("""
+**Yaygın Çözümler:**
+
+1. **Önce twitter.com'dan giriş yapın**
+   - Tarayıcınızdan twitter.com'a gidin
+   - Aynı hesapla giriş yapın
+   - Eğer doğrulama isterse (captcha, e-posta kodu vb.) tamamlayın
+   - Sonra buraya dönüp tekrar deneyin
+
+2. **2FA (İki Faktörlü Doğrulama) sorunu**
+   - Twitter'da 2FA açıksa, `secrets.toml`'a ekleyin:
+   ```
+   twikit_totp_secret = "SIZIN_TOTP_SECRET_KODUNUZ"
+   ```
+   - TOTP secret'ı bulamıyorsanız: Twitter → Ayarlar → Güvenlik → 2FA'yı geçici kapatın
+   - Twikit giriş yaptıktan sonra 2FA'yı geri açabilirsiniz (cookie'ler 2FA'ya ihtiyaç duymaz)
+
+3. **Şifre özel karakter sorunu**
+   - Şifrenizde `"`, `'`, `\\` gibi karakterler varsa `secrets.toml`'da sorun çıkabilir
+   - Şifrenizi tırnak içinde yazarken kaçış karakteri kullanın:
+   ```
+   twikit_password = "sifre\\"icinde\\"tirnak"
+   ```
+
+4. **Hesap kilitli/askıda**
+   - twitter.com'dan giriş yapıp hesabınızın aktif olduğunu kontrol edin
+   - Kilitliyse Twitter'ın istediklerini yapın (telefon doğrulama vb.)
+
+5. **Cookie sil ve tekrar dene**
+   - Sağdaki "Cookie Sil" butonuna basın
+   - Sonra tekrar test edin
+                                """)
                     except Exception as e:
-                        st.error(f"Twikit hatası: {e}")
+                        st.error(f"Twikit beklenmeyen hatası: {e}")
             else:
                 st.error("Twikit kullanıcı adı ve şifre gerekli! secrets.toml'a ekleyin.")
 
@@ -182,6 +223,7 @@ twitter_access_secret = "your_access_secret"
 twikit_username = "your_twitter_username"
 twikit_password = "your_twitter_password"
 twikit_email = "your_twitter_email"
+twikit_totp_secret = ""  # 2FA açıksa TOTP secret (opsiyonel)
 
 # AI API Keys (en az birini doldurun)
 minimax_api_key = "your_minimax_api_key"

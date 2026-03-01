@@ -44,12 +44,14 @@ class TwikitSearchClient:
     """Sync wrapper for twikit async client, focused on search/read operations."""
 
     def __init__(self, username: str = "", password: str = "",
-                 email: str = ""):
+                 email: str = "", totp_secret: str = ""):
         self.username = username
         self.password = password
         self.email = email
+        self.totp_secret = totp_secret
         self._client = None
         self._authenticated = False
+        self.last_error = ""  # Store last error for UI display
 
     def _get_client(self):
         if self._client is None:
@@ -63,6 +65,7 @@ class TwikitSearchClient:
 
     async def _auth_async(self) -> bool:
         client = self._get_client()
+        self.last_error = ""
 
         # Try loading saved cookies first
         if COOKIES_PATH.exists():
@@ -70,25 +73,86 @@ class TwikitSearchClient:
                 client.load_cookies(str(COOKIES_PATH))
                 self._authenticated = True
                 return True
-            except Exception:
-                pass
+            except Exception as e:
+                self.last_error = f"Cookie yükleme hatası: {e}"
+                # Cookies corrupted, delete and try fresh login
+                try:
+                    COOKIES_PATH.unlink()
+                except Exception:
+                    pass
 
         # Login with credentials
         if not (self.username and self.password):
+            self.last_error = "Kullanıcı adı ve şifre gerekli"
             return False
 
         try:
-            await client.login(
-                auth_info_1=self.username,
-                auth_info_2=self.email or self.username,
-                password=self.password,
-            )
+            login_kwargs = {
+                "auth_info_1": self.username,
+                "auth_info_2": self.email or self.username,
+                "password": self.password,
+            }
+
+            # Add TOTP for 2FA if provided
+            if self.totp_secret:
+                try:
+                    import pyotp
+                    totp = pyotp.TOTP(self.totp_secret)
+                    login_kwargs["totp_secret"] = self.totp_secret
+                except ImportError:
+                    pass
+
+            await client.login(**login_kwargs)
             DATA_DIR.mkdir(parents=True, exist_ok=True)
             client.save_cookies(str(COOKIES_PATH))
             self._authenticated = True
             return True
         except Exception as e:
-            print(f"Twikit login error: {e}")
+            error_str = str(e)
+            error_type = type(e).__name__
+
+            # Provide user-friendly error messages
+            if "ConnectError" in error_type or "name resolution" in error_str:
+                self.last_error = (
+                    "Twitter'a bağlanılamıyor. İnternet bağlantısını kontrol edin. "
+                    "Streamlit Cloud kullanıyorsanız, uygulamanın internete erişimi olduğundan emin olun."
+                )
+            elif "400" in error_str or "Bad Request" in error_str:
+                self.last_error = (
+                    "Twitter giriş isteği reddedildi (400). "
+                    "Kullanıcı adı/şifre yanlış olabilir veya Twitter geçici sorun yaşıyor olabilir."
+                )
+            elif "403" in error_str or "Forbidden" in error_str:
+                self.last_error = (
+                    "Twitter hesabınız kilitlenmiş veya askıya alınmış olabilir (403). "
+                    "Twitter.com'dan hesabınıza giriş yapıp kontrol edin."
+                )
+            elif "challenge" in error_str.lower() or "verification" in error_str.lower():
+                self.last_error = (
+                    "Twitter doğrulama istiyor! "
+                    "Önce twitter.com'dan tarayıcıyla giriş yapın, "
+                    "doğrulamayı tamamlayın, sonra tekrar deneyin."
+                )
+            elif "2fa" in error_str.lower() or "totp" in error_str.lower():
+                self.last_error = (
+                    "İki faktörlü doğrulama (2FA) gerekli! "
+                    "secrets.toml'a twikit_totp_secret ekleyin "
+                    "veya Twitter'dan geçici olarak 2FA'yı kapatın."
+                )
+            elif "rate" in error_str.lower() or "429" in error_str:
+                self.last_error = (
+                    "Çok fazla giriş denemesi (rate limit). "
+                    "15-30 dakika bekleyip tekrar deneyin."
+                )
+            elif "locked" in error_str.lower():
+                self.last_error = (
+                    "Twitter hesabınız kilitli. "
+                    "twitter.com'dan giriş yapıp hesabı açın, sonra tekrar deneyin."
+                )
+            else:
+                self.last_error = f"{error_type}: {error_str}"
+
+            print(f"Twikit login error: {error_type}: {e}")
             return False
 
     @property

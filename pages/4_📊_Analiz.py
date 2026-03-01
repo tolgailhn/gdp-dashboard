@@ -2,7 +2,12 @@
 Tweet Analiz Sayfasi
 Herhangi bir hesabin son tweet'lerini cekip engagement analizi yapar.
 Analiz sonuclari tweet yaziminda AI egitim verisi olarak kullanilir.
+
+Streamlit Cloud uyumlulugu:
+- Veriler hem dosya sistemine hem session_state'e kaydedilir
+- Export/Import ile analiz verileri indirilebilir ve geri yuklenebilir
 """
+import json
 import streamlit as st
 import openai as _openai
 import anthropic as _anthropic
@@ -10,8 +15,9 @@ from modules.ui_components import inject_custom_css, check_password, get_secret
 from modules.twikit_client import TwikitSearchClient
 from modules.tweet_analyzer import (
     pull_user_tweets, analyze_tweets, generate_ai_analysis,
-    save_tweet_analysis, load_tweet_analysis, load_all_analyses,
-    delete_tweet_analysis, build_training_context
+    save_tweet_analysis, load_all_analyses,
+    delete_tweet_analysis, build_training_context,
+    export_all_analyses, import_analyses_from_json
 )
 
 # Page config
@@ -36,7 +42,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Tabs ---
-tab1, tab2 = st.tabs(["🔍 Yeni Analiz", "📁 Kayitli Analizler"])
+tab1, tab2, tab3 = st.tabs(["🔍 Yeni Analiz", "📁 Kayitli Analizler", "💾 Disa/Iceri Aktar"])
 
 # ===================
 # TAB 1: New Analysis
@@ -51,7 +57,10 @@ with tab1:
             2. Twikit ile son tweet'leri ceker<br>
             3. Engagement analizi yapar (hangi tweet'ler ne kadar etkilesim almis)<br>
             4. AI analiz raporu uretir<br>
-            5. Sonuclari kaydeder → Tweet yazarken AI bu verileri kullanir
+            5. Sonuclari kaydeder → Tweet yazarken AI bu verileri kullanir<br>
+            <br>
+            <strong>💡 Streamlit Cloud:</strong> Analiz sonuclarini "Disa Aktar" sekmesinden indirin.
+            Bir sonraki oturumda "Iceri Aktar" ile geri yukleyin.
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -127,7 +136,7 @@ with tab1:
 
         # Process each username
         for username in usernames:
-            st.markdown(f"---")
+            st.markdown("---")
             st.markdown(f"## @{username}")
 
             progress = st.empty()
@@ -157,8 +166,9 @@ with tab1:
                         analysis, _ai_client, _ai_model, _ai_provider, username
                     )
 
-                # Save
-                save_tweet_analysis(username, analysis, ai_report)
+                # Save to BOTH file and session_state
+                save_tweet_analysis(username, analysis, ai_report,
+                                    session_state=st.session_state)
                 progress.empty()
                 status.success(f"@{username} analizi tamamlandi ve kaydedildi!")
 
@@ -177,10 +187,11 @@ with tab2:
     st.markdown("### Kayitli Analizler")
     st.markdown("Bu analizler tweet yazarken AI egitim verisi olarak otomatik kullanilir.")
 
-    analyses = load_all_analyses()
+    analyses = load_all_analyses(session_state=st.session_state)
 
     if not analyses:
-        st.info("Henuz kayitli analiz yok. 'Yeni Analiz' sekmesinden analiz yapin.")
+        st.info("Henuz kayitli analiz yok. 'Yeni Analiz' sekmesinden analiz yapin "
+                "veya 'Disa/Iceri Aktar' sekmesinden onceki analiz dosyanizi yukleyin.")
     else:
         # Training data preview
         training_context = build_training_context(analyses)
@@ -199,14 +210,92 @@ with tab2:
             analyzed_at = saved.get("analyzed_at", "?")[:16]
             analysis = saved.get("analysis", {})
             ai_report = saved.get("ai_report", "")
+            total = analysis.get("total_tweets", 0)
 
-            with st.expander(f"@{username} — {analyzed_at}"):
+            with st.expander(f"@{username} — {total} tweet — {analyzed_at}"):
                 _display_analysis(username, analysis, ai_report)
 
                 if st.button(f"🗑️ @{username} Analizini Sil", key=f"del_analysis_{username}"):
-                    delete_tweet_analysis(username)
+                    delete_tweet_analysis(username, session_state=st.session_state)
                     st.success(f"@{username} analizi silindi!")
                     st.rerun()
+
+
+# ===================
+# TAB 3: Export / Import
+# ===================
+with tab3:
+    st.markdown("### Disa / Iceri Aktar")
+
+    st.markdown("""
+    <div style="background:#16213e; border:1px solid #1DA1F2; border-radius:12px;
+                padding:16px; margin-bottom:16px;">
+        <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">Neden Gerekli?</div>
+        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+            Streamlit Cloud'da dosya sistemi gecicidir — uygulama yeniden basladiginda
+            analiz verileri kaybolur.<br><br>
+            <strong>Cozum:</strong><br>
+            1. Analiz yaptiktan sonra "Tumunu Indir" ile JSON dosyasini bilgisayariniza kaydedin<br>
+            2. Bir sonraki oturumda "Dosya Yukle" ile geri yukleyin<br>
+            3. Veya JSON dosyasini repo'nuzdaki <code>data/tweet_analyses/</code> klasorune commit edin<br>
+            &nbsp;&nbsp;&nbsp;(Bu sekilde her deploy'da otomatik yuklenir)
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_exp, col_imp = st.columns(2)
+
+    with col_exp:
+        st.markdown("#### 📤 Disa Aktar (Indir)")
+
+        current_analyses = load_all_analyses(session_state=st.session_state)
+        if current_analyses:
+            usernames = [a.get("username", "?") for a in current_analyses]
+            st.info(f"{len(current_analyses)} analiz mevcut: {', '.join(['@' + u for u in usernames])}")
+
+            export_json = export_all_analyses(session_state=st.session_state)
+
+            st.download_button(
+                label="📥 Tumunu Indir (JSON)",
+                data=export_json,
+                file_name="tweet_analyses_export.json",
+                mime="application/json",
+                use_container_width=True,
+                type="primary"
+            )
+        else:
+            st.warning("Indirilecek analiz yok. Once 'Yeni Analiz' yapin.")
+
+    with col_imp:
+        st.markdown("#### 📥 Iceri Aktar (Yukle)")
+
+        uploaded_file = st.file_uploader(
+            "Onceki analiz dosyasini yukleyin",
+            type=["json"],
+            key="import_analyses_file"
+        )
+
+        if uploaded_file:
+            try:
+                json_str = uploaded_file.read().decode("utf-8")
+
+                # Preview
+                preview_data = json.loads(json_str)
+                preview_analyses = preview_data.get("analyses", {})
+                if preview_analyses:
+                    st.info(f"Dosyada {len(preview_analyses)} analiz var: "
+                            f"{', '.join(['@' + k for k in preview_analyses.keys()])}")
+
+                    if st.button("✅ Iceri Aktar", type="primary", use_container_width=True):
+                        count = import_analyses_from_json(json_str,
+                                                          session_state=st.session_state)
+                        st.success(f"{count} analiz basariyla yuklendi! "
+                                   f"Artik tweet yazarken otomatik kullanilacak.")
+                        st.rerun()
+                else:
+                    st.error("Gecersiz dosya formati. 'Tumunu Indir' ile alinan dosyayi kullanin.")
+            except Exception as e:
+                st.error(f"Dosya okuma hatasi: {e}")
 
 
 def _display_analysis(username: str, analysis: dict, ai_report: str = ""):
@@ -234,7 +323,6 @@ def _display_analysis(username: str, analysis: dict, ai_report: str = ""):
             replies = t.get("reply_count", 0)
             text = t.get("text", "")[:300]
 
-            # Color code by score
             if i <= 3:
                 border_color = "#1DA1F2"
             elif i <= 7:

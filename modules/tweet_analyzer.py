@@ -315,10 +315,9 @@ Raporların veriye dayalı, spesifik ve uygulanabilir olmalı."""
         return f"AI analiz hatası: {e}"
 
 
-def save_tweet_analysis(username: str, analysis: dict, ai_report: str = ""):
-    """Save tweet analysis to JSON file."""
-    ANALYSES_DIR.mkdir(parents=True, exist_ok=True)
-
+def save_tweet_analysis(username: str, analysis: dict, ai_report: str = "",
+                        session_state=None):
+    """Save tweet analysis to JSON file AND session_state (for Streamlit Cloud persistence)."""
     data = {
         "username": username,
         "analyzed_at": datetime.datetime.now().isoformat(),
@@ -326,43 +325,142 @@ def save_tweet_analysis(username: str, analysis: dict, ai_report: str = ""):
         "ai_report": ai_report,
     }
 
-    path = ANALYSES_DIR / f"{username.lower()}.json"
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2, default=str)
+    # Save to session_state (persists during Streamlit session)
+    if session_state is not None:
+        if "tweet_analyses" not in session_state:
+            session_state["tweet_analyses"] = {}
+        session_state["tweet_analyses"][username.lower()] = data
+
+    # Also save to file (persists locally or if committed to repo)
+    try:
+        ANALYSES_DIR.mkdir(parents=True, exist_ok=True)
+        path = ANALYSES_DIR / f"{username.lower()}.json"
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2, default=str)
+    except Exception:
+        pass  # File save may fail on read-only systems, session_state is primary
 
 
-def load_tweet_analysis(username: str) -> dict | None:
-    """Load tweet analysis for a specific username."""
+def load_tweet_analysis(username: str, session_state=None) -> dict | None:
+    """Load tweet analysis — checks session_state first, then files."""
+    # Check session_state first
+    if session_state is not None:
+        analyses = session_state.get("tweet_analyses", {})
+        if username.lower() in analyses:
+            return analyses[username.lower()]
+
+    # Fall back to file
     path = ANALYSES_DIR / f"{username.lower()}.json"
     if path.exists():
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            # Also populate session_state for future reads
+            if session_state is not None:
+                if "tweet_analyses" not in session_state:
+                    session_state["tweet_analyses"] = {}
+                session_state["tweet_analyses"][username.lower()] = data
+            return data
+        except Exception:
+            pass
     return None
 
 
-def load_all_analyses() -> list[dict]:
-    """Load all saved tweet analyses."""
-    if not ANALYSES_DIR.exists():
-        return []
+def load_all_analyses(session_state=None) -> list[dict]:
+    """Load all analyses — merges session_state and file system."""
+    analyses_map = {}
 
-    analyses = []
-    for path in ANALYSES_DIR.glob("*.json"):
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                analyses.append(json.load(f))
-        except Exception:
-            continue
+    # Load from files first
+    if ANALYSES_DIR.exists():
+        for path in ANALYSES_DIR.glob("*.json"):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                key = data.get("username", path.stem).lower()
+                analyses_map[key] = data
+            except Exception:
+                continue
 
+    # Overlay with session_state (more recent)
+    if session_state is not None:
+        for key, data in session_state.get("tweet_analyses", {}).items():
+            analyses_map[key] = data
+
+    # Also sync session_state with everything found
+    if session_state is not None and analyses_map:
+        if "tweet_analyses" not in session_state:
+            session_state["tweet_analyses"] = {}
+        session_state["tweet_analyses"].update(analyses_map)
+
+    analyses = list(analyses_map.values())
     return sorted(analyses, key=lambda x: x.get("analyzed_at", ""), reverse=True)
 
 
-def delete_tweet_analysis(username: str) -> bool:
-    """Delete a saved analysis."""
+def delete_tweet_analysis(username: str, session_state=None) -> bool:
+    """Delete a saved analysis from both session_state and file."""
+    deleted = False
+
+    # Remove from session_state
+    if session_state is not None:
+        analyses = session_state.get("tweet_analyses", {})
+        if username.lower() in analyses:
+            del analyses[username.lower()]
+            deleted = True
+
+    # Remove file
     path = ANALYSES_DIR / f"{username.lower()}.json"
     if path.exists():
-        path.unlink()
-        return True
-    return False
+        try:
+            path.unlink()
+            deleted = True
+        except Exception:
+            pass
+
+    return deleted
+
+
+def export_all_analyses(session_state=None) -> str:
+    """Export all analyses as a single JSON string for download."""
+    analyses = load_all_analyses(session_state)
+    export_data = {
+        "type": "tweet_analyses_export",
+        "exported_at": datetime.datetime.now().isoformat(),
+        "analyses": {a["username"].lower(): a for a in analyses},
+    }
+    return json.dumps(export_data, ensure_ascii=False, indent=2, default=str)
+
+
+def import_analyses_from_json(json_str: str, session_state=None) -> int:
+    """Import analyses from a JSON string. Returns count of imported analyses."""
+    try:
+        data = json.loads(json_str)
+    except json.JSONDecodeError:
+        return 0
+
+    analyses = data.get("analyses", {})
+    if not analyses:
+        return 0
+
+    count = 0
+    for username, analysis_data in analyses.items():
+        # Save to session_state
+        if session_state is not None:
+            if "tweet_analyses" not in session_state:
+                session_state["tweet_analyses"] = {}
+            session_state["tweet_analyses"][username.lower()] = analysis_data
+
+        # Save to file
+        try:
+            ANALYSES_DIR.mkdir(parents=True, exist_ok=True)
+            path = ANALYSES_DIR / f"{username.lower()}.json"
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(analysis_data, f, ensure_ascii=False, indent=2, default=str)
+        except Exception:
+            pass
+
+        count += 1
+
+    return count
 
 
 def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:

@@ -462,8 +462,8 @@ with st.expander("Ek Seçenekler"):
 
         use_premium = st.checkbox("X Premium (karakter sınırı yok)", value=True, key="use_premium")
 
-    # Training data indicator
-    _analyses = load_all_analyses()
+    # Training data indicator (session_state first, then files)
+    _analyses = load_all_analyses(session_state=st.session_state)
     if _analyses:
         usernames = [a.get("username", "?") for a in _analyses]
         st.markdown(f"""
@@ -574,8 +574,8 @@ if generate_clicked or regenerate_clicked:
     user_samples = load_user_samples()
     custom_persona = load_custom_persona()
 
-    # Load training data from tweet analyses
-    analyses = load_all_analyses()
+    # Load training data from tweet analyses (session_state first, then files)
+    analyses = load_all_analyses(session_state=st.session_state)
     training_context = build_training_context(analyses) if analyses else ""
 
     with st.spinner("Tweet üretiliyor... 🤖"):

@@ -181,42 +181,101 @@ with tab1:
             else:
                 st.info("Silinecek cookie yok.")
 
-    # Cookie upload section
+    # Cookie section
     st.markdown("---")
-    st.markdown("### Cookie Dosyası Yükle")
+    st.markdown("### Manuel Cookie Girişi (403 Hatası Çözümü)")
     st.markdown("""
     > **403 hatası mı alıyorsun?** Twitter, cloud sunucu IP'lerinden girişi engelleyebilir.
     >
-    > **Çözüm:** Kendi bilgisayarında cookie oluştur, buraya yükle:
-    > 1. `pip install twikit` (bilgisayarında)
-    > 2. `python generate_cookies.py` (repo'daki script)
-    > 3. Oluşan `twikit_cookies.json` dosyasını aşağıya yükle
+    > **Çözüm:** Tarayıcıdan cookie'leri al ve buraya yapıştır:
+    > 1. **twitter.com**'a giriş yap (tarayıcında)
+    > 2. **F12** tuşuna bas → **Application** (veya Storage) sekmesi
+    > 3. Sol menüde **Cookies** → `https://x.com` tıkla
+    > 4. Aşağıdaki cookie'leri bul ve değerlerini kopyala
     """)
 
-    uploaded_cookie = st.file_uploader(
-        "Cookie dosyası yükle (.json)",
-        type=["json"],
-        key="upload_twikit_cookie"
-    )
+    import json as _json
 
-    if uploaded_cookie:
-        try:
-            import json
-            cookie_data = uploaded_cookie.read().decode("utf-8")
-            # Validate it's valid JSON
-            json.loads(cookie_data)
+    with st.expander("🍪 Tarayıcıdan Cookie Yapıştır", expanded=not cookies_path.exists()):
+        st.markdown("""
+        **F12 → Application → Cookies → x.com** altında bu değerleri bul:
+        """)
 
-            # Save to cookies path
-            cookies_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(cookies_path, "w", encoding="utf-8") as f:
-                f.write(cookie_data)
+        auth_token = st.text_input(
+            "auth_token",
+            type="password",
+            placeholder="F12 → Cookies → auth_token değeri",
+            key="manual_auth_token",
+            help="Twitter oturum token'ı. Cookies listesinde 'auth_token' satırının Value sütunu."
+        )
 
-            st.success("Cookie dosyası başarıyla yüklendi! Artık Twikit bu cookie ile çalışacak.")
-            st.info("Sayfayı yenileyin ve 'Twikit Bağlantısını Test Et' ile kontrol edin.")
-        except json.JSONDecodeError:
-            st.error("Geçersiz JSON dosyası! generate_cookies.py ile oluşturulan dosyayı kullanın.")
-        except Exception as e:
-            st.error(f"Cookie yükleme hatası: {e}")
+        ct0 = st.text_input(
+            "ct0",
+            type="password",
+            placeholder="F12 → Cookies → ct0 değeri",
+            key="manual_ct0",
+            help="CSRF token. Cookies listesinde 'ct0' satırının Value sütunu."
+        )
+
+        if st.button("💾 Cookie'leri Kaydet", type="primary", use_container_width=True,
+                      disabled=not (auth_token and ct0)):
+            if auth_token and ct0:
+                try:
+                    # Build cookie dict — Twikit uses simple key-value pairs
+                    cookie_dict = {
+                        "auth_token": auth_token.strip(),
+                        "ct0": ct0.strip(),
+                    }
+
+                    cookies_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(cookies_path, "w", encoding="utf-8") as f:
+                        _json.dump(cookie_dict, f, ensure_ascii=False, indent=2)
+
+                    st.success("Cookie'ler kaydedildi! Şimdi 'Twikit Bağlantısını Test Et' butonuna basın.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Cookie kaydetme hatası: {e}")
+
+        st.markdown("---")
+
+        st.markdown("**Cookie nerede bulunur? (Adım adım)**")
+        st.markdown("""
+1. **twitter.com** / **x.com** adresine git ve giriş yap
+2. Sayfada **F12** tuşuna bas (Developer Tools açılır)
+3. Üst menüden **Application** sekmesine tıkla
+   - Chrome: Application
+   - Firefox: Storage
+4. Sol menüde **Cookies** → **https://x.com** tıkla
+5. Tabloda şu satırları bul:
+   - `auth_token` → Value sütunundaki değeri kopyala
+   - `ct0` → Value sütunundaki değeri kopyala
+6. Yukarıdaki alanlara yapıştır ve "Kaydet" butonuna bas
+        """)
+
+    with st.expander("📁 Cookie Dosyası Yükle (Alternatif)"):
+        st.markdown("generate_cookies.py ile oluşturulan JSON dosyasını yükleyebilirsiniz.")
+
+        uploaded_cookie = st.file_uploader(
+            "Cookie dosyası yükle (.json)",
+            type=["json"],
+            key="upload_twikit_cookie"
+        )
+
+        if uploaded_cookie:
+            try:
+                cookie_data = uploaded_cookie.read().decode("utf-8")
+                _json.loads(cookie_data)
+
+                cookies_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(cookies_path, "w", encoding="utf-8") as f:
+                    f.write(cookie_data)
+
+                st.success("Cookie dosyası yüklendi!")
+                st.rerun()
+            except _json.JSONDecodeError:
+                st.error("Geçersiz JSON dosyası!")
+            except Exception as e:
+                st.error(f"Cookie yükleme hatası: {e}")
 
     st.markdown("---")
 

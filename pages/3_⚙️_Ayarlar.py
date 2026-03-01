@@ -181,6 +181,43 @@ with tab1:
             else:
                 st.info("Silinecek cookie yok.")
 
+    # Cookie upload section
+    st.markdown("---")
+    st.markdown("### Cookie Dosyası Yükle")
+    st.markdown("""
+    > **403 hatası mı alıyorsun?** Twitter, cloud sunucu IP'lerinden girişi engelleyebilir.
+    >
+    > **Çözüm:** Kendi bilgisayarında cookie oluştur, buraya yükle:
+    > 1. `pip install twikit` (bilgisayarında)
+    > 2. `python generate_cookies.py` (repo'daki script)
+    > 3. Oluşan `twikit_cookies.json` dosyasını aşağıya yükle
+    """)
+
+    uploaded_cookie = st.file_uploader(
+        "Cookie dosyası yükle (.json)",
+        type=["json"],
+        key="upload_twikit_cookie"
+    )
+
+    if uploaded_cookie:
+        try:
+            import json
+            cookie_data = uploaded_cookie.read().decode("utf-8")
+            # Validate it's valid JSON
+            json.loads(cookie_data)
+
+            # Save to cookies path
+            cookies_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(cookies_path, "w", encoding="utf-8") as f:
+                f.write(cookie_data)
+
+            st.success("Cookie dosyası başarıyla yüklendi! Artık Twikit bu cookie ile çalışacak.")
+            st.info("Sayfayı yenileyin ve 'Twikit Bağlantısını Test Et' ile kontrol edin.")
+        except json.JSONDecodeError:
+            st.error("Geçersiz JSON dosyası! generate_cookies.py ile oluşturulan dosyayı kullanın.")
+        except Exception as e:
+            st.error(f"Cookie yükleme hatası: {e}")
+
     st.markdown("---")
 
     with col2:

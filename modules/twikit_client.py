@@ -56,7 +56,7 @@ class TwikitSearchClient:
     def _get_client(self):
         if self._client is None:
             from twikit import Client
-            self._client = Client('en-US')
+            self._client = Client('tr')
         return self._client
 
     def authenticate(self) -> bool:

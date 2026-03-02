@@ -47,7 +47,16 @@ def _display_analysis(username: str, analysis: dict, ai_report: str = ""):
     """Display analysis results in a structured format."""
 
     # Overall stats
-    col1, col2, col3, col4 = st.columns(4)
+    orig_count = analysis.get("original_count", 0)
+    rt_count = analysis.get("retweet_count", 0)
+    has_breakdown = orig_count > 0 or rt_count > 0
+
+    if has_breakdown:
+        col1, col2, col3, col4, col5 = st.columns(5)
+    else:
+        col1, col2, col3, col4 = st.columns(4)
+        col5 = None
+
     with col1:
         st.metric("Toplam Tweet", analysis.get("total_tweets", 0))
     with col2:
@@ -56,6 +65,9 @@ def _display_analysis(username: str, analysis: dict, ai_report: str = ""):
         st.metric("Toplam RT", f"{analysis.get('total_retweets', 0):,}")
     with col4:
         st.metric("Ort. Skor", f"{analysis.get('avg_engagement_score', 0):,.0f}")
+    if col5:
+        with col5:
+            st.metric("Orijinal / RT", f"{orig_count} / {rt_count}")
 
     # Top performing tweets
     top_tweets = analysis.get("top_tweets", [])

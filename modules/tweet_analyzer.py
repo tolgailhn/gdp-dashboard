@@ -92,6 +92,7 @@ def analyze_tweets(tweets: list[dict]) -> dict:
     """
     Full engagement analysis of pulled tweets.
     Returns structured analysis data.
+    Saves ALL tweet texts (originals separated from RTs) for style training.
     """
     if not tweets:
         return {"error": "No tweets to analyze"}
@@ -100,10 +101,30 @@ def analyze_tweets(tweets: list[dict]) -> dict:
     for tweet in tweets:
         tweet["engagement_score"] = calculate_engagement_score(tweet)
 
+    # Separate original tweets from retweets
+    original_tweets = []
+    retweet_tweets = []
+    for t in tweets:
+        text = t.get("text", "")
+        tweet_data = {
+            "text": text,
+            "engagement_score": t["engagement_score"],
+            "like_count": t.get("like_count", 0),
+            "retweet_count": t.get("retweet_count", 0),
+            "reply_count": t.get("reply_count", 0),
+            "impression_count": t.get("impression_count", 0),
+            "created_at": str(t.get("created_at", "")),
+        }
+        if text.startswith("RT @"):
+            retweet_tweets.append(tweet_data)
+        else:
+            original_tweets.append(tweet_data)
+
     # Sort by engagement score
     sorted_tweets = sorted(tweets, key=lambda t: t["engagement_score"], reverse=True)
+    sorted_originals = sorted(original_tweets, key=lambda t: t["engagement_score"], reverse=True)
 
-    # Top performing tweets
+    # Top performing tweets (backwards compatible)
     top_tweets = []
     for t in sorted_tweets[:30]:
         top_tweets.append({
@@ -220,6 +241,11 @@ def analyze_tweets(tweets: list[dict]) -> dict:
         "total_replies": total_replies,
         "avg_engagement_score": avg_engagement,
         "top_tweets": top_tweets,
+        # ALL tweet texts for comprehensive style training
+        "all_original_tweets": sorted_originals,
+        "all_retweets": retweet_tweets,
+        "original_count": len(original_tweets),
+        "retweet_count": len(retweet_tweets),
         "top_keywords": [{"keyword": kw, "avg_score": sc} for kw, sc in top_keywords],
         "most_used_keywords": [{"keyword": kw, "count": cnt} for kw, cnt in most_used],
         "length_analysis": length_analysis,
@@ -463,6 +489,9 @@ def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
     """
     Build training context string from saved analyses.
     This gets injected into the system prompt for MiniMax/AI.
+
+    Uses ALL original tweets for style/tone training (not just top performers).
+    High-engagement tweets are highlighted separately for strategy insights.
     """
     if not analyses:
         return ""
@@ -474,44 +503,107 @@ def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
         analysis = analysis_data.get("analysis", {})
         ai_report = analysis_data.get("ai_report", "")
 
-        # Top performing examples
-        top_tweets = analysis.get("top_tweets", [])[:max_examples // max(len(analyses), 1)]
+        # --- STYLE TRAINING: All original tweets ---
+        all_originals = analysis.get("all_original_tweets", [])
+        original_count = analysis.get("original_count", 0)
 
-        if top_tweets:
-            examples = []
-            for t in top_tweets:
-                examples.append(
-                    f'- "{t["text"][:400]}" '
-                    f'[Skor:{t["engagement_score"]} | ❤️{t["like_count"]} 🔁{t["retweet_count"]} 💬{t["reply_count"]}]'
+        if all_originals:
+            # Use ALL original tweets for style training
+            style_examples = []
+            for t in all_originals:
+                text = t.get("text", "").strip()
+                if text and len(text) > 20:  # Skip very short/empty tweets
+                    style_examples.append(f'"{text[:600]}"')
+
+            if style_examples:
+                context_parts.append(
+                    f"### @{username} - YAZIM TARZI EĞİTİM VERİSİ "
+                    f"({len(style_examples)} orijinal tweet):\n"
+                    f"Bu tweet'lerin TONUNU, CÜMLE YAPISINI, KELİME SEÇİMİNİ "
+                    f"ve YAZIM TARZINI model al:\n\n"
+                    + "\n---\n".join(style_examples)
                 )
 
-            context_parts.append(f"""### @{username} - En İyi Performans Gösteren Tweet'ler:
-{chr(10).join(examples)}""")
+        # --- ENGAGEMENT STRATEGY: Top performers ---
+        top_tweets = analysis.get("top_tweets", [])
+        # Filter to only original top tweets (not RTs)
+        top_originals = [t for t in top_tweets if not t.get("text", "").startswith("RT @")]
+        top_to_show = top_originals[:max_examples // max(len(analyses), 1)]
+
+        if top_to_show:
+            examples = []
+            for t in top_to_show:
+                examples.append(
+                    f'- "{t["text"][:400]}" '
+                    f'[Skor:{t["engagement_score"]} | '
+                    f'❤️{t["like_count"]} 🔁{t["retweet_count"]} 💬{t["reply_count"]}]'
+                )
+
+            context_parts.append(
+                f"### @{username} - EN ÇOK ETKİLEŞİM ALAN ORİJİNAL TWEET'LER:\n"
+                + chr(10).join(examples)
+            )
+
+        # Fallback: if no all_original_tweets, use top_tweets (old format)
+        if not all_originals and top_tweets:
+            examples = []
+            for t in top_tweets[:max_examples // max(len(analyses), 1)]:
+                examples.append(
+                    f'- "{t["text"][:400]}" '
+                    f'[Skor:{t["engagement_score"]} | '
+                    f'❤️{t["like_count"]} 🔁{t["retweet_count"]} 💬{t["reply_count"]}]'
+                )
+            context_parts.append(
+                f"### @{username} - En İyi Performans Gösteren Tweet'ler:\n"
+                + chr(10).join(examples)
+            )
 
         # Top keywords
         top_kw = analysis.get("top_keywords", [])[:10]
         if top_kw:
-            kw_text = ", ".join([f"{k['keyword']}(skor:{k['avg_score']})" for k in top_kw])
-            context_parts.append(f"### @{username} - Etkileşim Çeken Kelimeler: {kw_text}")
+            kw_text = ", ".join(
+                [f"{k['keyword']}(skor:{k['avg_score']})" for k in top_kw]
+            )
+            context_parts.append(
+                f"### @{username} - Etkileşim Çeken Kelimeler: {kw_text}"
+            )
+
+        # Most used keywords (writing DNA)
+        most_used = analysis.get("most_used_keywords", [])[:15]
+        if most_used:
+            mu_text = ", ".join(
+                [f"{k['keyword']}({k['count']}x)" for k in most_used]
+            )
+            context_parts.append(
+                f"### @{username} - En Sık Kullanılan Kelimeler (Yazım DNA'sı): {mu_text}"
+            )
 
         # AI report (trimmed)
         if ai_report:
-            # Only include key insights, not the full report
             report_lines = ai_report.split("\n")
             short_report = "\n".join(report_lines[:30])
-            context_parts.append(f"### @{username} - Tarz Analizi:\n{short_report}")
+            context_parts.append(
+                f"### @{username} - Tarz Analizi:\n{short_report}"
+            )
 
     if not context_parts:
         return ""
 
-    return f"""## EĞİTİM VERİSİ — GERÇEK ETKİLEŞİM ANALİZİ:
+    return f"""## EĞİTİM VERİSİ — YAZIM TARZI + ETKİLEŞİM ANALİZİ:
 
-Aşağıdaki veriler gerçek Twitter hesaplarının tweet analizlerinden elde edilmiştir.
-Bu örneklerin TARZINI, TONUNU ve YAPILARINI referans al.
-Birebir kopyalama ama aynı kalıpları ve yaklaşımları kullan.
+Aşağıdaki veriler gerçek Twitter hesaplarının TÜM tweet'lerinden elde edilmiştir.
+
+### NASIL KULLANACAKSIN:
+1. YAZIM TARZI: Tüm orijinal tweet'lerdeki ton, dil, cümle yapısı, kelime tercihleri ve
+   anlatım biçimini model al. Engagement düşük olsa bile YAZIM TARZI aynı.
+2. ETKİLEŞİM STRATEJİSİ: En çok etkileşim alan tweet'lerin hook, konu ve yapılarını
+   referans al.
+3. BİREBİR KOPYALAMA: Tweet'leri kopyalama ama aynı RUHU, TONU ve YAKLAŞIMI koru.
 
 {chr(10).join(context_parts)}
 
-KRİTİK: Bu örneklerdeki yazım tarzını, hook kalıplarını, cümle yapısını ve kelime tercihlerini model al.
-Yüksek engagement alan tweet'lerin ortak özelliklerini yeni tweet'lere uygula.
+KRİTİK: Yukarıdaki TÜM orijinal tweet'lerdeki yazım tarzını, kelime tercihlerini,
+cümle yapılarını ve tonlamayı içselleştir. Bu kişi gibi YAZ — aynı kelimeler,
+aynı akış, aynı samimiyet. Yüksek engagement alan tweet'lerin yapısal özelliklerini
+(hook tarzı, paragraf yapısı, kapanış biçimi) yeni tweet'lere uygula.
 """

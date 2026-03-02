@@ -88,6 +88,95 @@ def extract_keywords(text: str) -> list[str]:
     return keywords
 
 
+def _extract_style_dna(original_tweets: list[dict]) -> dict:
+    """
+    Deep writing style analysis from ALL original tweets.
+    Extracts signature words, phrases, patterns, hooks, tone characteristics.
+    This data is used by build_training_context for human-like AI writing.
+    """
+    if not original_tweets:
+        return {}
+
+    all_texts = [t.get("text", "") for t in original_tweets]
+
+    # 1. Lowercase/uppercase start analysis
+    lowercase_count = sum(1 for text in all_texts if text.strip() and text.strip()[0].islower())
+    lowercase_pct = round(lowercase_count * 100 / len(all_texts)) if all_texts else 0
+
+    # 2. Length analysis
+    lengths = [len(t) for t in all_texts if t]
+    avg_len = sum(lengths) // len(lengths) if lengths else 0
+
+    # 3. Signature words (daily/casual language markers)
+    all_words = []
+    for text in all_texts:
+        all_words.extend(text.lower().split())
+    word_count = Counter(all_words)
+
+    casual_markers = [
+        "olm", "yani", "artık", "bile", "şey", "sadece", "şimdi", "adam", "zaten",
+        "ya", "bak", "böyle", "öyle", "güzel", "mesela", "aslında", "abi",
+        "gerçekten", "neyse", "valla", "sonuçta", "kısacası", "ulan", "tamam",
+        "hadi", "lan", "höcaam", "cidden", "harbiden", "arkadaşım", "kardeşim",
+    ]
+    signature_words = {}
+    for w in casual_markers:
+        if word_count[w] > 0:
+            signature_words[w] = word_count[w]
+    signature_words = dict(sorted(signature_words.items(), key=lambda x: x[1], reverse=True))
+
+    # 4. Signature phrases
+    phrase_candidates = [
+        "olm", "ok.", "güzel kardeşim", "o yüzden", "aslında", "biliyor musun",
+        "diyor ki", "bayanlar baylar", "bak şimdi", "şu an", "bu adam",
+        "az önce", "anladın mı", "test ettim", "sevgiler", "algoritma tanrıları",
+    ]
+    signature_phrases = {}
+    for phrase in phrase_candidates:
+        count = sum(1 for t in all_texts if phrase in t.lower())
+        if count > 0:
+            signature_phrases[phrase] = count
+    signature_phrases = dict(sorted(signature_phrases.items(), key=lambda x: x[1], reverse=True))
+
+    # 5. Hook examples from top performing tweets
+    sorted_by_score = sorted(original_tweets, key=lambda x: x.get("engagement_score", 0), reverse=True)
+    hook_examples = []
+    for t in sorted_by_score[:15]:
+        first_line = t["text"].split("\n")[0][:200]
+        if first_line.strip():
+            hook_examples.append(first_line.strip())
+
+    # 6. Ending style
+    endings = {"nokta": 0, "noktasiz": 0, "soru": 0, "sevgiler": 0, "link": 0}
+    for text in all_texts:
+        text = text.strip()
+        if "sevgiler" in text.lower()[-30:]:
+            endings["sevgiler"] += 1
+        elif text.endswith("?"):
+            endings["soru"] += 1
+        elif "https://t.co" in text[-50:]:
+            endings["link"] += 1
+        elif text.endswith("."):
+            endings["nokta"] += 1
+        else:
+            endings["noktasiz"] += 1
+
+    # 7. Emoji usage
+    emoji_count = sum(1 for t in all_texts if re.search(r"[\U0001f600-\U0001f9ff]", t))
+    emoji_pct = round(emoji_count * 100 / len(all_texts)) if all_texts else 0
+
+    return {
+        "kucuk_harf_yuzde": lowercase_pct,
+        "ortalama_uzunluk": avg_len,
+        "imza_kelimeleri": signature_words,
+        "imza_kaliplari": signature_phrases,
+        "hook_ornekleri": hook_examples,
+        "kapanis_tercihi": endings,
+        "emoji_yuzde": emoji_pct,
+        "tweet_sayisi": len(all_texts),
+    }
+
+
 def analyze_tweets(tweets: list[dict]) -> dict:
     """
     Full engagement analysis of pulled tweets.
@@ -234,6 +323,9 @@ def analyze_tweets(tweets: list[dict]) -> dict:
         key=lambda x: x["avg_score"], reverse=True
     )[:5]
 
+    # Build style DNA from all original tweets
+    style_dna = _extract_style_dna(original_tweets)
+
     return {
         "total_tweets": len(tweets),
         "total_likes": total_likes,
@@ -252,6 +344,7 @@ def analyze_tweets(tweets: list[dict]) -> dict:
         "question_analysis": question_analysis,
         "top_hashtags": top_hashtags,
         "best_hours": best_hours,
+        "style_dna": style_dna,
     }
 
 
@@ -487,11 +580,11 @@ def import_analyses_from_json(json_str: str, session_state=None) -> int:
 
 def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
     """
-    Build training context string from saved analyses.
+    Build optimized training context string from saved analyses.
     This gets injected into the system prompt for MiniMax/AI.
 
-    Uses ALL original tweets for style/tone training (not just top performers).
-    High-engagement tweets are highlighted separately for strategy insights.
+    Strategy: Style DNA rules + curated tweet examples (~5K tokens)
+    instead of dumping all 340 tweets (~112K chars) which blows API limits.
     """
     if not analyses:
         return ""
@@ -502,45 +595,136 @@ def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
         username = analysis_data.get("username", "unknown")
         analysis = analysis_data.get("analysis", {})
         ai_report = analysis_data.get("ai_report", "")
+        style_dna = analysis.get("style_dna", {})
 
-        # --- STYLE TRAINING: All original tweets ---
-        all_originals = analysis.get("all_original_tweets", [])
-        original_count = analysis.get("original_count", 0)
+        # --- SECTION 1: STYLE DNA RULES (most important, compact) ---
+        if style_dna:
+            dna_rules = []
 
-        if all_originals:
-            # Use ALL original tweets for style training
-            style_examples = []
-            for t in all_originals:
-                text = t.get("text", "").strip()
-                if text and len(text) > 20:  # Skip very short/empty tweets
-                    style_examples.append(f'"{text[:600]}"')
-
-            if style_examples:
-                context_parts.append(
-                    f"### @{username} - YAZIM TARZI EĞİTİM VERİSİ "
-                    f"({len(style_examples)} orijinal tweet):\n"
-                    f"Bu tweet'lerin TONUNU, CÜMLE YAPISINI, KELİME SEÇİMİNİ "
-                    f"ve YAZIM TARZINI model al:\n\n"
-                    + "\n---\n".join(style_examples)
+            # Lowercase rule
+            lc_pct = style_dna.get("kucuk_harf_yuzde", 0)
+            if lc_pct > 80:
+                dna_rules.append(
+                    f"- KÜÇÜK HARF: Tweet'lerin %{lc_pct}'i küçük harfle başlıyor. "
+                    f"SEN DE küçük harfle başla. Büyük harf KULLANMA (isimler hariç: OpenAI, Claude vs.)"
                 )
 
-        # --- ENGAGEMENT STRATEGY: Top performers ---
+            # Signature words
+            sig_words = style_dna.get("imza_kelimeleri", {})
+            if sig_words:
+                top_words = list(sig_words.items())[:15]
+                words_text = ", ".join([f'"{w}"({c}x)' for w, c in top_words])
+                dna_rules.append(
+                    f"- İMZA KELİMELERİ (bunları sık kullan): {words_text}"
+                )
+
+            # Signature phrases
+            sig_phrases = style_dna.get("imza_kaliplari", {})
+            if sig_phrases:
+                top_phrases = list(sig_phrases.items())[:10]
+                phrases_text = ", ".join([f'"{p}"({c}x)' for p, c in top_phrases])
+                dna_rules.append(
+                    f"- İMZA KALIPLARl (doğal şekilde kullan): {phrases_text}"
+                )
+
+            # Emoji rule
+            emoji_pct = style_dna.get("emoji_yuzde", 0)
+            if emoji_pct < 5:
+                dna_rules.append(
+                    f"- EMOJİ: Neredeyse hiç kullanmıyor (%{emoji_pct}). Emoji KOYMA."
+                )
+
+            # Ending style
+            endings = style_dna.get("kapanis_tercihi", {})
+            if endings:
+                dominant = max(endings, key=endings.get) if endings else "nokta"
+                if dominant == "sevgiler":
+                    dna_rules.append('- KAPANIŞ: Bazen "sevgiler." ile bitirir.')
+                elif dominant == "noktasiz":
+                    dna_rules.append("- KAPANIŞ: Genelde noktasız bitirir, doğal akış.")
+                elif dominant == "nokta":
+                    dna_rules.append("- KAPANIŞ: Genelde nokta ile bitirir.")
+
+            # Length
+            avg_len = style_dna.get("ortalama_uzunluk", 0)
+            if avg_len:
+                dna_rules.append(f"- UZUNLUK: Ortalama {avg_len} karakter. Orta-uzun tweet'ler.")
+
+            if dna_rules:
+                context_parts.append(
+                    f"### @{username} - YAZIM TARZI DNA'SI ({style_dna.get('tweet_sayisi', 0)} tweet'ten çıkarıldı):\n"
+                    + chr(10).join(dna_rules)
+                )
+
+            # Hook examples from DNA
+            hooks = style_dna.get("hook_ornekleri", [])
+            if hooks:
+                hook_text = chr(10).join([f'- "{h}"' for h in hooks[:10]])
+                context_parts.append(
+                    f"### @{username} - EN ETKİLİ HOOK'LAR (bu açılış tarzlarını kullan):\n"
+                    + hook_text
+                )
+
+        # --- SECTION 2: CURATED TWEET EXAMPLES (style training) ---
+        all_originals = analysis.get("all_original_tweets", [])
+
+        if all_originals:
+            # Smart sampling: mix of top performers + random mid-range + recent
+            # This gives AI diverse style examples without blowing token limits
+            sorted_by_score = sorted(all_originals, key=lambda x: x.get("engagement_score", 0), reverse=True)
+
+            # Top 10 (high engagement - what works)
+            top_examples = sorted_by_score[:10]
+            # Mid-range 10 (typical style - not just viral ones)
+            mid_start = len(sorted_by_score) // 3
+            mid_examples = sorted_by_score[mid_start:mid_start + 10]
+            # Recent 10 (latest style evolution)
+            sorted_by_date = sorted(
+                all_originals,
+                key=lambda x: x.get("created_at", ""),
+                reverse=True
+            )
+            recent_examples = sorted_by_date[:10]
+
+            # Deduplicate
+            seen_texts = set()
+            curated = []
+            for t in top_examples + mid_examples + recent_examples:
+                text = t.get("text", "").strip()
+                if text and len(text) > 30 and text[:100] not in seen_texts:
+                    seen_texts.add(text[:100])
+                    # Truncate very long tweets
+                    display_text = text[:500] + "..." if len(text) > 500 else text
+                    curated.append(f'"{display_text}"')
+
+            if curated:
+                context_parts.append(
+                    f"### @{username} - YAZIM TARZI ÖRNEKLERİ "
+                    f"({len(curated)} seçilmiş tweet / toplam {len(all_originals)} orijinal):\n"
+                    f"Bu tweet'lerin TONUNU, CÜMLE YAPISINI, KELİME SEÇİMİNİ "
+                    f"ve YAZIM TARZINI birebir model al:\n\n"
+                    + "\n---\n".join(curated)
+                )
+
+        # --- SECTION 3: ENGAGEMENT STRATEGY ---
         top_tweets = analysis.get("top_tweets", [])
-        # Filter to only original top tweets (not RTs)
         top_originals = [t for t in top_tweets if not t.get("text", "").startswith("RT @")]
         top_to_show = top_originals[:max_examples // max(len(analyses), 1)]
 
         if top_to_show:
             examples = []
             for t in top_to_show:
+                score = t["engagement_score"]
+                likes = t["like_count"]
+                rts = t["retweet_count"]
+                replies = t["reply_count"]
+                txt = t["text"][:400]
                 examples.append(
-                    f'- "{t["text"][:400]}" '
-                    f'[Skor:{t["engagement_score"]} | '
-                    f'❤️{t["like_count"]} 🔁{t["retweet_count"]} 💬{t["reply_count"]}]'
+                    f'- "{txt}" [Skor:{score} | L:{likes} RT:{rts} R:{replies}]'
                 )
 
             context_parts.append(
-                f"### @{username} - EN ÇOK ETKİLEŞİM ALAN ORİJİNAL TWEET'LER:\n"
+                "### @" + username + " - EN ÇOK ETKİLEŞİM ALAN ORİJİNAL TWEET'LER:\n"
                 + chr(10).join(examples)
             )
 
@@ -548,13 +732,16 @@ def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
         if not all_originals and top_tweets:
             examples = []
             for t in top_tweets[:max_examples // max(len(analyses), 1)]:
+                score = t["engagement_score"]
+                likes = t["like_count"]
+                rts = t["retweet_count"]
+                replies = t["reply_count"]
+                txt = t["text"][:400]
                 examples.append(
-                    f'- "{t["text"][:400]}" '
-                    f'[Skor:{t["engagement_score"]} | '
-                    f'❤️{t["like_count"]} 🔁{t["retweet_count"]} 💬{t["reply_count"]}]'
+                    f'- "{txt}" [Skor:{score} | L:{likes} RT:{rts} R:{replies}]'
                 )
             context_parts.append(
-                f"### @{username} - En İyi Performans Gösteren Tweet'ler:\n"
+                "### @" + username + " - En İyi Performans Gösteren Tweet'ler:\n"
                 + chr(10).join(examples)
             )
 
@@ -565,7 +752,7 @@ def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
                 [f"{k['keyword']}(skor:{k['avg_score']})" for k in top_kw]
             )
             context_parts.append(
-                f"### @{username} - Etkileşim Çeken Kelimeler: {kw_text}"
+                "### @" + username + " - Etkileşim Çeken Kelimeler: " + kw_text
             )
 
         # Most used keywords (writing DNA)
@@ -575,7 +762,7 @@ def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
                 [f"{k['keyword']}({k['count']}x)" for k in most_used]
             )
             context_parts.append(
-                f"### @{username} - En Sık Kullanılan Kelimeler (Yazım DNA'sı): {mu_text}"
+                "### @" + username + " - En Sık Kullanılan Kelimeler (Yazım DNA'sı): " + mu_text
             )
 
         # AI report (trimmed)
@@ -589,21 +776,26 @@ def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
     if not context_parts:
         return ""
 
-    return f"""## EĞİTİM VERİSİ — YAZIM TARZI + ETKİLEŞİM ANALİZİ:
+    header = "## EĞİTİM VERİSİ — YAZIM TARZI + ETKİLEŞİM ANALİZİ:"
+    body = chr(10).join(context_parts)
+
+    return f"""{header}
 
 Aşağıdaki veriler gerçek Twitter hesaplarının TÜM tweet'lerinden elde edilmiştir.
 
 ### NASIL KULLANACAKSIN:
-1. YAZIM TARZI: Tüm orijinal tweet'lerdeki ton, dil, cümle yapısı, kelime tercihleri ve
-   anlatım biçimini model al. Engagement düşük olsa bile YAZIM TARZI aynı.
-2. ETKİLEŞİM STRATEJİSİ: En çok etkileşim alan tweet'lerin hook, konu ve yapılarını
-   referans al.
-3. BİREBİR KOPYALAMA: Tweet'leri kopyalama ama aynı RUHU, TONU ve YAKLAŞIMI koru.
+1. YAZIM TARZI DNA: İmza kelimeleri, kalıpları ve kuralları BİREBİR uygula.
+   Bunlar yüzlerce tweet'ten çıkarılmış gerçek yazım özellikleri.
+2. TWEET ÖRNEKLERİ: Seçilmiş örneklerdeki ton, dil, cümle yapısı,
+   kelime tercihleri ve anlatım biçimini model al.
+3. ETKİLEŞİM STRATEJİSİ: En çok etkileşim alan tweet'lerin hook, konu ve
+   yapılarını referans al.
+4. BİREBİR KOPYALAMA: Tweet'leri kopyalama ama aynı RUHU, TONU ve YAKLAŞIMI koru.
 
-{chr(10).join(context_parts)}
+{body}
 
-KRİTİK: Yukarıdaki TÜM orijinal tweet'lerdeki yazım tarzını, kelime tercihlerini,
-cümle yapılarını ve tonlamayı içselleştir. Bu kişi gibi YAZ — aynı kelimeler,
+KRİTİK: Yukarıdaki YAZIM TARZI DNA'sını kesinlikle uygula — küçük harf başlangıç,
+imza kelimeleri, kapanış tarzı, emoji kuralları. Bu kişi gibi YAZ — aynı kelimeler,
 aynı akış, aynı samimiyet. Yüksek engagement alan tweet'lerin yapısal özelliklerini
 (hook tarzı, paragraf yapısı, kapanış biçimi) yeni tweet'lere uygula.
 """

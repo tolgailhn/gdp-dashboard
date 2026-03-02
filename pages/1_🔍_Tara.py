@@ -6,7 +6,7 @@ import streamlit as st
 import datetime
 from collections import defaultdict
 from modules.ui_components import inject_custom_css, check_password, render_tweet_card, get_secret, render_sidebar_nav
-from modules.twitter_scanner import TwitterScanner, DEFAULT_AI_ACCOUNTS
+from modules.twitter_scanner import TwitterScanner, DEFAULT_AI_ACCOUNTS, is_turkish_account, generate_content_summary, MIN_FOLLOWER_COUNT_DISCOVER
 from modules.style_manager import load_monitored_accounts
 
 # Page config
@@ -72,11 +72,14 @@ with main_tab1:
             placeholder="Örn: 'Qwen release' veya 'GPT-5 leak'",
             key="custom_query"
         )
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             min_likes = st.number_input("Min. beğeni", min_value=0, value=10, key="min_likes")
         with col2:
             min_retweets = st.number_input("Min. retweet", min_value=0, value=5, key="min_retweets")
+        with col3:
+            min_followers = st.number_input("Min. takipçi", min_value=0, value=500, key="min_followers",
+                                            help="Hesabın minimum takipçi sayısı")
 
     st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
 
@@ -164,6 +167,9 @@ with main_tab1:
 
                 if min_retweets > 0:
                     topics = [t for t in topics if t.retweet_count >= min_retweets]
+
+                if min_followers > 0:
+                    topics = [t for t in topics if t.author_followers_count == 0 or t.author_followers_count >= min_followers]
 
                 # Store in session state
                 st.session_state.scan_results = topics
@@ -359,14 +365,14 @@ with main_tab2:
             key="discover_max"
         )
 
-    # Extra discovery queries — broader than the standard ones
+    # Extra discovery queries — broader than the standard ones (English only)
     DISCOVER_QUERIES = [
         "(AI OR artificial intelligence) (just released OR just launched OR just announced) -is:retweet lang:en min_faves:50",
         "(new AI tool OR new AI model OR new LLM) -is:retweet lang:en min_faves:20",
         "(AI startup OR AI company) (launch OR announce OR raise) -is:retweet lang:en min_faves:30",
-        "(yapay zeka OR AI) (yeni OR çıktı OR duyuru OR güncelleme) -is:retweet lang:tr min_faves:10",
         "(foundation model OR frontier model) (release OR open source OR benchmark) -is:retweet lang:en min_faves:30",
         "(AI coding OR AI agent OR AI assistant) (new OR update OR release) -is:retweet lang:en min_faves:20",
+        "(GPT OR Claude OR Gemini OR Llama) (release OR update OR benchmark) -is:retweet lang:en min_faves:30",
     ]
 
     discover_clicked = st.button("🌐 Keşfet", type="primary", use_container_width=True, key="discover_button")
@@ -406,9 +412,16 @@ with main_tab2:
                         results = scanner._search_tweets(query, start_time, discover_max)
                         for t in results:
                             if t.id not in seen_ids and not is_spam(t.text):
+                                # Filter Turkish accounts
+                                if is_turkish_account(t.text, t.author_name):
+                                    continue
+                                # Filter low-follower accounts
+                                if t.author_followers_count > 0 and t.author_followers_count < MIN_FOLLOWER_COUNT_DISCOVER:
+                                    continue
                                 seen_ids.add(t.id)
                                 t.category = categorize_topic(t.text)
                                 t.relevance_score = calculate_relevance(t, discover_time)
+                                t.content_summary = generate_content_summary(t.text, t.category)
                                 all_discover.append(t)
                     except Exception:
                         continue

@@ -232,6 +232,41 @@ yazım tarzı: ANALİTİK / DERİNLEMESİNE
 - örnek: "meta'nın açık kaynak stratejisi artık sadece PR değil, piyasayı değiştiriyor.\n\nllama 4 ile küçük şirketler için fine-tuning maliyeti %80 düşüyor. bu doğrudan openai'ın enterprise fiyatlamasına baskı yapıyor.\n\nama asıl ilginç olan şu: meta bunu bedavaya veriyor çünkü asıl geliri reklamdan. yani AI model yarışını subsidize edebilir, diğerleri edemez.\n\nbu yapısal avantaj bence 2 yıl içinde piyasayı çok farklı bir yere taşır."
 """,
     },
+    "haber": {
+        "name": "Haber / Bilgi Paylaşımı",
+        "description": "Haber hesapları gibi bilgilendirici ama senin tarzında",
+        "prompt": """
+yazım tarzı: HABER / BİLGİ PAYLAŞIMI
+
+haber hesapları gibi bilgilendirici yaz ama robot haber bülteni değil, senin tarzında.
+gelişmeyi net ve hızlı aktar, sonra kendi yorumunu ekle.
+
+- haberi direkt ver — ne oldu, kim yaptı, neden önemli
+- rakamları ve detayları net yaz (tarih, miktar, isim)
+- kısa ve vurucu cümleler, her cümle yeni bilgi versin
+- haber kısmından sonra KENDİ ANALİZİNİ ekle — "bu ne anlama geliyor?", "bence..."
+- son olarak provokatif soru veya güçlü tahmin
+- emoji 0-1 tane, hiç kullanmamak da OK
+- türkçe-ingilizce karışık, teknik terimler ingilizce kalsın
+- madde işareti veya numara listesi KULLANMA, doğal paragraflar yaz
+
+ÖNEMLİ FARKLAR:
+- haber hesapları gibi "ne oldu" kısmını net ver ama gazete manşeti gibi yazma
+- "son dakika", "flaş", "breaking" gibi klişeler YASAK
+- bilgiyi ver ama kendi perspektifini de kat — salt haber değil, yorum da var
+- kısa tut, gereksiz detaya girme, önemli olan neyse onu vur
+
+örnek: "amazon openai'a 50 milyar dolar yatırdı. nvidia 30, softbank 30 ekledi. toplam tur 110 milyar, ön değerleme 730 milyar.
+
+bu artık yapay zeka şirketi değil, küçük bir ülke ekonomisi. microsoft'un openai üzerindeki tekeli fiilen kırıldı — artık AWS de resmi dağıtıcı.
+
+asıl mesele şu: 2 gigawatt trainium kapasitesi, 1 milyon çip cluster'ı. bu compute yarışı model yarışını geride bıraktı.
+
+bu kadar parayı gerçekten ürüne dönüştürebilecekler mi?
+
+#OpenAI #AWS"
+""",
+    },
     "quote_tweet": {
         "name": "Quote Tweet / Yorum",
         "description": "Tweet'e kendi yorumunu ekle, doğal ve samimi",

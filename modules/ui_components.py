@@ -318,6 +318,15 @@ def render_sidebar_nav(current_page: str = ""):
             st.warning("AI API eksik", icon="⚠️")
 
 
+def _format_number(n: int) -> str:
+    """Format large numbers with K/M suffix"""
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    elif n >= 1_000:
+        return f"{n / 1_000:.1f}K"
+    return str(n)
+
+
 def render_tweet_card(topic, show_select: bool = True, key_prefix: str = ""):
     """Render a tweet as a styled card"""
     # Relevance badge
@@ -331,24 +340,51 @@ def render_tweet_card(topic, show_select: bool = True, key_prefix: str = ""):
         rel_class = "relevance-low"
         rel_text = "Düşük"
 
+    # Content summary (Turkish description of what the tweet is about)
+    content_summary = getattr(topic, 'content_summary', '') or ''
+    summary_html = ""
+    if content_summary:
+        summary_html = f"""
+        <div style="background:#0d2137; border-left:3px solid #1DA1F2; padding:6px 10px;
+                    margin:8px 0; border-radius:0 6px 6px 0;">
+            <span style="color:#1DA1F2; font-size:11px; font-weight:600;">📋 İçerik:</span>
+            <span style="color:#b0c4de; font-size:12px; margin-left:4px;">{content_summary}</span>
+        </div>"""
+
+    # Follower count display
+    followers = getattr(topic, 'author_followers_count', 0) or 0
+    followers_html = ""
+    if followers > 0:
+        followers_html = f'<span style="color:#8899a6; font-size:11px; margin-left:6px;">· 👥 {_format_number(followers)}</span>'
+
+    # Total engagement
+    total_eng = topic.like_count + topic.retweet_count + topic.reply_count
+    total_eng_html = f'<span style="color:#e8a838; font-size:12px; font-weight:600;">📊 {_format_number(total_eng)} etkileşim</span>'
+
+    # Time and date
+    time_and_date = getattr(topic, 'time_and_date', '') or topic.time_ago
+
     st.markdown(f"""
     <div class="tweet-card">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <div>
                 <span class="tweet-author">{topic.author_name}</span>
                 <span class="tweet-username">@{topic.author_username}</span>
+                {followers_html}
             </div>
             <div>
                 <span class="tweet-category">{topic.category}</span>
                 <span class="relevance-badge {rel_class}">{rel_text}</span>
             </div>
         </div>
+        {summary_html}
         <div class="tweet-text">{topic.text}</div>
         <div class="tweet-metrics">
             <span>❤️ {topic.like_count:,}</span>
             <span>🔁 {topic.retweet_count:,}</span>
             <span>💬 {topic.reply_count:,}</span>
-            <span class="tweet-time">{topic.time_ago}</span>
+            <span style="margin-left:4px;">{total_eng_html}</span>
+            <span class="tweet-time">{time_and_date}</span>
         </div>
     </div>
     """, unsafe_allow_html=True)

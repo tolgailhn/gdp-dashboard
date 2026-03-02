@@ -332,6 +332,7 @@ class TwikitSearchClient:
             'author_name': getattr(user, 'name', 'Unknown') if user else 'Unknown',
             'author_username': getattr(user, 'screen_name', 'unknown') if user else 'unknown',
             'author_profile_image': (getattr(user, 'profile_image_url', '') or '') if user else '',
+            'author_followers_count': _safe_int(getattr(user, 'followers_count', 0)) if user else 0,
             'created_at': created_at,
             'like_count': _safe_int(getattr(tweet, 'favorite_count', 0)),
             'retweet_count': _safe_int(getattr(tweet, 'retweet_count', 0)),

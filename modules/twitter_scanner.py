@@ -26,11 +26,17 @@ class AITopic:
     category: str = "Genel"
     relevance_score: float = 0.0
     media_urls: list = field(default_factory=list)
+    author_followers_count: int = 0
+    content_summary: str = ""
 
     @property
     def engagement_score(self) -> float:
         return (self.like_count * 1 + self.retweet_count * 2 +
                 self.reply_count * 1.5)
+
+    @property
+    def total_engagement(self) -> int:
+        return self.like_count + self.retweet_count + self.reply_count
 
     @property
     def time_ago(self) -> str:
@@ -43,6 +49,23 @@ class AITopic:
             return f"{int(hours)} saat önce"
         else:
             return f"{int(hours / 24)} gün önce"
+
+    @property
+    def date_str(self) -> str:
+        """Return formatted date string like '2 Mar 2026, 14:30'"""
+        try:
+            return self.created_at.strftime("%d %b %Y, %H:%M")
+        except Exception:
+            return ""
+
+    @property
+    def time_and_date(self) -> str:
+        """Return both relative time and absolute date"""
+        date_part = self.date_str
+        time_part = self.time_ago
+        if date_part:
+            return f"{time_part} · {date_part}"
+        return time_part
 
 
 # Default important AI accounts to monitor
@@ -92,6 +115,118 @@ SPAM_PATTERNS = [
 
 # Minimum content quality thresholds
 MIN_TWEET_LENGTH = 50  # Skip very short tweets
+MIN_FOLLOWER_COUNT_DISCOVER = 1000  # Min followers for discover results
+
+# Turkish language detection patterns
+TURKISH_PATTERNS = [
+    r"(?i)\b(yapay zeka|gelişme|güncel|duyuru|önemli|açıklama|teknoloji|haberler)\b",
+    r"(?i)\b(arkadaşlar|takipçiler|paylaşım|beğeni|yorum|herkese)\b",
+    r"(?i)\b(bugün|yarın|dün|şimdi|artık|çünkü|bunun|şöyle|böyle)\b",
+    r"(?i)\b(değil mi|olarak|hakkında|tarafından|başarılı|güzel|harika)\b",
+]
+
+# Content summary keyword mapping (English tweet -> Turkish summary)
+CONTENT_SUMMARY_MAP = {
+    "release": "Yeni sürüm/lansman",
+    "launch": "Yeni lansman",
+    "new model": "Yeni AI modeli",
+    "update": "Güncelleme",
+    "upgrade": "Yükseltme",
+    "benchmark": "Performans testi",
+    "open source": "Açık kaynak",
+    "open-source": "Açık kaynak",
+    "funding": "Yatırım/fonlama",
+    "investment": "Yatırım",
+    "billion": "Milyar dolarlık gelişme",
+    "acquisition": "Satın alma",
+    "partnership": "Ortaklık/işbirliği",
+    "API": "API/Platform gelişmesi",
+    "pricing": "Fiyatlandırma değişikliği",
+    "agent": "AI ajan gelişmesi",
+    "autonomous": "Otonom AI sistemi",
+    "image": "Görüntü üretimi",
+    "video": "Video üretimi",
+    "coding": "Kodlama AI'ı",
+    "reasoning": "Akıl yürütme",
+    "multimodal": "Çoklu modalite",
+    "safety": "AI güvenliği",
+    "regulation": "AI düzenlemesi",
+    "paper": "Araştırma makalesi",
+    "research": "Araştırma",
+    "GPT": "GPT modeli gelişmesi",
+    "Claude": "Claude modeli gelişmesi",
+    "Gemini": "Gemini modeli gelişmesi",
+    "Llama": "Llama modeli gelişmesi",
+    "Qwen": "Qwen modeli gelişmesi",
+    "Mistral": "Mistral modeli gelişmesi",
+    "data center": "Veri merkezi",
+    "chip": "Çip/donanım gelişmesi",
+    "GPU": "GPU/donanım gelişmesi",
+    "training": "Model eğitimi",
+    "inference": "Model çıkarımı",
+    "fine-tuning": "İnce ayar",
+    "layoff": "İşten çıkarma",
+    "hiring": "İşe alım",
+    "IPO": "Halka arz",
+    "valuation": "Değerleme",
+    "robotics": "Robotik",
+    "healthcare": "Sağlık AI'ı",
+    "education": "Eğitim AI'ı",
+    "military": "Askeri AI",
+    "infrastructure": "AI altyapısı",
+    "cloud": "Bulut bilişim",
+    "AWS": "AWS/Amazon gelişmesi",
+    "Azure": "Azure/Microsoft gelişmesi",
+    "competition": "Rekabet/yarış",
+}
+
+
+def is_turkish_account(text: str, author_name: str = "") -> bool:
+    """Detect if a tweet is likely from a Turkish account"""
+    combined = f"{text} {author_name}"
+    turkish_char_count = sum(1 for c in combined if c in "çÇşŞğĞüÜöÖıİ")
+
+    # If the text has many Turkish-specific characters, it's likely Turkish
+    if turkish_char_count > 3:
+        return True
+
+    # Check for Turkish language patterns
+    match_count = sum(1 for pattern in TURKISH_PATTERNS if re.search(pattern, text))
+    if match_count >= 2:
+        return True
+
+    return False
+
+
+def generate_content_summary(text: str, category: str) -> str:
+    """Generate a brief Turkish summary of what the tweet is about"""
+    text_lower = text.lower()
+    summaries = []
+
+    # Check each keyword
+    for keyword, summary in CONTENT_SUMMARY_MAP.items():
+        if keyword.lower() in text_lower:
+            if summary not in summaries:
+                summaries.append(summary)
+
+    # Limit to top 2 most relevant summaries
+    if summaries:
+        return " · ".join(summaries[:2])
+
+    # Fallback to category
+    category_summaries = {
+        "Yeni Model": "Yeni AI modeli hakkında",
+        "Model Güncelleme": "Model güncellemesi",
+        "Araştırma": "AI araştırması",
+        "Benchmark": "Performans karşılaştırması",
+        "Açık Kaynak": "Açık kaynak gelişmesi",
+        "API/Platform": "Platform/API gelişmesi",
+        "AI Ajanlar": "AI ajan gelişmesi",
+        "Görüntü/Video": "Görsel/video AI gelişmesi",
+        "Endüstri": "Endüstri gelişmesi",
+        "Genel": "AI gelişmesi",
+    }
+    return category_summaries.get(category, "AI gelişmesi")
 
 
 def _safe_int(val) -> int:
@@ -250,6 +385,7 @@ class TwitterScanner:
             impression_count=_safe_int(d.get('impression_count', 0)),
             url=f"https://x.com/{d['author_username']}/status/{d['id']}",
             media_urls=d.get('media_urls', []),
+            author_followers_count=_safe_int(d.get('author_followers_count', 0)),
         )
 
     def _init_client(self):
@@ -322,13 +458,18 @@ class TwitterScanner:
                 self.search_errors.append(f"Hesap hatası (@{account}): {e}")
                 continue
 
-        # Filter spam and calculate relevance
+        # Filter spam, Turkish accounts, low-follower accounts and calculate relevance
         filtered_topics = []
         for topic in all_topics:
-            if not is_spam(topic.text):
-                topic.category = categorize_topic(topic.text)
-                topic.relevance_score = calculate_relevance(topic, time_range_hours)
-                filtered_topics.append(topic)
+            if is_spam(topic.text):
+                continue
+            # Filter Turkish accounts (keep only international)
+            if is_turkish_account(topic.text, topic.author_name):
+                continue
+            topic.category = categorize_topic(topic.text)
+            topic.relevance_score = calculate_relevance(topic, time_range_hours)
+            topic.content_summary = generate_content_summary(topic.text, topic.category)
+            filtered_topics.append(topic)
 
         # Sort by relevance score
         filtered_topics.sort(key=lambda t: t.relevance_score, reverse=True)

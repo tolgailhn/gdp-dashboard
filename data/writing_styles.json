@@ -27,6 +27,13 @@
       "emoji_level": "minimal",
       "formality": "semi-formal",
       "language_mix": "english_heavy"
+    },
+    "haber": {
+      "name": "Haber / Bilgi Paylaşımı",
+      "description": "Haber hesapları gibi bilgilendirici ama senin tarzında",
+      "emoji_level": "minimal",
+      "formality": "semi-casual",
+      "language_mix": "balanced"
     }
   }
 }

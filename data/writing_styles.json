@@ -28,6 +28,13 @@
       "formality": "semi-formal",
       "language_mix": "english_heavy"
     },
+    "tolga_kisisel": {
+      "name": "Tolga Kişisel",
+      "description": "Kişisel deneyim odaklı, çok doğal ve samimi tweet yazımı",
+      "emoji_level": "none_or_low",
+      "formality": "very_casual",
+      "language_mix": "turkish_heavy"
+    },
     "haber": {
       "name": "Haber / Bilgi Paylaşımı",
       "description": "Haber hesapları gibi bilgilendirici ama senin tarzında",

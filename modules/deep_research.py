@@ -503,19 +503,28 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                    tweet_id: str = "", scanner=None,
                    progress_callback=None,
                    ai_client=None, ai_model: str = None,
-                   ai_provider: str = "minimax") -> ResearchResult:
+                   ai_provider: str = "minimax",
+                   research_sources: list = None) -> ResearchResult:
     """
-    Full deep research pipeline:
+    Full deep research pipeline with selectable sources:
+
+    research_sources: list of sources to search. Options:
+        - "web" : General + technical web search
+        - "reddit" : Reddit discussions
+        - "news" : News articles
+        - "x" : X/Twitter search for related tweets
+        - None/empty : defaults to all sources
 
     1. Fetch thread (if scanner available)
     2. AI-powered topic extraction (understands what the tweet is ACTUALLY about)
     3. Fallback to regex if AI not available
-    4. Web search with diverse queries (general + technical + reddit)
-    5. News search
-    6. DEEP FETCH: Read full article content from top URLs
-    7. Twitter search for other opinions
-    8. Compile everything into rich context
+    4. Search selected sources
+    5. Compile everything into rich context
     """
+    # Default: all sources
+    if not research_sources:
+        research_sources = ["web", "reddit", "news", "x"]
+
     result = ResearchResult(
         original_tweet_text=tweet_text,
         original_tweet_author=tweet_author,
@@ -545,7 +554,6 @@ def research_topic(tweet_text: str, tweet_author: str = "",
         result.full_thread_text = tweet_text
 
     # === STEP 2: AI-powered topic extraction ===
-    # Try AI first — it actually UNDERSTANDS the tweet
     ai_topic = None
     if ai_client:
         if progress_callback:
@@ -557,121 +565,162 @@ def research_topic(tweet_text: str, tweet_author: str = "",
             provider=ai_provider,
         )
 
-    # Always run regex extraction for entity info (needed for Twitter search)
+    # Always run regex extraction for entity info
     topic_info = extract_topic_from_text(result.full_thread_text)
 
     if ai_topic and ai_topic.get("search_queries"):
-        # AI understood the tweet — use its queries
         result.topic = ai_topic["topic"]
         search_queries = ai_topic["search_queries"]
         if progress_callback:
             progress_callback(f"Konu: {result.topic}")
     else:
-        # Fallback to regex extraction
         result.topic = topic_info["topic"]
         search_queries = topic_info["search_queries"]
 
-    # === STEP 3: General + Technical web search (time-filtered for freshness) ===
-    if progress_callback:
-        progress_callback("Web'de araştırma yapılıyor...")
-
     all_urls = set()
 
-    # General search — prefer recent results (last week, fallback to all)
-    for query in search_queries.get("general", [])[:3]:
-        results = web_search(query, max_results=6, timelimit="w")
-        for r in results:
-            if r["url"] not in all_urls:
-                all_urls.add(r["url"])
-                result.web_results.append(r)
-
-    # Technical deep search — slightly wider window
-    if progress_callback:
-        progress_callback("Teknik detaylar araştırılıyor...")
-    for query in search_queries.get("technical", [])[:2]:
-        results = web_search(query, max_results=5, timelimit="m")
-        for r in results:
-            if r["url"] not in all_urls:
-                all_urls.add(r["url"])
-                r["title"] = f"[TEKNİK] {r['title']}"
-                result.web_results.append(r)
-
-    # Reddit search — recent discussions
-    if progress_callback:
-        progress_callback("Reddit araştırılıyor...")
-    for query in search_queries.get("reddit", [])[:2]:
-        results = web_search(query, max_results=4, timelimit="w")
-        for r in results:
-            if r["url"] not in all_urls:
-                all_urls.add(r["url"])
-                result.reddit_results.append(r)
-
-    # === STEP 4: News search (prioritize last day, then week) ===
-    if progress_callback:
-        progress_callback("Son haberler aranıyor...")
-
-    for query in search_queries.get("news", [])[:2]:
-        # Try last day first for freshest news
-        news = web_search_news(query, max_results=5, timelimit="d")
-        if not news:
-            news = web_search_news(query, max_results=5, timelimit="w")
-        for n in news:
-            if n["url"] not in all_urls:
-                all_urls.add(n["url"])
-                result.web_results.append({
-                    "title": f"[HABER] {n['title']}",
-                    "url": n["url"],
-                    "body": n["body"],
-                    "source": n.get("source", ""),
-                })
-
-    # === STEP 5: DEEP FETCH — Read full article content ===
-    if progress_callback:
-        progress_callback("Makaleler okunuyor (derin araştırma)...")
-
-    # Pick the most promising URLs to fetch
-    urls_to_fetch = _pick_best_urls(result.web_results + result.reddit_results)
-
-    fetched_count = 0
-    for url in urls_to_fetch:
-        if fetched_count >= 5:
-            break
+    # === STEP 3: Web search (only if "web" in sources) ===
+    if "web" in research_sources:
         if progress_callback:
-            progress_callback(f"Makale okunuyor ({fetched_count + 1}/5)...")
-        article = fetch_article_content(url)
-        if article and article["content"] and len(article["content"]) > 200:
-            result.deep_articles.append(article)
-            fetched_count += 1
+            progress_callback("Web'de araştırma yapılıyor...")
 
-    # === STEP 6: Twitter search ===
-    if scanner:
+        for query in search_queries.get("general", [])[:3]:
+            results = web_search(query, max_results=6, timelimit="w")
+            for r in results:
+                if r["url"] not in all_urls:
+                    all_urls.add(r["url"])
+                    result.web_results.append(r)
+
         if progress_callback:
-            progress_callback("X'te ilgili yorumlar aranıyor...")
-        try:
-            parts = topic_info["products"][:2] + topic_info["companies"][:1]
-            if parts:
-                twitter_q = f"({' OR '.join(parts)}) -is:retweet lang:en"
-            else:
-                general_q = search_queries.get("general", ["AI"])[0][:50]
-                twitter_q = f"({general_q}) -is:retweet"
+            progress_callback("Teknik detaylar araştırılıyor...")
+        for query in search_queries.get("technical", [])[:2]:
+            results = web_search(query, max_results=5, timelimit="m")
+            for r in results:
+                if r["url"] not in all_urls:
+                    all_urls.add(r["url"])
+                    r["title"] = f"[TEKNİK] {r['title']}"
+                    result.web_results.append(r)
 
-            start = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=48)
-            related = scanner._search_tweets(twitter_q, start, 10)
+    # === STEP 4: Reddit search (only if "reddit" in sources) ===
+    if "reddit" in research_sources:
+        if progress_callback:
+            progress_callback("Reddit araştırılıyor...")
+        for query in search_queries.get("reddit", [])[:2]:
+            results = web_search(query, max_results=4, timelimit="w")
+            for r in results:
+                if r["url"] not in all_urls:
+                    all_urls.add(r["url"])
+                    result.reddit_results.append(r)
 
-            for t in related:
-                if t.id != tweet_id and len(t.text) > 50:
-                    result.related_tweets.append({
-                        "text": t.text,
-                        "author": t.author_username,
-                        "likes": t.like_count,
+    # === STEP 5: News search (only if "news" in sources) ===
+    if "news" in research_sources:
+        if progress_callback:
+            progress_callback("Son haberler aranıyor...")
+
+        for query in search_queries.get("news", [])[:2]:
+            news = web_search_news(query, max_results=5, timelimit="d")
+            if not news:
+                news = web_search_news(query, max_results=5, timelimit="w")
+            for n in news:
+                if n["url"] not in all_urls:
+                    all_urls.add(n["url"])
+                    result.web_results.append({
+                        "title": f"[HABER] {n['title']}",
+                        "url": n["url"],
+                        "body": n["body"],
+                        "source": n.get("source", ""),
                     })
 
-            result.related_tweets.sort(key=lambda x: x["likes"], reverse=True)
-            result.related_tweets = result.related_tweets[:5]
+    # === STEP 6: DEEP FETCH (only if web or reddit or news selected) ===
+    if any(s in research_sources for s in ["web", "reddit", "news"]):
+        if progress_callback:
+            progress_callback("Makaleler okunuyor (derin araştırma)...")
+
+        urls_to_fetch = _pick_best_urls(result.web_results + result.reddit_results)
+
+        fetched_count = 0
+        for url in urls_to_fetch:
+            if fetched_count >= 5:
+                break
+            if progress_callback:
+                progress_callback(f"Makale okunuyor ({fetched_count + 1}/5)...")
+            article = fetch_article_content(url)
+            if article and article["content"] and len(article["content"]) > 200:
+                result.deep_articles.append(article)
+                fetched_count += 1
+
+    # === STEP 7: X/Twitter search (only if "x" in sources) ===
+    # When X is selected, do a DEEP search (40-50 tweets, not just 10)
+    if "x" in research_sources and scanner:
+        x_only_mode = research_sources == ["x"]
+        max_tweets = 50 if x_only_mode else 15
+        if progress_callback:
+            progress_callback(f"X'te {'detaylı' if x_only_mode else ''} arama yapılıyor...")
+        try:
+            parts = topic_info["products"][:2] + topic_info["companies"][:1]
+
+            # Build multiple search queries for thorough X coverage
+            x_queries = []
+            if parts:
+                x_queries.append(f"({' OR '.join(parts)}) -is:retweet lang:en")
+                if len(parts) > 1:
+                    x_queries.append(f"({parts[0]}) -is:retweet lang:en min_faves:10")
+                    x_queries.append(f"({parts[1]}) -is:retweet lang:en")
+                # Add action-based query
+                action = topic_info.get("action", "")
+                if action:
+                    x_queries.append(f"({parts[0]}) ({action}) -is:retweet lang:en")
+            else:
+                general_q = search_queries.get("general", ["AI"])[0][:50]
+                x_queries.append(f"({general_q}) -is:retweet")
+
+            # In X-only mode, add more query variations
+            if x_only_mode:
+                # Use AI-generated queries if available
+                if ai_topic and ai_topic.get("search_queries"):
+                    for gq in ai_topic["search_queries"].get("general", [])[:2]:
+                        x_queries.append(f"({gq[:50]}) -is:retweet lang:en")
+                # Add topic-based variations
+                if topic_info["products"]:
+                    for prod in topic_info["products"][:3]:
+                        x_queries.append(f"{prod} -is:retweet lang:en min_faves:5")
+                if topic_info["companies"]:
+                    for comp in topic_info["companies"][:2]:
+                        x_queries.append(f"{comp} {topic_info.get('action', 'AI')} -is:retweet lang:en")
+
+            start = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=72)
+            seen_ids = set()
+            per_query_count = max(max_tweets // len(x_queries), 10) if x_queries else 20
+
+            for idx, q in enumerate(x_queries):
+                if len(result.related_tweets) >= max_tweets:
+                    break
+                if progress_callback and idx > 0:
+                    progress_callback(f"X araması {idx + 1}/{len(x_queries)}... ({len(result.related_tweets)} tweet bulundu)")
+                try:
+                    related = scanner._search_tweets(q, start, per_query_count)
+                    for t in related:
+                        if t.id != tweet_id and t.id not in seen_ids and len(t.text) > 50:
+                            seen_ids.add(t.id)
+                            result.related_tweets.append({
+                                "text": t.text,
+                                "author": t.author_username,
+                                "likes": t.like_count,
+                                "retweets": getattr(t, 'retweet_count', 0),
+                                "followers": getattr(t, 'author_followers_count', 0),
+                            })
+                except Exception as e:
+                    print(f"X search error ({q[:40]}): {e}")
+
+            result.related_tweets.sort(key=lambda x: x.get("likes", 0) + x.get("retweets", 0) * 2, reverse=True)
+            result.related_tweets = result.related_tweets[:max_tweets]
+
+            if progress_callback:
+                progress_callback(f"X'te {len(result.related_tweets)} tweet bulundu")
         except Exception as e:
             print(f"Twitter search error: {e}")
 
-    # === STEP 7: Compile ===
+    # === STEP 8: Compile ===
     if progress_callback:
         progress_callback("Araştırma derleniyor...")
 
@@ -839,7 +888,7 @@ def research_topic_from_text(
         topic_input: User's topic text
         scanner: TwitterScanner instance for X search
         time_hours: How far back to search
-        search_mode: "x_only" (only X/Twitter) or "x_and_web" (X + web + news)
+        search_mode: "x_only" | "x_and_web" | "x_deep" (50-100 tweets for personal mode)
         progress_callback: Progress update function
         ai_client: AI client for topic extraction
         ai_model: AI model name
@@ -893,10 +942,16 @@ def research_topic_from_text(
         progress_callback(f"Konu: {result.topic}")
 
     # === STEP 2: Deep X search with multiple query variations ===
+    is_deep_mode = search_mode == "x_deep"
     if scanner:
         if progress_callback:
-            progress_callback("X'te detaylı arama yapılıyor...")
-        start = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=time_hours)
+            label = "X'te derin arama yapılıyor (50-100 tweet)..." if is_deep_mode else "X'te detaylı arama yapılıyor..."
+            progress_callback(label)
+
+        # In deep mode, search wider time range and more tweets per query
+        search_hours = max(time_hours, 48) if is_deep_mode else time_hours
+        start = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=search_hours)
+        per_query = 30 if is_deep_mode else 20
 
         seen_ids = set()
 
@@ -906,6 +961,14 @@ def research_topic_from_text(
         # Also build extra variations for thorough coverage
         extra_queries = _build_x_query_variations(topic_input, result.topic, ai_topic)
         all_x_queries.extend(extra_queries)
+
+        # In deep mode, add even more query variations
+        if is_deep_mode:
+            # Add min engagement queries for quality tweets
+            for q in x_queries_en[:3]:
+                base = q.replace("min_faves:5", "").replace("min_faves:10", "").strip()
+                all_x_queries.append(f"{base} min_faves:20")
+                all_x_queries.append(f"{base} min_faves:50")
 
         # Deduplicate queries (case-insensitive)
         seen_queries = set()
@@ -922,9 +985,9 @@ def research_topic_from_text(
 
         for idx, q in enumerate(unique_queries):
             if progress_callback and idx > 0 and idx % 3 == 0:
-                progress_callback(f"X araması {idx}/{total_queries}...")
+                progress_callback(f"X araması {idx}/{total_queries}... ({len(result.x_tweets)} tweet bulundu)")
             try:
-                tweets = scanner._search_tweets(q, start, 20)
+                tweets = scanner._search_tweets(q, start, per_query)
                 for t in tweets:
                     if t.id not in seen_ids and len(t.text) > 40:
                         seen_ids.add(t.id)
@@ -941,7 +1004,10 @@ def research_topic_from_text(
 
         # Sort by engagement
         result.x_tweets.sort(key=lambda x: x.get("likes", 0) + x.get("retweets", 0) * 2, reverse=True)
-        result.x_tweets = result.x_tweets[:25]  # Keep top 25
+
+        # Keep more tweets for deep personal mode
+        max_keep = 80 if is_deep_mode else 25
+        result.x_tweets = result.x_tweets[:max_keep]
 
         if progress_callback:
             progress_callback(f"X'te {len(result.x_tweets)} tweet bulundu")

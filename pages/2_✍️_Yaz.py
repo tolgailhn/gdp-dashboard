@@ -47,10 +47,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Mode Tabs ---
-mode_tab1, mode_tab2, mode_tab3 = st.tabs([
+mode_tab1, mode_tab2, mode_tab3, mode_tab4 = st.tabs([
     "📝 Tweet Yaz",
     "🔬 Araştırmalı Quote Tweet",
     "💬 Hızlı Quote Tweet",
+    "🎯 Tolga Kişisel",
 ])
 
 # Track which tab is active
@@ -72,6 +73,23 @@ with mode_tab2:
         placeholder="https://x.com/kullanici/status/123456789...",
         key="research_quote_url"
     )
+
+    # Research source selection
+    st.markdown("##### 🔎 Araştırma Kaynakları")
+    st.caption("Hangi kaynaklarda araştırma yapılsın? Sadece X seçersen 40-50 tweet bulur, daha odaklı sonuç verir.")
+    src_cols = st.columns(4)
+    with src_cols[0]:
+        src_x = st.checkbox("𝕏 Twitter/X", value=True, key="src_x",
+                             help="X'te ilgili tweetleri ara (önerilen)")
+    with src_cols[1]:
+        src_web = st.checkbox("🌐 Web", value=False, key="src_web",
+                               help="Web'de makale ve teknik detay ara")
+    with src_cols[2]:
+        src_reddit = st.checkbox("🔴 Reddit", value=False, key="src_reddit",
+                                  help="Reddit tartışmalarını ara")
+    with src_cols[3]:
+        src_news = st.checkbox("📰 Haberler", value=False, key="src_news",
+                                help="Son haberleri ara")
 
     research_clicked = st.button(
         "🔬 Araştır ve Quote Tweet Yaz",
@@ -155,9 +173,24 @@ with mode_tab2:
                 _ai_model = "gpt-4o-mini"
                 _ai_provider = "openai"
 
+            # === BUILD RESEARCH SOURCES LIST ===
+            research_sources = []
+            if src_x:
+                research_sources.append("x")
+            if src_web:
+                research_sources.append("web")
+            if src_reddit:
+                research_sources.append("reddit")
+            if src_news:
+                research_sources.append("news")
+            if not research_sources:
+                research_sources = ["x"]  # Default to X if nothing selected
+
+            source_label = ", ".join(research_sources).upper()
+
             # === FULL RESEARCH PIPELINE ===
             progress_text = st.empty()
-            with st.spinner("Derin araştırma yapılıyor..."):
+            with st.spinner(f"Araştırma yapılıyor ({source_label})..."):
                 research = research_topic(
                     tweet_text=original_tweet_text,
                     tweet_author=original_author,
@@ -167,6 +200,7 @@ with mode_tab2:
                     ai_client=_ai_client,
                     ai_model=_ai_model,
                     ai_provider=_ai_provider,
+                    research_sources=research_sources,
                 )
                 progress_text.empty()
 
@@ -517,6 +551,291 @@ with mode_tab1:
 
                 st.success("Araştırma tamamlandı! Aşağıdaki 'Tweet Üret' butonuna basarak araştırma sonuçlarıyla tweet yazabilirsiniz.")
 
+# === TOLGA KİŞİSEL TAB ===
+with mode_tab4:
+    st.markdown("""
+    <div style="background:linear-gradient(135deg, #16213e 0%, #1a1a2e 100%);
+                border:1px solid #1DA1F2; border-radius:12px;
+                padding:16px; margin-bottom:16px;">
+        <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">🎯 Tolga Kişisel Tweet</div>
+        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+            Konu gir → X'te 50-100 tweet bul → En doğal, kişisel tarzında tweet üret
+        </div>
+        <div style="color:#e8a838; font-size:11px; margin-top:6px;">
+            💡 Eğitilmiş modelinle %100 senin tarzında yazar. Kişisel deneyim, samimi dil, doğal akış.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    personal_topic = st.text_area(
+        "Konu / Ne hakkında tweet yazmak istiyorsun?",
+        placeholder="Örnek: Claude down oldu yine\nÖrnek: Qwen 3 coding'de çok iyi\nÖrnek: Cursor vs Windsurf karşılaştırma\nÖrnek: OpenAI yeni model çıkardı",
+        height=100,
+        key="personal_topic"
+    )
+
+    personal_extra = st.text_input(
+        "Ek bilgi veya kişisel deneyim (opsiyonel)",
+        placeholder="Örn: ben de denedim çok iyi, ya da: bence overrated",
+        key="personal_extra"
+    )
+
+    p_col1, p_col2 = st.columns(2)
+    with p_col1:
+        personal_time = st.selectbox(
+            "X arama zamanı",
+            options=[12, 24, 48],
+            format_func=lambda x: f"Son {x} saat",
+            index=1,
+            key="personal_time"
+        )
+    with p_col2:
+        personal_length = st.selectbox(
+            "Tweet uzunluğu",
+            options=["kisa", "orta", "uzun"],
+            format_func=lambda x: {"kisa": "Kısa (100-280)", "orta": "Orta (281-500)", "uzun": "Uzun (501-1000)"}[x],
+            index=1,
+            key="personal_length"
+        )
+
+    personal_research_btn = st.button(
+        "🎯 X'te Araştır ve Kişisel Tweet Yaz",
+        type="primary",
+        use_container_width=True,
+        key="personal_research_btn",
+        disabled=not personal_topic
+    )
+
+    if personal_research_btn and personal_topic:
+        # Build AI client
+        import openai as _openai
+        import anthropic as _anthropic
+
+        _ai_client = None
+        _ai_model = None
+        _ai_provider = "minimax"
+
+        minimax_key = get_secret("minimax_api_key", "")
+        anthropic_key = get_secret("anthropic_api_key", "")
+        openai_key = get_secret("openai_api_key", "")
+
+        if minimax_key:
+            _ai_client = _openai.OpenAI(api_key=minimax_key, base_url="https://api.minimax.io/v1")
+            _ai_model = "MiniMax-M2.5"
+            _ai_provider = "minimax"
+        elif anthropic_key:
+            _ai_client = _anthropic.Anthropic(api_key=anthropic_key)
+            _ai_model = "claude-haiku-4-5-20251001"
+            _ai_provider = "anthropic"
+        elif openai_key:
+            _ai_client = _openai.OpenAI(api_key=openai_key)
+            _ai_model = "gpt-4o-mini"
+            _ai_provider = "openai"
+
+        # Build scanner
+        bearer_token = get_secret("twitter_bearer_token", "")
+        twikit_username = get_secret("twikit_username", "")
+        twikit_password = get_secret("twikit_password", "")
+        twikit_email = get_secret("twikit_email", "")
+
+        _scanner = None
+        if bearer_token or twikit_username:
+            from modules.twitter_scanner import TwitterScanner
+            _scanner = TwitterScanner(
+                bearer_token=bearer_token,
+                api_key=get_secret("twitter_api_key", ""),
+                api_secret=get_secret("twitter_api_secret", ""),
+                access_token=get_secret("twitter_access_token", ""),
+                access_secret=get_secret("twitter_access_secret", ""),
+                twikit_username=twikit_username,
+                twikit_password=twikit_password,
+                twikit_email=twikit_email,
+            )
+
+        # === DEEP X RESEARCH (50-100 tweets) ===
+        progress_text = st.empty()
+        with st.spinner("X'te derin araştırma yapılıyor (50-100 tweet)..."):
+            personal_research = research_topic_from_text(
+                topic_input=personal_topic,
+                scanner=_scanner,
+                time_hours=personal_time,
+                search_mode="x_deep",
+                progress_callback=lambda msg: progress_text.caption(msg),
+                ai_client=_ai_client,
+                ai_model=_ai_model,
+                ai_provider=_ai_provider,
+            )
+            progress_text.empty()
+
+        st.session_state.personal_research = personal_research
+
+        # Show found tweets
+        if personal_research.x_tweets:
+            with st.expander(f"📊 X'te Bulunan Tweetler ({len(personal_research.x_tweets)} tweet)", expanded=True):
+                for i, tw in enumerate(personal_research.x_tweets[:20]):
+                    eng = f"❤️ {tw['likes']:,} 🔁 {tw['retweets']:,}"
+                    st.markdown(f"""
+                    <div style="background:#1a1a2e; border-left:3px solid #1DA1F2;
+                                padding:8px 12px; margin:4px 0; border-radius:4px;">
+                        <div style="color:#1DA1F2; font-size:12px; font-weight:bold;">
+                            @{tw['author']} <span style="color:#8899a6; font-weight:normal;">{eng}</span>
+                        </div>
+                        <div style="color:#f0f0f0; font-size:13px; margin-top:4px;">{tw['text'][:300]}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                if len(personal_research.x_tweets) > 20:
+                    st.caption(f"... ve {len(personal_research.x_tweets) - 20} tweet daha")
+        else:
+            st.warning("X'te bu konuyla ilgili yeterli tweet bulunamadı. Konuyu daha spesifik yazmayı deneyin.")
+
+        # === GENERATE PERSONAL TWEET ===
+        if personal_research.x_tweets:
+            # Load user samples and custom persona for maximum personalization
+            user_samples = load_user_samples()
+            custom_persona = load_custom_persona()
+            training_context = ""
+            analyses = load_all_analyses()
+            if analyses:
+                training_context = build_training_context(analyses)
+
+            # Select best AI provider for generation
+            gen_provider = "minimax"
+            gen_key = minimax_key
+            gen_model = "MiniMax-M2.5"
+
+            if anthropic_key:
+                gen_provider = "anthropic"
+                gen_key = anthropic_key
+                gen_model = "claude-sonnet-4-6"
+            elif openai_key:
+                gen_provider = "openai"
+                gen_key = openai_key
+                gen_model = "gpt-4o"
+
+            generator = ContentGenerator(
+                provider=gen_provider,
+                api_key=gen_key,
+                model=gen_model,
+                custom_persona=custom_persona if custom_persona else None,
+                training_context=training_context if training_context else None,
+            )
+
+            # Build context from X research
+            full_context = personal_research.summary
+            if personal_extra:
+                full_context += f"\n\nKullanıcının kişisel notu: {personal_extra}"
+
+            with st.spinner("Kişisel tweet üretiliyor..."):
+                personal_tweet = generator.generate_tweet(
+                    topic_text=f"{personal_topic}\n\n{full_context}",
+                    style="tolga_kisisel",
+                    additional_context=personal_extra or "",
+                    max_length=0,
+                    user_samples=user_samples if user_samples else None,
+                )
+
+            st.session_state.personal_generated = personal_tweet
+            st.session_state.personal_topic_text = personal_topic
+
+    # Show previously generated personal tweet
+    if "personal_generated" in st.session_state and st.session_state.personal_generated:
+        st.markdown("### 🎯 Üretilen Kişisel Tweet")
+        render_generated_tweet(st.session_state.personal_generated)
+
+        p_action_cols = st.columns(4)
+        with p_action_cols[0]:
+            if st.button("🔄 Yeniden Üret", key="personal_regen", use_container_width=True):
+                # Regenerate using stored research
+                if "personal_research" in st.session_state:
+                    user_samples = load_user_samples()
+                    custom_persona = load_custom_persona()
+                    training_context = ""
+                    analyses = load_all_analyses()
+                    if analyses:
+                        training_context = build_training_context(analyses)
+
+                    minimax_key = get_secret("minimax_api_key", "")
+                    anthropic_key = get_secret("anthropic_api_key", "")
+                    openai_key = get_secret("openai_api_key", "")
+
+                    gen_provider = "minimax"
+                    gen_key = minimax_key
+                    gen_model = "MiniMax-M2.5"
+
+                    if anthropic_key:
+                        gen_provider = "anthropic"
+                        gen_key = anthropic_key
+                        gen_model = "claude-sonnet-4-6"
+                    elif openai_key:
+                        gen_provider = "openai"
+                        gen_key = openai_key
+                        gen_model = "gpt-4o"
+
+                    generator = ContentGenerator(
+                        provider=gen_provider,
+                        api_key=gen_key,
+                        model=gen_model,
+                        custom_persona=custom_persona if custom_persona else None,
+                        training_context=training_context if training_context else None,
+                    )
+
+                    pr = st.session_state.personal_research
+                    full_ctx = pr.summary
+                    p_extra = st.session_state.get("personal_extra", "")
+                    if p_extra:
+                        full_ctx += f"\n\nKullanıcının kişisel notu: {p_extra}"
+
+                    topic_txt = st.session_state.get("personal_topic_text", personal_topic)
+
+                    with st.spinner("Yeniden üretiliyor..."):
+                        new_tweet = generator.generate_tweet(
+                            topic_text=f"{topic_txt}\n\n{full_ctx}",
+                            style="tolga_kisisel",
+                            additional_context=p_extra,
+                            max_length=0,
+                            user_samples=user_samples if user_samples else None,
+                        )
+                    st.session_state.personal_generated = new_tweet
+                    st.rerun()
+
+        with p_action_cols[1]:
+            tweet_text_for_url = st.session_state.personal_generated
+            encoded = url_quote(tweet_text_for_url)
+            intent_url = f"https://twitter.com/intent/tweet?text={encoded}"
+            st.link_button("📱 X'te Aç", intent_url, use_container_width=True)
+
+        with p_action_cols[2]:
+            if st.button("💾 Taslak Kaydet", key="personal_save_draft", use_container_width=True):
+                add_draft(
+                    st.session_state.personal_generated,
+                    st.session_state.get("personal_topic_text", ""),
+                    "tolga_kisisel"
+                )
+                st.success("Taslak kaydedildi!")
+
+        with p_action_cols[3]:
+            if st.button("🚀 Paylaş", key="personal_publish", type="primary", use_container_width=True):
+                try:
+                    publisher = TweetPublisher(
+                        api_key=get_secret("twitter_api_key", ""),
+                        api_secret=get_secret("twitter_api_secret", ""),
+                        access_token=get_secret("twitter_access_token", ""),
+                        access_secret=get_secret("twitter_access_secret", ""),
+                    )
+                    posted = publisher.post_tweet(st.session_state.personal_generated)
+                    if posted and posted.get("id"):
+                        add_to_post_history(
+                            st.session_state.personal_generated,
+                            "tolga_kisisel",
+                            tweet_id=posted["id"]
+                        )
+                        st.success(f"Tweet paylaşıldı! https://x.com/user/status/{posted['id']}")
+                    else:
+                        st.error("Tweet paylaşılamadı.")
+                except Exception as e:
+                    st.error(f"Paylaşım hatası: {e}")
+
 # Get research summary if available (from research tab)
 if "research_summary" in st.session_state:
     research_summary = st.session_state.research_summary
@@ -528,11 +847,12 @@ st.markdown("### 🎨 Yazım Tarzı")
 
 styles = get_available_styles()
 
-# Don't show quote_tweet in normal mode, show all styles in quote mode
+# Don't show quote_tweet and tolga_kisisel in normal/shared mode
+# (they have their own dedicated tabs)
 if write_mode != "quote":
-    display_styles = {k: v for k, v in styles.items() if k != "quote_tweet"}
+    display_styles = {k: v for k, v in styles.items() if k not in ("quote_tweet", "tolga_kisisel")}
 else:
-    display_styles = styles
+    display_styles = {k: v for k, v in styles.items() if k != "tolga_kisisel"}
 
 style_options = list(display_styles.keys())
 style_labels = [display_styles[k]["name"] for k in style_options]

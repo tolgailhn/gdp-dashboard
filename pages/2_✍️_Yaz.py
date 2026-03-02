@@ -366,25 +366,41 @@ with mode_tab1:
             key="topic_source"
         )
 
-        # --- Topic Research Button ---
+        # --- Topic Research Section ---
         if topic_text:
-            research_col1, research_col2 = st.columns([1, 2])
-            with research_col1:
+            st.markdown("""
+            <div style="background:#16213e; border:1px solid #2a2a4a; border-radius:8px;
+                        padding:12px; margin:8px 0;">
+                <div style="color:#e0e0e0; font-size:13px; font-weight:bold;">🔍 Konu Araştır</div>
+                <div style="color:#8899a6; font-size:11px;">Konuyu X'te ve/veya web'de araştırarak güncel bilgilerle tweet üret</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            rcol1, rcol2, rcol3 = st.columns([1, 1, 2])
+            with rcol1:
                 topic_research_time = st.selectbox(
-                    "Araştırma süresi",
+                    "Zaman",
                     options=[6, 12, 24],
                     format_func=lambda x: f"Son {x} saat",
                     index=1,
                     key="topic_research_time"
                 )
-            with research_col2:
+            with rcol2:
+                topic_search_mode = st.selectbox(
+                    "Kaynak",
+                    options=["x_only", "x_and_web"],
+                    format_func=lambda x: "𝕏 Sadece X" if x == "x_only" else "𝕏+🌐 X + Web",
+                    index=0,
+                    key="topic_search_mode"
+                )
+            with rcol3:
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                btn_label = "🔍 X'te Araştır" if topic_search_mode == "x_only" else "🔍 X + Web Araştır"
                 topic_research_clicked = st.button(
-                    "🔍 X'te Araştır",
+                    btn_label,
                     type="secondary",
                     use_container_width=True,
                     key="topic_research_btn",
-                    help="Yazdığınız konuyu X ve web'de araştırır, güncel bilgileri toplar"
                 )
 
             if topic_research_clicked:
@@ -434,11 +450,13 @@ with mode_tab1:
                     )
 
                 progress_text = st.empty()
-                with st.spinner("Konu araştırılıyor..."):
+                spinner_label = "X'te detaylı araştırılıyor..." if topic_search_mode == "x_only" else "X + Web araştırılıyor..."
+                with st.spinner(spinner_label):
                     topic_research = research_topic_from_text(
                         topic_input=topic_text,
                         scanner=_scanner,
                         time_hours=topic_research_time,
+                        search_mode=topic_search_mode,
                         progress_callback=lambda msg: progress_text.caption(msg),
                         ai_client=_ai_client,
                         ai_model=_ai_model,
@@ -452,12 +470,13 @@ with mode_tab1:
             # Show previous/current research results
             if "topic_research_data" in st.session_state and st.session_state.topic_research_data:
                 tr = st.session_state.topic_research_data
+                mode_label = "Sadece X" if tr.search_mode == "x_only" else "X + Web"
 
-                with st.expander(f"📊 Araştırma Sonuçları — {tr.topic}", expanded=True):
+                with st.expander(f"📊 Araştırma Sonuçları — {tr.topic} [{mode_label}]", expanded=True):
                     # X tweets found
                     if tr.x_tweets:
-                        st.markdown(f"**𝕏 Son Tweetler ({len(tr.x_tweets)}):**")
-                        for i, tw in enumerate(tr.x_tweets[:8]):
+                        st.markdown(f"**𝕏 X'te Bulunan Tweetler ({len(tr.x_tweets)}):**")
+                        for i, tw in enumerate(tr.x_tweets[:12]):
                             eng = f"❤️ {tw['likes']:,} 🔁 {tw['retweets']:,}"
                             st.markdown(f"""
                             <div style="background:#1a1a2e; border-left:3px solid #1DA1F2;
@@ -465,34 +484,33 @@ with mode_tab1:
                                 <div style="color:#1DA1F2; font-size:12px; font-weight:bold;">
                                     @{tw['author']} <span style="color:#8899a6; font-weight:normal;">{eng}</span>
                                 </div>
-                                <div style="color:#f0f0f0; font-size:13px; margin-top:4px;">{tw['text'][:250]}</div>
+                                <div style="color:#f0f0f0; font-size:13px; margin-top:4px;">{tw['text'][:300]}</div>
                             </div>
                             """, unsafe_allow_html=True)
                     else:
                         st.info("X'te bu konuyla ilgili güncel tweet bulunamadı.")
 
-                    # Deep articles
-                    if tr.deep_articles:
-                        st.markdown(f"**📖 Okunan Makaleler ({len(tr.deep_articles)}):**")
-                        for article in tr.deep_articles:
-                            st.markdown(f"- **{article['title']}**")
-                            st.caption(f"  {article['content'][:200]}...")
+                    # Web results only if search mode was x_and_web
+                    if tr.search_mode == "x_and_web":
+                        if tr.deep_articles:
+                            st.markdown(f"**📖 Okunan Makaleler ({len(tr.deep_articles)}):**")
+                            for article in tr.deep_articles:
+                                st.markdown(f"- **{article['title']}**")
+                                st.caption(f"  {article['content'][:200]}...")
 
-                    # News
-                    if tr.news_results:
-                        st.markdown(f"**📰 Son Haberler ({len(tr.news_results)}):**")
-                        for n in tr.news_results[:3]:
-                            src = f" ({n['source']})" if n.get("source") else ""
-                            st.markdown(f"- **{n['title']}**{src}")
+                        if tr.news_results:
+                            st.markdown(f"**📰 Son Haberler ({len(tr.news_results)}):**")
+                            for n in tr.news_results[:3]:
+                                src = f" ({n['source']})" if n.get("source") else ""
+                                st.markdown(f"- **{n['title']}**{src}")
 
-                    # Web
-                    if tr.web_results:
-                        deep_urls = {a["url"] for a in tr.deep_articles}
-                        remaining_web = [w for w in tr.web_results if w["url"] not in deep_urls]
-                        if remaining_web:
-                            st.markdown(f"**🌐 Web Bulguları ({len(remaining_web)}):**")
-                            for w in remaining_web[:3]:
-                                st.markdown(f"- {w['title']}")
+                        if tr.web_results:
+                            deep_urls = {a["url"] for a in tr.deep_articles}
+                            remaining_web = [w for w in tr.web_results if w["url"] not in deep_urls]
+                            if remaining_web:
+                                st.markdown(f"**🌐 Web Bulguları ({len(remaining_web)}):**")
+                                for w in remaining_web[:3]:
+                                    st.markdown(f"- {w['title']}")
 
                     if not tr.x_tweets and not tr.deep_articles and not tr.news_results:
                         st.warning("Bu konu için yeterli bilgi bulunamadı. Konuyu daha spesifik yazmayı deneyin.")

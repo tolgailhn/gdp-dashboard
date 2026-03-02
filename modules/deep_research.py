@@ -814,6 +814,7 @@ class TopicResearchResult:
     """Research result for a user-provided topic (not a quote tweet)."""
     topic_input: str = ""
     topic: str = ""
+    search_mode: str = "x_only"  # "x_only" or "x_and_web"
     x_tweets: list = field(default_factory=list)
     web_results: list = field(default_factory=list)
     deep_articles: list = field(default_factory=list)
@@ -825,28 +826,36 @@ def research_topic_from_text(
     topic_input: str,
     scanner=None,
     time_hours: int = 12,
+    search_mode: str = "x_only",
     progress_callback=None,
     ai_client=None,
     ai_model: str = None,
     ai_provider: str = "minimax",
 ) -> TopicResearchResult:
     """
-    Research a topic by searching X and the web.
-    Used when user writes a topic in the "Konu / AI Gelişmesi" field
-    and wants to gather current info before generating a tweet.
+    Research a topic by searching X and optionally the web.
+
+    Args:
+        topic_input: User's topic text
+        scanner: TwitterScanner instance for X search
+        time_hours: How far back to search
+        search_mode: "x_only" (only X/Twitter) or "x_and_web" (X + web + news)
+        progress_callback: Progress update function
+        ai_client: AI client for topic extraction
+        ai_model: AI model name
+        ai_provider: AI provider name
 
     Steps:
-    1. AI extracts keywords from the topic
-    2. Search X for recent tweets about this topic (Turkish + English)
-    3. Search web for latest news
-    4. Deep fetch top articles
-    5. Compile into context for tweet generation
+    1. AI extracts keywords & generates diverse search queries
+    2. Deep search X with multiple query variations (TR + EN)
+    3. (Optional) Search web + news if search_mode == "x_and_web"
+    4. Compile into context for tweet generation
     """
-    result = TopicResearchResult(topic_input=topic_input)
+    result = TopicResearchResult(topic_input=topic_input, search_mode=search_mode)
 
     # === STEP 1: Understand the topic & generate search queries ===
     if progress_callback:
-        progress_callback("Konu analiz ediliyor...")
+        progress_callback("Konu analiz ediliyor ve arama sorguları üretiliyor...")
 
     ai_topic = None
     if ai_client:
@@ -857,9 +866,9 @@ def research_topic_from_text(
     # Fallback: regex-based extraction
     topic_info = extract_topic_from_text(topic_input)
 
-    if ai_topic and ai_topic.get("search_queries"):
+    if ai_topic and ai_topic.get("x_queries_en"):
         result.topic = ai_topic["topic"]
-        search_queries = ai_topic["search_queries"]
+        search_queries = ai_topic.get("search_queries", {})
         x_queries_tr = ai_topic.get("x_queries_tr", [])
         x_queries_en = ai_topic.get("x_queries_en", [])
     else:
@@ -869,32 +878,55 @@ def research_topic_from_text(
         entities = topic_info["products"][:2] + topic_info["companies"][:2]
         action = topic_info.get("action", "")
         if entities:
-            x_queries_en = [f"({' OR '.join(entities)}) {action or ''} -is:retweet lang:en".strip()]
+            x_queries_en = [
+                f"({' OR '.join(entities)}) {action or ''} -is:retweet lang:en".strip(),
+                f"({' OR '.join(entities)}) -is:retweet",
+            ]
             x_queries_tr = [f"({' OR '.join(entities)}) -is:retweet lang:tr"]
         else:
-            # Use the raw topic text
             words = topic_input.split()[:5]
             q = " ".join(words)
-            x_queries_en = [f"({q}) -is:retweet lang:en"]
+            x_queries_en = [f"({q}) -is:retweet lang:en", f"({q}) -is:retweet"]
             x_queries_tr = [f"({q}) -is:retweet lang:tr"]
 
     if progress_callback:
         progress_callback(f"Konu: {result.topic}")
 
-    # === STEP 2: Search X for recent tweets ===
+    # === STEP 2: Deep X search with multiple query variations ===
     if scanner:
         if progress_callback:
-            progress_callback("X'te son tweetler aranıyor...")
+            progress_callback("X'te detaylı arama yapılıyor...")
         start = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=time_hours)
 
         seen_ids = set()
-        all_x_queries = x_queries_en[:2] + x_queries_tr[:2]
 
+        # Combine all X queries — run ALL of them
+        all_x_queries = x_queries_en + x_queries_tr
+
+        # Also build extra variations for thorough coverage
+        extra_queries = _build_x_query_variations(topic_input, result.topic, ai_topic)
+        all_x_queries.extend(extra_queries)
+
+        # Deduplicate queries (case-insensitive)
+        seen_queries = set()
+        unique_queries = []
         for q in all_x_queries:
+            q_key = q.lower().strip()
+            if q_key not in seen_queries:
+                seen_queries.add(q_key)
+                unique_queries.append(q)
+
+        total_queries = len(unique_queries)
+        if progress_callback:
+            progress_callback(f"X'te {total_queries} farklı arama yapılıyor...")
+
+        for idx, q in enumerate(unique_queries):
+            if progress_callback and idx > 0 and idx % 3 == 0:
+                progress_callback(f"X araması {idx}/{total_queries}...")
             try:
-                tweets = scanner._search_tweets(q, start, 15)
+                tweets = scanner._search_tweets(q, start, 20)
                 for t in tweets:
-                    if t.id not in seen_ids and len(t.text) > 50:
+                    if t.id not in seen_ids and len(t.text) > 40:
                         seen_ids.add(t.id)
                         result.x_tweets.append({
                             "text": t.text,
@@ -905,66 +937,125 @@ def research_topic_from_text(
                             "created_at": t.created_at.isoformat() if t.created_at else "",
                         })
             except Exception as e:
-                print(f"X topic search error: {e}")
+                print(f"X topic search error ({q[:50]}): {e}")
 
         # Sort by engagement
         result.x_tweets.sort(key=lambda x: x.get("likes", 0) + x.get("retweets", 0) * 2, reverse=True)
-        result.x_tweets = result.x_tweets[:15]
+        result.x_tweets = result.x_tweets[:25]  # Keep top 25
 
-    # === STEP 3: Web + News search (fresh results) ===
-    if progress_callback:
-        progress_callback("Web'de güncel bilgiler aranıyor...")
+        if progress_callback:
+            progress_callback(f"X'te {len(result.x_tweets)} tweet bulundu")
 
-    all_urls = set()
+    # === STEP 3: Web + News search (ONLY if search_mode == "x_and_web") ===
+    if search_mode == "x_and_web":
+        if progress_callback:
+            progress_callback("Web'de güncel bilgiler aranıyor...")
 
-    # General web search — last day first, then week
-    for query in search_queries.get("general", [])[:3]:
-        results = web_search(query, max_results=6, timelimit="d")
-        if not results:
-            results = web_search(query, max_results=6, timelimit="w")
-        for r in results:
-            if r["url"] not in all_urls:
-                all_urls.add(r["url"])
-                result.web_results.append(r)
+        all_urls = set()
 
-    # News search — last day
-    if progress_callback:
-        progress_callback("Son haberler aranıyor...")
-    for query in search_queries.get("news", [])[:2]:
-        news = web_search_news(query, max_results=5, timelimit="d")
-        if not news:
-            news = web_search_news(query, max_results=5, timelimit="w")
-        for n in news:
-            if n["url"] not in all_urls:
-                all_urls.add(n["url"])
-                result.news_results.append({
-                    "title": n["title"],
-                    "url": n["url"],
-                    "body": n["body"],
-                    "source": n.get("source", ""),
-                })
+        # General web search — last day first, then week
+        for query in search_queries.get("general", [])[:3]:
+            results = web_search(query, max_results=6, timelimit="d")
+            if not results:
+                results = web_search(query, max_results=6, timelimit="w")
+            for r in results:
+                if r["url"] not in all_urls:
+                    all_urls.add(r["url"])
+                    result.web_results.append(r)
 
-    # === STEP 4: Deep fetch top articles ===
-    if progress_callback:
-        progress_callback("Makaleler okunuyor...")
+        # News search — last day
+        if progress_callback:
+            progress_callback("Son haberler aranıyor...")
+        for query in search_queries.get("news", [])[:2]:
+            news = web_search_news(query, max_results=5, timelimit="d")
+            if not news:
+                news = web_search_news(query, max_results=5, timelimit="w")
+            for n in news:
+                if n["url"] not in all_urls:
+                    all_urls.add(n["url"])
+                    result.news_results.append({
+                        "title": n["title"],
+                        "url": n["url"],
+                        "body": n["body"],
+                        "source": n.get("source", ""),
+                    })
 
-    all_search_results = result.web_results + result.news_results
-    urls_to_fetch = _pick_best_urls(all_search_results)
+        # Deep fetch top articles
+        if progress_callback:
+            progress_callback("Makaleler okunuyor...")
 
-    fetched = 0
-    for url in urls_to_fetch:
-        if fetched >= 3:
-            break
-        article = fetch_article_content(url)
-        if article and article["content"] and len(article["content"]) > 200:
-            result.deep_articles.append(article)
-            fetched += 1
+        all_search_results = result.web_results + result.news_results
+        urls_to_fetch = _pick_best_urls(all_search_results)
 
-    # === STEP 5: Compile summary ===
+        fetched = 0
+        for url in urls_to_fetch:
+            if fetched >= 3:
+                break
+            article = fetch_article_content(url)
+            if article and article["content"] and len(article["content"]) > 200:
+                result.deep_articles.append(article)
+                fetched += 1
+
+    # === STEP 4: Compile summary ===
     if progress_callback:
         progress_callback("Araştırma derleniyor...")
     result.summary = _compile_topic_research_summary(result)
     return result
+
+
+def _build_x_query_variations(topic_input: str, topic_en: str, ai_topic: dict | None) -> list[str]:
+    """
+    Build extra X search query variations for thorough coverage.
+    Extracts keywords and creates different combinations.
+    """
+    extra = []
+
+    # Extract key words from topic_input (Turkish)
+    # Remove common Turkish stop words
+    tr_stop = {"bir", "ve", "de", "da", "bu", "şu", "o", "ile", "için", "gibi",
+               "ama", "ya", "diye", "ki", "mi", "mu", "mü", "mı", "ne", "var",
+               "yok", "olan", "ben", "sen", "biz", "siz", "onlar", "kadar"}
+    tr_words = [w for w in topic_input.split() if w.lower() not in tr_stop and len(w) > 2]
+
+    # Extract key words from English topic
+    en_stop = {"the", "a", "an", "is", "are", "was", "were", "in", "on", "at",
+               "to", "for", "of", "and", "or", "but", "has", "had", "by", "its"}
+    en_words = [w for w in topic_en.split() if w.lower() not in en_stop and len(w) > 2] if topic_en else []
+
+    # Build variations from Turkish keywords
+    if len(tr_words) >= 2:
+        # Pairs of keywords
+        for i in range(min(len(tr_words), 4)):
+            for j in range(i + 1, min(len(tr_words), 4)):
+                q = f"{tr_words[i]} {tr_words[j]} -is:retweet"
+                extra.append(q)
+
+    # Build variations from English keywords
+    if len(en_words) >= 2:
+        for i in range(min(len(en_words), 4)):
+            for j in range(i + 1, min(len(en_words), 4)):
+                q = f"{en_words[i]} {en_words[j]} -is:retweet lang:en"
+                extra.append(q)
+
+    # Use AI-provided keywords if available
+    if ai_topic:
+        kw_tr = ai_topic.get("keywords_tr", [])
+        kw_en = ai_topic.get("keywords_en", [])
+
+        # Build OR queries from keyword groups
+        if len(kw_en) >= 2:
+            # Top keywords combined
+            extra.append(f"({' '.join(kw_en[:3])}) -is:retweet lang:en")
+            # Individual important keywords with min engagement
+            for kw in kw_en[:3]:
+                if len(kw) > 3:
+                    extra.append(f"{kw} -is:retweet lang:en min_faves:5")
+
+        if len(kw_tr) >= 2:
+            extra.append(f"({' '.join(kw_tr[:3])}) -is:retweet lang:tr")
+
+    # Limit total extra queries to prevent rate limiting
+    return extra[:8]
 
 
 def _ai_extract_topic_for_research(
@@ -976,31 +1067,42 @@ def _ai_extract_topic_for_research(
     prompt = f"""Kullanıcı şu konuda tweet yazmak istiyor:
 "{topic_input}"
 
-Bu konuyu analiz et ve arama sorguları üret.
+Bu konuyu analiz et ve X/Twitter + web arama sorguları üret.
 
 SADECE şu JSON formatında yanıt ver:
 {{
     "topic": "konunun 5-10 kelimelik İngilizce özeti",
-    "keywords_tr": ["türkçe", "anahtar", "kelimeler"],
-    "keywords_en": ["english", "keywords"],
-    "x_queries_tr": ["X/Twitter'da Türkçe arama sorgusu 1", "sorgu 2"],
-    "x_queries_en": ["X/Twitter English search query 1", "query 2"],
+    "keywords_tr": ["türkçe", "anahtar", "kelimeler", "max 5"],
+    "keywords_en": ["english", "keywords", "max 5"],
+    "x_queries_tr": [
+        "X'te Türkçe arama sorgusu 1 -is:retweet lang:tr",
+        "X'te Türkçe arama sorgusu 2 -is:retweet lang:tr",
+        "X'te Türkçe arama sorgusu 3 -is:retweet lang:tr"
+    ],
+    "x_queries_en": [
+        "X English search query 1 -is:retweet lang:en",
+        "X English search query 2 -is:retweet lang:en",
+        "X English search query 3 -is:retweet lang:en",
+        "X English search query 4 -is:retweet lang:en"
+    ],
     "general_queries": ["web araması 1 {current_year}", "web araması 2 {current_year}"],
     "news_queries": ["haber araması 1 {current_year}", "haber araması 2"]
 }}
 
-KURALLAR:
-- x_queries İÇİN: X'te arama yapılacak, kısa ve spesifik sorgular yaz
-- Türkçe sorgularda Türkçe anahtar kelimeler kullan
-- İngilizce sorgularda İngilizce anahtar kelimeler kullan
-- Her sorguya {current_year} ekle (web aramaları için)
-- Konuyu anahtar kelimelere ayır"""
+ÖNEMLİ KURALLAR:
+- x_queries: X/Twitter'da arama yapılacak. KISA ve SPESİFİK sorgular yaz
+- X sorgularında FARKLI anahtar kelime kombinasyonları kullan — her sorgu farklı bir açıdan arasın
+- Konuyu en az 4-5 farklı İngilizce X sorgusuyla ara (en önemlisi bu!)
+- Konuyu en az 2-3 farklı Türkçe X sorgusuyla ara
+- keywords_tr ve keywords_en: konunun en önemli 3-5 anahtar kelimesi
+- Her web sorguya {current_year} ekle
+- Konuyu detaylı analiz et, sadece ana kelimeleri değil bağlam kelimelerini de kullan"""
 
     try:
         if provider == "anthropic":
             response = ai_client.messages.create(
                 model=ai_model or "claude-haiku-4-5-20251001",
-                max_tokens=500,
+                max_tokens=700,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
             )
@@ -1009,7 +1111,7 @@ KURALLAR:
             response = ai_client.chat.completions.create(
                 model=ai_model or "MiniMax-M2.5",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=500,
+                max_tokens=700,
                 temperature=0.1,
             )
             raw = response.choices[0].message.content.strip()
@@ -1023,8 +1125,10 @@ KURALLAR:
 
         return {
             "topic": data.get("topic", ""),
-            "x_queries_tr": data.get("x_queries_tr", [])[:3],
-            "x_queries_en": data.get("x_queries_en", [])[:3],
+            "keywords_tr": data.get("keywords_tr", [])[:5],
+            "keywords_en": data.get("keywords_en", [])[:5],
+            "x_queries_tr": data.get("x_queries_tr", [])[:4],
+            "x_queries_en": data.get("x_queries_en", [])[:5],
             "search_queries": {
                 "general": data.get("general_queries", [])[:3],
                 "news": data.get("news_queries", [])[:2],
@@ -1044,39 +1148,38 @@ def _compile_topic_research_summary(r: TopicResearchResult) -> str:
     parts.append(f"# ARAŞTIRMA KONUSU: {r.topic}")
     parts.append(f"Kullanıcının yazmak istediği konu: {r.topic_input}")
 
-    # X tweets
+    # X tweets — ALWAYS the primary source
     if r.x_tweets:
         parts.append(f"\n## X'TE SON PAYLAŞIMLAR ({len(r.x_tweets)} tweet):")
-        parts.append("(Bu tweetler konuyla ilgili en güncel bilgiler — bunları kullan!)\n")
-        for i, tw in enumerate(r.x_tweets[:10], 1):
-            parts.append(f"  {i}. @{tw['author']} ({tw['likes']} ❤️, {tw['retweets']} 🔁):")
-            parts.append(f"     {tw['text'][:300]}")
+        parts.append("(Bu tweetler konuyla ilgili EN GÜNCEL bilgiler — BİRİNCİL KAYNAĞIN BUNLAR!)\n")
+        for i, tw in enumerate(r.x_tweets[:15], 1):
+            parts.append(f"  {i}. @{tw['author']} ({tw['likes']} beğeni, {tw['retweets']} RT):")
+            parts.append(f"     {tw['text'][:400]}")
 
-    # Deep articles
-    if r.deep_articles:
-        parts.append(f"\n## OKUNAN MAKALELER ({len(r.deep_articles)} kaynak):")
-        for i, article in enumerate(r.deep_articles, 1):
-            parts.append(f"### Kaynak {i}: {article['title']}")
-            parts.append(f"URL: {article['url']}")
-            parts.append(f"{article['content']}")
-            parts.append("")
+    # Web content only if search_mode was x_and_web
+    if r.search_mode == "x_and_web":
+        if r.deep_articles:
+            parts.append(f"\n## OKUNAN MAKALELER ({len(r.deep_articles)} kaynak):")
+            for i, article in enumerate(r.deep_articles, 1):
+                parts.append(f"### Kaynak {i}: {article['title']}")
+                parts.append(f"URL: {article['url']}")
+                parts.append(f"{article['content']}")
+                parts.append("")
 
-    # News
-    if r.news_results:
-        parts.append(f"\n## SON HABERLER ({len(r.news_results)} haber):")
-        for i, n in enumerate(r.news_results[:5], 1):
-            src = f" ({n['source']})" if n.get("source") else ""
-            parts.append(f"  {i}. {n['title']}{src}")
-            parts.append(f"     {n['body'][:300]}")
+        if r.news_results:
+            parts.append(f"\n## SON HABERLER ({len(r.news_results)} haber):")
+            for i, n in enumerate(r.news_results[:5], 1):
+                src = f" ({n['source']})" if n.get("source") else ""
+                parts.append(f"  {i}. {n['title']}{src}")
+                parts.append(f"     {n['body'][:300]}")
 
-    # Web snippets not in deep articles
-    if r.web_results:
-        deep_urls = {a["url"] for a in r.deep_articles}
-        remaining = [w for w in r.web_results if w["url"] not in deep_urls]
-        if remaining:
-            parts.append(f"\n## EK WEB BULGULARI ({len(remaining)} kaynak):")
-            for i, wr in enumerate(remaining[:5], 1):
-                parts.append(f"  {i}. {wr['title']}")
-                parts.append(f"     {wr['body'][:200]}")
+        if r.web_results:
+            deep_urls = {a["url"] for a in r.deep_articles}
+            remaining = [w for w in r.web_results if w["url"] not in deep_urls]
+            if remaining:
+                parts.append(f"\n## EK WEB BULGULARI ({len(remaining)} kaynak):")
+                for i, wr in enumerate(remaining[:5], 1):
+                    parts.append(f"  {i}. {wr['title']}")
+                    parts.append(f"     {wr['body'][:200]}")
 
     return "\n".join(parts)

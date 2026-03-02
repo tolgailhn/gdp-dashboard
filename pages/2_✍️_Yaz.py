@@ -13,7 +13,7 @@ from modules.content_generator import ContentGenerator, get_available_styles, ge
 from modules.tweet_publisher import TweetPublisher
 from modules.deep_research import extract_tweet_id, research_topic, research_topic_from_text
 from modules.style_manager import (
-    load_user_samples, load_custom_persona,
+    load_user_samples, load_custom_persona, save_user_samples,
     add_to_post_history, add_draft, load_draft_tweets
 )
 from modules.tweet_analyzer import load_all_analyses, build_training_context
@@ -566,6 +566,55 @@ with mode_tab4:
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # Show training data status
+    _p_samples = load_user_samples()
+    _p_persona = load_custom_persona()
+    _p_analyses = load_all_analyses()
+    _p_training = build_training_context(_p_analyses) if _p_analyses else ""
+
+    t_col1, t_col2, t_col3 = st.columns(3)
+    with t_col1:
+        _sample_count = len(_p_samples)
+        _sample_color = "#00c853" if _sample_count > 0 else "#ff9800"
+        st.markdown(f'<div style="text-align:center; padding:8px; background:#1a1a2e; border-radius:8px;">'
+                    f'<div style="color:{_sample_color}; font-size:20px; font-weight:bold;">{_sample_count}</div>'
+                    f'<div style="color:#8899a6; font-size:11px;">Örnek Tweet</div></div>',
+                    unsafe_allow_html=True)
+    with t_col2:
+        _persona_ok = "Aktif" if _p_persona else "Yok"
+        _persona_color = "#00c853" if _p_persona else "#ff9800"
+        st.markdown(f'<div style="text-align:center; padding:8px; background:#1a1a2e; border-radius:8px;">'
+                    f'<div style="color:{_persona_color}; font-size:20px; font-weight:bold;">{_persona_ok}</div>'
+                    f'<div style="color:#8899a6; font-size:11px;">Persona</div></div>',
+                    unsafe_allow_html=True)
+    with t_col3:
+        _analysis_count = len(_p_analyses)
+        _analysis_color = "#00c853" if _analysis_count > 0 else "#ff9800"
+        st.markdown(f'<div style="text-align:center; padding:8px; background:#1a1a2e; border-radius:8px;">'
+                    f'<div style="color:{_analysis_color}; font-size:20px; font-weight:bold;">{_analysis_count}</div>'
+                    f'<div style="color:#8899a6; font-size:11px;">Analiz Edilmiş Hesap</div></div>',
+                    unsafe_allow_html=True)
+
+    st.markdown("")
+
+    # Quick add sample tweet
+    with st.expander("➕ Yeni Örnek Tweet Ekle (modeli eğit)"):
+        new_sample = st.text_area(
+            "Senin yazdığın gerçek bir tweet'i yapıştır",
+            placeholder="Örn: claude yine down. bu ay ikinci mi üçüncü mü...",
+            height=80,
+            key="new_sample_tweet"
+        )
+        if st.button("Örnek Olarak Kaydet", key="save_sample_btn", use_container_width=True):
+            if new_sample and len(new_sample.strip()) > 20:
+                current_samples = load_user_samples()
+                current_samples.append(new_sample.strip())
+                save_user_samples(current_samples)
+                st.success(f"Eklendi! Toplam {len(current_samples)} örnek tweet.")
+                st.rerun()
+            else:
+                st.warning("Tweet en az 20 karakter olmalı.")
 
     personal_topic = st.text_area(
         "Konu / Ne hakkında tweet yazmak istiyorsun?",

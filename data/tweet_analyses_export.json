@@ -1,0 +1,1253 @@
+{
+  "type": "tweet_analyses_export",
+  "exported_at": "2026-03-02T09:48:30.909424",
+  "analyses": {
+    "deeptechtr": {
+      "username": "DeepTechTR",
+      "analyzed_at": "2026-03-02T09:47:21.258189",
+      "analysis": {
+        "total_tweets": 435,
+        "total_likes": 14938,
+        "total_retweets": 137886,
+        "total_replies": 386,
+        "avg_engagement_score": 98764.16,
+        "top_tweets": [
+          {
+            "text": "RT @militerenstitu: Sen de yorum bırak, algoritmayı kıralım\n\n#OrkunÖzellerYalnızDeğildir",
+            "engagement_score": 40200240.0,
+            "like_count": 0,
+            "retweet_count": 2004,
+            "reply_count": 0,
+            "impression_count": 2,
+            "created_at": "2025-10-21 17:05:25+00:00"
+          },
+          {
+            "text": "RT @qrivasi: https://t.co/T3Y8UMpXSy",
+            "engagement_score": 1242540.0,
+            "like_count": 0,
+            "retweet_count": 62127,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-09-19 09:15:11+00:00"
+          },
+          {
+            "text": "RT @delete_shitcoin: CIA and Mossad and pedo elite are running some kind of sex trafficking entrapment blackmail ring out of Puerto Rico an…",
+            "engagement_score": 618620.0,
+            "like_count": 0,
+            "retweet_count": 30931,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2026-02-02 07:32:39+00:00"
+          },
+          {
+            "text": "RT @SeongWooIQ300: I'm launching the biggest memecoin of 2026.\n\nhttps://t.co/oPcmk2LWik\n\nyou have 48 hours to fill out form.\n\nfor a bonus a…",
+            "engagement_score": 243580.0,
+            "like_count": 0,
+            "retweet_count": 12179,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2026-02-20 11:15:28+00:00"
+          },
+          {
+            "text": "RT @TurkOrthodox: Büyük Türk milleti!\n\nPapa'nın ziyareti, dini değil siyasi bir ziyarettir. Türk Ortodoks Hristiyanlar olarak uyarıyoruz. Y…",
+            "engagement_score": 118280.0,
+            "like_count": 0,
+            "retweet_count": 5914,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-11-27 06:53:01+00:00"
+          },
+          {
+            "text": "RT @OrkunOzeller: Feti Yıldız @YildizFeti Hukuk işleri sana bağlı olduğu pudra şekerci çocukların Tehditlerine karşı iki çift lafım var, se…",
+            "engagement_score": 82960.0,
+            "like_count": 0,
+            "retweet_count": 4148,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-09-16 17:00:27+00:00"
+          },
+          {
+            "text": "RT @OrkunOzeller: Bu görüntüleri ikinci Habur kepazeliği olarak niteliyorum \nBu tipitipleri silahlarıyla Sınırlarımızdan içeri girmesine mü…",
+            "engagement_score": 62620.0,
+            "like_count": 0,
+            "retweet_count": 3131,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-12-01 00:01:49+00:00"
+          },
+          {
+            "text": "RT @xmakadon: 💥Müstafi Tümamiral Cihat Yaycı: \n\n''Ermenilerin, Türkleri yakmak için inşa ettiği fırın... Ağladım ben burada, Türkleri canlı…",
+            "engagement_score": 60280.0,
+            "like_count": 0,
+            "retweet_count": 3014,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-06-19 11:25:28+00:00"
+          },
+          {
+            "text": "RT @extropic: Hello Thermo World. https://t.co/yO96FRhoZ6",
+            "engagement_score": 32960.0,
+            "like_count": 0,
+            "retweet_count": 1648,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-10-31 04:39:07+00:00"
+          },
+          {
+            "text": "RT @xmakadon: Baba muhalefet geri döndü, Ümit Özdağ tahliye! 🇹🇷 https://t.co/FVFteZJZ8H",
+            "engagement_score": 26280.0,
+            "like_count": 0,
+            "retweet_count": 1314,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-06-17 11:13:40+00:00"
+          },
+          {
+            "text": "RT @evillwanda: Türk milletine çok büyük operasyon çekiliyor. https://t.co/fpG4DWKzi7",
+            "engagement_score": 25640.0,
+            "like_count": 0,
+            "retweet_count": 1282,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2026-02-28 07:20:26+00:00"
+          },
+          {
+            "text": "RT @Osmanunsal58: Bir yandan Heybeliada Ruhban Okulu’nun yeniden açılmasına yönelik adımlar atılırken, diğer yandan Osmanlı mirası camileri…",
+            "engagement_score": 24080.0,
+            "like_count": 0,
+            "retweet_count": 1204,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-09-27 20:32:20+00:00"
+          },
+          {
+            "text": "RT @emrullahai: Hala kafandaki fikri hayata geçiremedin mi? Google Stitch var. Herkes saniyeler içinde kendi arayüzünü tasarlarken sen geri…",
+            "engagement_score": 21120.0,
+            "like_count": 0,
+            "retweet_count": 32,
+            "reply_count": 0,
+            "impression_count": 1,
+            "created_at": "2026-02-20 13:08:32+00:00"
+          },
+          {
+            "text": "RT @YusufElmas: Cürete bak! Sincan cezaevindekilerle TSK’yı ilişkilendirip TSK’ya karşı nefret tohumları yeşertmeye uğraşıyor oradan. \n\nBu…",
+            "engagement_score": 16480.0,
+            "like_count": 0,
+            "retweet_count": 824,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-08-31 19:44:47+00:00"
+          },
+          {
+            "text": "RT @sjw_erlik: @LindseyGrahamSC Your so-called allies (SDF) are killing and massacring civilians, children, and women, endangering the stab…",
+            "engagement_score": 14080.0,
+            "like_count": 0,
+            "retweet_count": 704,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2026-01-19 21:15:01+00:00"
+          },
+          {
+            "text": "RT @_Elifsi_blog_1: Erkek parayı bulduğunda, eşinin bir daha çalışmak zorunda olmadığını düşünür.\n\nKadın parayı bulduğunda ise bir erkeğe i…",
+            "engagement_score": 13640.0,
+            "like_count": 0,
+            "retweet_count": 682,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-07-10 13:46:06+00:00"
+          },
+          {
+            "text": "RT @sjw_erlik: @Ahmetfree2 Kazım, Enver, Talat, Ömer Fahrettin, Mustafa Kemal Paşalar hain ama Şeyh Saitler, abdullah öcalanlar kahraman he…",
+            "engagement_score": 12520.0,
+            "like_count": 0,
+            "retweet_count": 626,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-10-26 17:42:24+00:00"
+          },
+          {
+            "text": "RT @emrevalez: Gizlilik güçtür. https://t.co/GEm52B79TB",
+            "engagement_score": 12020.0,
+            "like_count": 0,
+            "retweet_count": 601,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-09-25 08:17:09+00:00"
+          },
+          {
+            "text": "RT @OktaySinanoglu1: -Biraz oturun da Çince öğrenin. Ne dünya dili İngilizcesi?\n\n-550 kişi imza atmış, vatan topraklarının tapuları yabancı…",
+            "engagement_score": 10640.0,
+            "like_count": 0,
+            "retweet_count": 532,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-12-19 12:37:27+00:00"
+          },
+          {
+            "text": "RT @argeolog_: Sayın,\nTicaret ve Sanayi Bakanlığı,\nSanayi ve Teknoloji Bakanlığı,\n\nTürkiye'de artık PCB (Elektronik Boş Devre Kartı) üretic…",
+            "engagement_score": 10220.0,
+            "like_count": 0,
+            "retweet_count": 511,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-10-08 12:15:55+00:00"
+          },
+          {
+            "text": "RT @militerenstitu: Etimesgut Uçak Fabrikasından çıkan THK-13 (Yıl: 1948)\n\nTahmin edin kim projeyi rafa kaldırdı https://t.co/uof0Q4hawj",
+            "engagement_score": 8020.0,
+            "like_count": 0,
+            "retweet_count": 401,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2026-03-01 19:07:41+00:00"
+          },
+          {
+            "text": "Githubda şu an birinci sırada oturan WiFi DensePose projesini gördüm ve bir an duraksadım. Evindeki sıradan wifi routerı duvarın arkasındaki insanın vücut pozisyonunu çıkarıyor, nefes hızını ölçüyor, kalp atışını takip ediyor. Kamera yok, sensör yok, giyilebilir cihaz yok. Sadece wifi sinyalinin faz ve genlik verisini alıp yapay zeka ile 24 farklı vücut bölgesine haritalıyor. Carnegie mellondan çıkan araştırma zaten yıllar önce temeli atmıştı ama şimdi biri bunu açık kaynak olarak githuba koydu ve herkes deneyebilir hale geldi.\n\nGüzel tarafı var tabii. Enkaz altında kalan insanı tespit etmek, hastanede kamerasız hasta izleme, yaşlı bakımında düşme algılama gibi şeyler gerçekten hayat kurtarabilir. Ama bir saniye. Aynı teknolojiyi ters çevir, komşunun evinde kim var, ne yapıyor, kaçta uyuyor, kalbi ne kadar hızlı atıyor hepsini wifi üzerinden görebilirsin. Gözetleme artık kamera kurmak gibi zahmetli bir iş değil, routerın zaten orada duruyor.\n\nAçık kaynak olması durumu daha da ilginç yapıyor. Herkes indirir, herkes çalıştırır. Regülasyon sıfır. Bu teknoloji üç sene sonra akıllı ev sistemlerinin içine gömülü gelecek ve çoğu kişi farkında bile olmayacak.",
+            "engagement_score": 7341.68,
+            "like_count": 2557,
+            "retweet_count": 205,
+            "reply_count": 45,
+            "impression_count": 264208,
+            "created_at": "2026-03-01 17:19:59+00:00"
+          },
+          {
+            "text": "RT @rosemoni18: DeepSeek is a crypto money printer 💵\n\nI wrote a Bot, that's made me $35K from $100 last night.\n\nThis isn’t clickbait—just a…",
+            "engagement_score": 6680.0,
+            "like_count": 0,
+            "retweet_count": 334,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-10-27 08:56:21+00:00"
+          },
+          {
+            "text": "RT @Fparrhesia: Bu adam tembellik sorununuzu 1 dakikada çözecek. https://t.co/6sxmEhRVW0",
+            "engagement_score": 6560.0,
+            "like_count": 0,
+            "retweet_count": 328,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-09-24 03:58:37+00:00"
+          },
+          {
+            "text": "RT @TCruhuBaskanYP: Yeni TSK vs. eski TSK. https://t.co/F2YDX8fKwq",
+            "engagement_score": 6240.0,
+            "like_count": 0,
+            "retweet_count": 312,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-08-30 07:21:57+00:00"
+          },
+          {
+            "text": "RT @raskolibov: İran bombalanırken rusya ve çin https://t.co/rtgwKAUzu6",
+            "engagement_score": 6100.0,
+            "like_count": 0,
+            "retweet_count": 305,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2026-02-28 08:28:51+00:00"
+          },
+          {
+            "text": "Çin kuantum bilgisayarlar için kendi işletim sistemini çıkardı ve halka açık indirmeye sundu. Dünyada ilk kez bir kuantum bilgisayar işletim sistemi herkesin erişimine açılıyor.\n\nBunu sindirin bir saniye. Klasik bilgisayarlarda Windows, Linux, macOS savaşları yaşanırken Çin direkt kuantum katmanında oyun kuruyor. Origin Pilot adını verdikleri sistem Anhui eyaletinden çıktı, indirip deneyebiliyorsunuz.\n\nBatı hâlâ kuantum donanımında kimin çipi daha iyi diye yarışırken Çinliler yazılım ekosistemini şimdiden inşa etmeye başladı. Tıpkı mobilde uygulama mağazasını ilk kuranın kazandığı gibi, kuantumda da işletim sistemini ilk yaygınlaştıran standartları belirleyecek.\n\nAçık kaynak yapmaları da boşuna değil. Geliştirici topluluğunu erken çekersen platformun vazgeçilmez oluyor. Apple bunu yıllar önce anladı, Çin şimdi aynı oyunu kuantumda oynuyor.\n\n2026 bitmeden kuantum yazılım yarışı donanım yarışını geçecek gibi duruyor. Hazır olan kazanır.",
+            "engagement_score": 5428.53,
+            "like_count": 1163,
+            "retweet_count": 191,
+            "reply_count": 30,
+            "impression_count": 183995,
+            "created_at": "2026-02-27 13:41:48+00:00"
+          },
+          {
+            "text": "RT @OktaySinanoglu1: Hakan Fidan ve İbrahim Kalın'ın X hesaplarında \"Türkmen\" diye arattığımızda Suriyeli Türkmenler hakkında tek bir mesaj…",
+            "engagement_score": 4840.0,
+            "like_count": 0,
+            "retweet_count": 242,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2025-08-31 05:56:22+00:00"
+          },
+          {
+            "text": "RT @OdakTV1: Herkes birbirini bombalarken Kuzey Kore lideri Kim Jong Un'a yapılan benzetme:\n\n''Bütün oyuncakları olan ama kimsenin oynamak…",
+            "engagement_score": 4820.0,
+            "like_count": 0,
+            "retweet_count": 241,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2026-03-02 09:40:26+00:00"
+          },
+          {
+            "text": "Githubda isimsiz bir geliştirici Accomplish diye bir şey bırakmış. Açık kaynak, tamamen lokalde çalışıyor, hem kod yazıyor hem tarayıcıda geziniyor. Api kredisi yakmıyor, aylık abonelik istemiyor. Cursor yok, claude desktop yok, hiçbir şey yok. Sadece senin makinan ve o.\n\nŞimdi şöyle düşün. Her ay onlarca dolarlık ai aracına para veriyorsun, kodların bulutta dolaşıyor, verinin nereye gittiğini bilmiyorsun. Bir adam çıkıp bunların hepsini sıfır maliyetle lokale indiriyor ve kaynak kodu açık bırakıyor. Daha önce openwork diye geçiyormuş, şimdi isim değiştirmiş ama önemli olan ismi değil. Önemli olan bu tarz projelerin artık haftalık çıkması. Bulut bağımlılığı yavaş yavaş çözülüyor.\n\nTabii her açık kaynak proje kurtarıcı değil. Bakım yapılmazsa üç aya github mezarlığına gider. Ama trend net: ai aracı kullanmak için birine kira ödeme devri kapanıyor. Kendi makinanda kendi agentını koşturacaksın, bu kadar basit.",
+            "engagement_score": 2723.32,
+            "like_count": 929,
+            "retweet_count": 70,
+            "reply_count": 28,
+            "impression_count": 170340,
+            "created_at": "2026-02-25 01:16:32+00:00"
+          }
+        ],
+        "top_keywords": [
+          {
+            "keyword": "yorum",
+            "avg_score": 13400107.03
+          },
+          {
+            "keyword": "orkunözelleryalnızdeğildir",
+            "avg_score": 13400088.32
+          },
+          {
+            "keyword": "out",
+            "avg_score": 172440.0
+          },
+          {
+            "keyword": "papa",
+            "avg_score": 39426.67
+          },
+          {
+            "keyword": "içeri",
+            "avg_score": 21045.96
+          },
+          {
+            "keyword": "türk",
+            "avg_score": 18038.25
+          },
+          {
+            "keyword": "nın",
+            "avg_score": 16898.48
+          },
+          {
+            "keyword": "2026",
+            "avg_score": 16726.43
+          },
+          {
+            "keyword": "canlı",
+            "avg_score": 15279.06
+          },
+          {
+            "keyword": "bağlı",
+            "avg_score": 12142.3
+          },
+          {
+            "keyword": "ikinci",
+            "avg_score": 11178.35
+          },
+          {
+            "keyword": "karşı",
+            "avg_score": 11066.35
+          },
+          {
+            "keyword": "world",
+            "avg_score": 10986.67
+          },
+          {
+            "keyword": "inşa",
+            "avg_score": 9401.1
+          },
+          {
+            "keyword": "ümit",
+            "avg_score": 8786.02
+          },
+          {
+            "keyword": "tahliye",
+            "avg_score": 8786.02
+          },
+          {
+            "keyword": "özdağ",
+            "avg_score": 8786.02
+          },
+          {
+            "keyword": "olduğu",
+            "avg_score": 8551.49
+          },
+          {
+            "keyword": "okulu",
+            "avg_score": 8220.0
+          },
+          {
+            "keyword": "yönelik",
+            "avg_score": 8026.67
+          },
+          {
+            "keyword": "döndü",
+            "avg_score": 6585.67
+          },
+          {
+            "keyword": "sana",
+            "avg_score": 6134.16
+          },
+          {
+            "keyword": "büyük",
+            "avg_score": 5883.74
+          },
+          {
+            "keyword": "iki",
+            "avg_score": 5800.77
+          },
+          {
+            "keyword": "operasyon",
+            "avg_score": 5177.07
+          },
+          {
+            "keyword": "diğer",
+            "avg_score": 4971.13
+          },
+          {
+            "keyword": "burada",
+            "avg_score": 4825.71
+          },
+          {
+            "keyword": "your",
+            "avg_score": 4703.73
+          },
+          {
+            "keyword": "zorunda",
+            "avg_score": 4649.25
+          },
+          {
+            "keyword": "yıllar",
+            "avg_score": 4275.7
+          }
+        ],
+        "most_used_keywords": [
+          {
+            "keyword": "değil",
+            "count": 70
+          },
+          {
+            "keyword": "artık",
+            "count": 69
+          },
+          {
+            "keyword": "şimdi",
+            "count": 58
+          },
+          {
+            "keyword": "yapay",
+            "count": 56
+          },
+          {
+            "keyword": "diye",
+            "count": 50
+          },
+          {
+            "keyword": "şey",
+            "count": 46
+          },
+          {
+            "keyword": "zeka",
+            "count": 45
+          },
+          {
+            "keyword": "yani",
+            "count": 45
+          },
+          {
+            "keyword": "bile",
+            "count": 42
+          },
+          {
+            "keyword": "kendi",
+            "count": 40
+          },
+          {
+            "keyword": "tek",
+            "count": 39
+          },
+          {
+            "keyword": "açık",
+            "count": 39
+          },
+          {
+            "keyword": "herkes",
+            "count": 38
+          },
+          {
+            "keyword": "zaten",
+            "count": 38
+          },
+          {
+            "keyword": "adam",
+            "count": 37
+          },
+          {
+            "keyword": "aynı",
+            "count": 36
+          },
+          {
+            "keyword": "tam",
+            "count": 34
+          },
+          {
+            "keyword": "ciddi",
+            "count": 32
+          },
+          {
+            "keyword": "kaynak",
+            "count": 32
+          },
+          {
+            "keyword": "sadece",
+            "count": 31
+          },
+          {
+            "keyword": "claude",
+            "count": 29
+          },
+          {
+            "keyword": "resmen",
+            "count": 29
+          },
+          {
+            "keyword": "tamamen",
+            "count": 28
+          },
+          {
+            "keyword": "yapıyor",
+            "count": 27
+          },
+          {
+            "keyword": "geliyor",
+            "count": 27
+          },
+          {
+            "keyword": "önce",
+            "count": 27
+          },
+          {
+            "keyword": "biri",
+            "count": 26
+          },
+          {
+            "keyword": "ediyor",
+            "count": 26
+          },
+          {
+            "keyword": "büyük",
+            "count": 25
+          },
+          {
+            "keyword": "asıl",
+            "count": 24
+          }
+        ],
+        "length_analysis": {
+          "short": {
+            "count": 313,
+            "avg_score": 137124.48
+          },
+          "medium": {
+            "count": 24,
+            "avg_score": 188.5
+          },
+          "long": {
+            "count": 98,
+            "avg_score": 387.0
+          }
+        },
+        "question_analysis": {
+          "question_tweets": {
+            "count": 31,
+            "avg_score": 1208.88
+          },
+          "statement_tweets": {
+            "count": 404,
+            "avg_score": 106249.84
+          }
+        },
+        "top_hashtags": [
+          {
+            "tag": "#OrkunÖzellerYalnızDeğildir",
+            "count": 3,
+            "avg_score": 13400088.32
+          },
+          {
+            "tag": "#EpsteinFiles",
+            "count": 4,
+            "avg_score": 376.5
+          },
+          {
+            "tag": "#Teknoloji",
+            "count": 2,
+            "avg_score": 283.59
+          },
+          {
+            "tag": "#AI",
+            "count": 8,
+            "avg_score": 74.05
+          },
+          {
+            "tag": "#Taalas",
+            "count": 3,
+            "avg_score": 12.71
+          },
+          {
+            "tag": "#Epstein",
+            "count": 3,
+            "avg_score": 7.38
+          },
+          {
+            "tag": "#Iran",
+            "count": 4,
+            "avg_score": 4.21
+          },
+          {
+            "tag": "#ASIC",
+            "count": 2,
+            "avg_score": 3.67
+          },
+          {
+            "tag": "#LLM",
+            "count": 2,
+            "avg_score": 3.67
+          },
+          {
+            "tag": "#Inference",
+            "count": 2,
+            "avg_score": 3.67
+          },
+          {
+            "tag": "#AIHardware",
+            "count": 2,
+            "avg_score": 3.67
+          },
+          {
+            "tag": "#Llama",
+            "count": 2,
+            "avg_score": 3.67
+          },
+          {
+            "tag": "#FutureOfAI",
+            "count": 2,
+            "avg_score": 3.67
+          },
+          {
+            "tag": "#Israel",
+            "count": 5,
+            "avg_score": 3.17
+          },
+          {
+            "tag": "#ÜmitÖzdağ",
+            "count": 2,
+            "avg_score": 1.59
+          }
+        ],
+        "best_hours": [
+          {
+            "hour": 17,
+            "avg_score": 1832089.52,
+            "tweet_count": 22
+          },
+          {
+            "hour": 9,
+            "avg_score": 32950.52,
+            "tweet_count": 38
+          },
+          {
+            "hour": 7,
+            "avg_score": 15912.0,
+            "tweet_count": 41
+          },
+          {
+            "hour": 11,
+            "avg_score": 10372.63,
+            "tweet_count": 32
+          },
+          {
+            "hour": 4,
+            "avg_score": 5514.67,
+            "tweet_count": 6
+          }
+        ]
+      },
+      "ai_report": ""
+    },
+    "hrrcnes": {
+      "username": "hrrcnes",
+      "analyzed_at": "2026-03-02T09:46:28.469586",
+      "analysis": {
+        "total_tweets": 420,
+        "total_likes": 148274,
+        "total_retweets": 10316,
+        "total_replies": 9764,
+        "avg_engagement_score": 2061.34,
+        "top_tweets": [
+          {
+            "text": "RT @hrrcnes: höcaam ne iş yapıyorsun diyorsun ya. benim işim algoritma tanrılarını anlamak. bugün de tiktok algoritmasını full hd 1080p anl…",
+            "engagement_score": 267986.67,
+            "like_count": 0,
+            "retweet_count": 199,
+            "reply_count": 0,
+            "impression_count": 3,
+            "created_at": "2026-01-26 20:52:25+00:00"
+          },
+          {
+            "text": "madem herkes mac mini istiyor, öyleyse 1 kişiye m4 mac mini hediye ediyorum.. hatta 50 kişiye de minimax hailuo hediye.\n\ntek yapman gereken\n\n- @Hailuo_AI hesabını takip etmek\n- bu posta rt like atmak\n- ve \"mac mini\" diye mention atmak\n\nkazananları 48 saat sonunda açıklayacağım.. https://t.co/ACQaaDCdHm",
+            "engagement_score": 49310.55,
+            "like_count": 1559,
+            "retweet_count": 1217,
+            "reply_count": 1718,
+            "impression_count": 1009483,
+            "created_at": "2026-02-05 13:26:45+00:00"
+          },
+          {
+            "text": "RT @eachlabs: Vibe Podcast #1 special 🎙️\n\nWe’re giving $50 credit to the first 100 people.\nAll you have to do is like this tweet and follow…",
+            "engagement_score": 47600.0,
+            "like_count": 0,
+            "retweet_count": 68,
+            "reply_count": 0,
+            "impression_count": 2,
+            "created_at": "2025-11-08 14:22:46+00:00"
+          },
+          {
+            "text": "RT @dzine_ai: 🍌🍌Nano Banana Pro just landed on Dzine. The biggest leap in AI image!\n\nPair that with Black Friday—50% OFF all memberships (c…",
+            "engagement_score": 28120.0,
+            "like_count": 0,
+            "retweet_count": 37,
+            "reply_count": 0,
+            "impression_count": 1,
+            "created_at": "2025-11-22 15:08:16+00:00"
+          },
+          {
+            "text": "RT @dzine_ai: 🚀 Video Enhancer is now LIVE on Dzine! \n\nUpscale any video to stunning 8K quality — powered by AI. \n\n🎬 Ultra-HD upscaling  \n✨…",
+            "engagement_score": 21150.0,
+            "like_count": 0,
+            "retweet_count": 45,
+            "reply_count": 0,
+            "impression_count": 2,
+            "created_at": "2026-01-14 10:19:51+00:00"
+          },
+          {
+            "text": "bugün telafi sözü vermiştim. aranızdan 30 kişiye higgsfield aboneliği hediye ediyorum.\n\nbu tweete \"higgs\" diye ment at. e tabi like ve rt de ellerinden öper. daha önce dağıttığım 1000 kişiden olmayanlar öncelikli. sonuçlar yarın.\n\nne demiş ünlü düşünür, babalar sözünü tutar. https://t.co/xlmRtfTQ5L",
+            "engagement_score": 15553.92,
+            "like_count": 665,
+            "retweet_count": 357,
+            "reply_count": 566,
+            "impression_count": 227291,
+            "created_at": "2025-12-14 18:49:07+00:00"
+          },
+          {
+            "text": "RT @gaucheai: this is the most viral slideshow prompt made with @ImagineArt_X \n\n{\n  \"subject\": {\n    \"description\": \"Young woman taking ele…",
+            "engagement_score": 15120.0,
+            "like_count": 0,
+            "retweet_count": 27,
+            "reply_count": 0,
+            "impression_count": 1,
+            "created_at": "2025-12-11 15:37:59+00:00"
+          },
+          {
+            "text": "RT @sama: the hurricane turns faster and faster but it stays perfectly calm in the eye",
+            "engagement_score": 14920.0,
+            "like_count": 0,
+            "retweet_count": 746,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2026-02-06 16:27:48+00:00"
+          },
+          {
+            "text": "höcaam ne iş yapıyorsun diyorsun ya. benim işim algoritma tanrılarını anlamak. bugün de tiktok algoritmasını full hd 1080p anlatıyorum. sadece dikkat et bu sefer. kritik bir şey anlatıcam.\n\nsistem iki farklı entity'den oluşuyor. kullanıcılar ve videolar. ama burada diğer platformların tersi çalışan sağlam bir lalelik var. kullanıcılar sadece sinyal verici, videolar ise asıl gruplandırılan elementler olarak işaretli. nasıl diye sorma. odaklan sadece..\n\ndüşün ki tiktok'ta iki farklı database var. birinde user_id'ler, diğerinde video_id'ler. ama algoritma sadece video_id database'inde clustering yapıyor. user_id'ler ne işe yarıyor peki? sadece edge oluşturuyor. graph theory'den bilirsin daha önce anlattım. node'lar ve edge'ler var ya, işte user'lar edge görevi görüyor video node'ları arasında. kaybolma terimlerde. anlamadıysan ai'a soracaksın zaten yazının sonunda. şimdi okumaya devam et sadece.\n\nşöyle çalışıyor sistem.. video #12345'i user_384 izledi. aynı user_384, video #67890'ı da izledi. tiktok ne yapıyor? user_384'ü bridge olarak kullanıp bu iki video arasında weighted edge oluşturuyor. binlerce user böyle bridge görevi görünce, videolar arasında güçlü bağlantılar oluşuyor.\n\nheat map dedikleri şey aslında bu weighted graph'ın vizualizasyonu. hangi videolar hangi videolarla yüksek edge weight'e sahipse, onlar aynı cluster'a düşüyor. user'ların kendisi önemli değil yani anlıyor musun. twitter gibi değil. kullanıcı önemsiz. tek gerçek video id'ler. sistem sadece video node'ları arasında connection kurabilmek için geliştirilmiş.\n\ncascade boost mekanizmasına bakalım.. yeni video geldi, #99999 diyelim. tiktok bakıyor, bu videoyu atan hesap daha önce hangi video_id'lerle etkileşime geçmiş? o video_id'lerin cluster'ını buluyor. sonra o cluster'daki videoları izleyen user_id'lere gösteriyor ilk olarak. 200-500 kişilik test grubu böyle oluşuyor. yani hayrına veya keyfine göre veya kafasına göre gruplandırma yapmıyor. biz diyoruz ya hesap ısındırma aslında tiktok'daki en kritik olay. nedeni bu işte. senin hesabın neye etkileşim veriyorsa ilk izlenme kitlen onlar. senin videonu senin gibi adamlara öneriyor yani işte. anladın mı şimdi? sen o ilk 500 görüntülenmende etkileşim alamıyorsun ya. nedeni bu. nedeni senin etkileşim verdiğin kategorileşmedeki adamlar aslında paylaştığın o videoya etkileşim verecek adamlar olmadığı için yürümüyor videon. ha yürüyorsa da zaten bunu doğru yapıyorsun oluyor.\n\nmühendislik açısından baya dahice olay bu arada. çünkü content analysis yapmıyorsun. computer vision, nlp, audio processing hiçbirine gerek yok. hayır istesen de bir yere kadar yapabilirsin zaten. kendini platform sahibi olarak düşünsene. buna nasıl kaynak ayıracaksın? imkansız. sadece user interaction'ları üzerinden video clustering yapıyorsun. computational complexity çok düşük. scalability muazzam. sosyal medyalardaki olay da zaten scalability'dir her zaman.\n\nhadi bir de hayrına twitter'la karşılaştıralım. twitter user merkezli. yani her user'a score veriyor, kategori falan atıyor. bu zaten bariz şekilde ortada. tiktok ise video merkezli. yani user'lar sadece ara katman. twitter'da sen varsın, tiktok'ta sen yoksun, sadece senin oluşturduğun edge'ler var video graph'ında.\n\nşimdi bizi diğerlerinden ayıran neydi? teorik bilgi vermiyor oluşumuzdu. gel pratik kullanımındaki anlamı da anlatalım hızlıca. gittin hesap açtın. hedef nişindeki videoları izliyorsun. aslında yaptığın şey, kendini o video cluster'ının edge provider'ı yapmak. sen bunu yaptıktan sonra video attığında, sistem senin edge history'ne bakıp videoyu doğru cluster'a yerleştiriyor. yani türkçe mealen doğru gruplandırma içinde o video türüne uygun insanlara veriyor içeriği.\n\nilk 200-500 görüntülemede %10+ engagement alamazsan, video yanlış cluster'a düşmüş demektir. sistem diyor ki bu edge'ler yanlış sinyal vermiş, bu video bu grupta değil. hop, ölü doğar video. yani ne demek bu? hesabı yanlış ısındırmışsın demek güzel kardeşim. ısındırma bu yüzden en en en önemlisi. eğer çok genel nişlere viral içerikler paylaşmıyorsan bu konu önemli. eğer niş ürünler satıyorsan, eğer niş konularda kitleye ulaşmayı hedefliyorsan bu önemli.\n\nanladın bence. tiktok'ta sen bir entity değilsin, sadece video node'ları arasında connection oluşturan bir sinyal kaynağısın. algoritma seni takmıyor bile. senin oluşturduğun edge pattern'lere bakıyor sadece. mühendislik harikası derken abartmıyordum. jack'in twitter için yazdığı ml modellerini görseniz aklınız uçar. tüm user'ları değerlendirmek için yaktığı her bir nöron bile aşırı mühendislik içeriyor. tiktok ise sadece daha zeki. kullanıcının değil, içeriğin daha değerli olduğunu anlayıp kurdu bu algoritmayı. zaten o yüzden instagram veya twitter'a nazaran bu platformda viral olmak daha kolay. çünkü senin hesabın, takip ettiklerin, dilin üslubun stilin tarzın falan umrunda değil. bırak viralse kullanıcılar karar versin diyor. bırak viralse kimin paylaştığına bakmadan yürüsün diyor. bugün bu kadar influencer çıkmasının nedeni bu algritma işte. kısacası user database'i sadece video clustering için kullanılıyor. yani sen değilsin önemli olan, senin sinyallerin.\n\nbir gizemi daha ortadan kaldırdık böylece. al şimdi bu bilgilerle ne yapmak istersen onu yap. ama unutma, algoritmaları anlamak her zaman viral içerik anlamına gelmez. viral içerik insan psikolojisini anlamaktır. algoritmalar sadece senin önündeki engeller veya kaldıraçlardır. nasıl çalıştığını anladıysan, sıradaki görevin insan psikolojisi üzerine çalışmak olacak. zaten biliyorum lan ben iyiyim len moduna girme. biliyor olsan şu an her içeriğinle bir şeyler satıyor olurdun. insanların herhalde binde biri belki on binde biri falan bunu yapabiliyor. o yüzden her zaman yaptığın gibi odaklan. saldırmaya devam et. bu bilginin sana tek başına para kazandırmayacağını unutma. sadece önündeki bir engeli daha kaldırdığını bil yeter.\n\ncontent creation konusundaki insan psikolojisi tricklerini de bir başka postta ifşalarım belki. biliyorsun sağım solum pek belli olmuyor. yine de gizleyecek pek bir şeyimiz de yok. ne de olsa olayın bilgiden ziyade kafayı yakıp her gün koşturmak olduğunu sen de biliyorsun artık.",
+            "engagement_score": 9280.69,
+            "like_count": 4408,
+            "retweet_count": 199,
+            "reply_count": 64,
+            "impression_count": 1506281,
+            "created_at": "2025-11-11 07:21:12+00:00"
+          },
+          {
+            "text": "marketing'de bu hikayeye bayılıyorum..\n\nbir coca cola makinesi günde 100 kutu satıyor diyelim. yanına yeni bir pepsi makinesi ekle. coca cola makinesinin 50, pepsi makinesi de 50 tane satar diye düşünür normal insan. ama aslında her makine 200'er tane satmaya başlar.. çünkü tek makine olduğunda insanlar kola almalı mıyım diye düşünür. ama iki makine olduğunda hangi kolayı almalıyım diye düşünür. yani artık satış gerçekleşmiştir. artık olay sadece tercihe iner. büyük markalar bu yüzden tekel olmak istemez. tekel olmak isteyen markalar ise sadece devlet işbirliği kovalayanlardır. apple'ın bu nedenle samsung'u var. spacex'in bu nedenle blue origin'i var. chatgpt'nin bu yüzden claude'u var.\n\ndiyorsunuz ya bazen höcaam. bir fikrim var ama başkası yapmış. diyorum ki ben de, sen de yap. tekel olan adamın yanına seçenek olarak gir. o zaten satıyor. insanları ikna ediyor. sen seçenek ol. insanlar seni görünce ulan bu adamın ürününü mü alsam ötekinin mi diye düşünür. çok eski ama çok tatlı gerçek bir hikaye..",
+            "engagement_score": 9066.85,
+            "like_count": 5072,
+            "retweet_count": 170,
+            "reply_count": 41,
+            "impression_count": 1152990,
+            "created_at": "2025-11-02 11:44:29+00:00"
+          },
+          {
+            "text": "x algoritmaları benim bugüne kadar sahip olduğum en değerli bilgi olabilir. yine de bir kısmını public olarak anlatmamın önünde bir engel görmüyorum.\n\nbugün size tweetcred skorunu ifşalıyorum. belki yarın da dwell time'ı anlatırım. neyse. başlayalım.\n\ntweetcred olayı her hesabın otorite skorunu ölçmek için jack'in geliştirdiği bir skala. her hesap default olarak -128'den başlar. minimum pozitif 17 puana ulaşana kadar da erişim gücü neredeyse sıfır olarak kalır. verified yani mavi tikli hesaplar otomatik +100 puan boost alıyor yani -28'den başlıyor. bio, takip ettiklerin, takip/takipçi ration, postlarının dili, kullandığın üslup falan hep bunu etkiler. kısacası odaklanacaksın işte. hangi türden postlar görüyorsan time'da, onu vereceksin kardeş. bu muameleye de tamah edeceksin. edeceksin ki tweetcred skorun pozitife dönsün. başka türlü dönmez artıya. bunları yap. ha bir de mention at. neyle ilgileniyorsan, bul oradaki top adamları. gir tweetlerine ment at. değer kat destekle ama kendi fikrini ekle üstüne ki hem adam onore olsun hem de mentlerde diğerleri seni görünce ulan bu adam da biliyormuş ha desin. hesabına tık al görenlerden. tweetcred desin ki ulan bu adam merak uyandırıyor ben bunu bi boostlayayım. anladın mı? merak uyandır, değer kat, hazırsın.\n\nsonraaa.... bu dalganın içinde bir de \"shadow hierarchy\" denen bir yapı var. yalı çocuğu yapısı gibi değil ama bu, sahici yapı. odaklan o yüzden. bu dalga kısacası senin karman gibi bir şey. yani yeni hesaplar sadece -128'le başlamakla kalmıyor, aynı zamanda \"engagement debt\" biriktiriyor. daha bilale anlatır gibi ilerleyelim kafan karışmasın. mesela ilk 100 post'ta %0.5'ten düşük like/impression oranın varsa, skor kalıcı olarak -50'ye kadar düşebiliyor ve bu algoritmanın \"cold start suppression\" modunu tetikliyor. öyle olunca da post'ları sadece %10 oranında dağıtıma sokuyor. yani sen normalde post paylaştığında 10 dakikada 1000 kişi görüyorsa, bu algoritmik borç aktifse 100 kişi görür. o 100 kişi öyle delicesine etkileşim verecek ki bu borç sıfırlanıp düzelecek içerik yürüyecek. zor iş. o yüzden twitterda en çok dikkat etmen gereken şey bu debt olayı. negatiflik yapmazsan, trollük yapmazsan, efendi olursan, gerçek insansı etkileşimlere girip değerli bilgiler paylaşırsan, pozitifte kalırsın. nasıl anlayacak ulan pozitifi deme. ben de diyordum. dememem gerekiyormuş. sen hiç deme o yüzden. grok yönetiyor artık arkadaşım burayı da algoritmayı da. robotun insafına kalmış haldeyiz. her postunu değerlendiriyor, bu it pozitif mi negatif mi bakayım bi diyor. dikkat et yani.\n\nbu olay zaten özellikle crypto veya affiliate nişlerinde baya yaygın. mutlaka denk gelmişsindir. duplicate content detector' (yine gizli ama sızdırıldığı için bilinen bir ml modeli) benzer post'ları \"spam chain\" olarak etiketleyip, tüm o post zincirini penalize ediyor. ama verified veya premium hesaplar bu detector'den %30 muafiyet alıyor az önce anlattığım nedenden dolayı.\n\ngirmicem dedim ama.. dwell time decay olayına da değineyim hafifçe. bu dalga sayesinde kullanıcılar postunu 3 saniyeden az incelerse (scroll pass), bu negatif sinyal olarak kaydediliyor ve hesabın genel \"quality multiplier\"ını %15-20 düşürüyor. yani postların algoritmada daha sağlam duvarlara çarpıyor, daha zor yayılıyor. ha bak ama ononbilmeme, soksokbilgiler gibi hesaplar napıyor bunu aşmak için? çeteleşiyor. burner hesaplarla veya arkadaşlarının hesaplarıyla kendi postları için paylaşır paylaşmaz dwell farm yapıyorlar. yani gidiyorlar farklı ip'lerden farklı hesaplardan bu yeni postu açıyorlar, vakit geçirip okur gibi yapıp etkileşimi basıyorlar. algo da şaşıyor tabi. ulan bu bağımsız hesaplardan gelen kaliteli dwell score sinyali diyor. napıyor sonra? basıyor etkileşimi, basıyor görüntülenmeyi. anladın? o yüzden bu soksok hesapların postları genelde 100-200k görüntülenme alır ama rt+fav olaylarında berbat haldelerdir. hackliyorlar akıllarınca algoyu. sonra saçma sapan işten anlamayan adamlara markalara 3-5 bin liraya tweet satıyorlar.\n\nyaaaaani işte durum bu. x algoritması aslında bunlar gibi yaklaşık 30-40 modül tarafından çalıştırılıyor, grok artık bunların kontrolcüsü pozisyonunda. tam kontrol kendisinde değil. daha çok karar agent'i gibi yaklaşacak. bunları anlamadan, algo değişikliklerinden yine kendi çıkarına pek iş yapamazsın yani güzel kardeşim. o yüzden otur araştır. öğren. sor gerekirse. gerçi çok da paylaşmam bu bilgileri sorsan da. eğitimini de çekesim var dox olup yakında. bilemiyorum. sonuçta her yıl yarım yamalak posting ile, sıfır destek ile 300-500m görüntülenme alıyorum. türkiye'nin en büyük topluluğunu falan kurdum büyüttüm. bişeyler biliyorumdur herhalde..\n\nneyse. en azından bu bilgileri beleşe aldın. öyle bak olaya.",
+            "engagement_score": 7098.59,
+            "like_count": 3686,
+            "retweet_count": 134,
+            "reply_count": 53,
+            "impression_count": 1605057,
+            "created_at": "2025-10-19 14:03:57+00:00"
+          },
+          {
+            "text": "kullanmayacaksın. sunum hazırlamak için chatgpt kullanmayacaksın. ne abi bu sihirli değnek mi de her işini yapsın.\n\nsunum için gamma agent kullanacaksın. açacak araştıracak tasarlayacak. şak diye sunumu verecek. sen de ekmeğini yiyeceksin. bir daha da gelmesin bu soru. https://t.co/JDalf5q9wJ",
+            "engagement_score": 6830.42,
+            "like_count": 3455,
+            "retweet_count": 156,
+            "reply_count": 17,
+            "impression_count": 952264,
+            "created_at": "2025-12-05 09:13:31+00:00"
+          },
+          {
+            "text": "hukuk sektörü sallanıyor. kimse konuşmuyor çünkü herkesin işine geliyor. geçen avukat bir arkadaşla konuşuyoruz. aynen şunları söyledi. eskiden bir dava dilekçesi hazırlamak günler sürerdi. emsal ara, kanunu bul, içtihat tarat. tam amelelik. şimdi https://t.co/3i5x4NHGf0 kullanıyorlarmış. tüm türk hukuk külliyatını yutmuş bir sistem. soruyorsun ve tak diye ilgili yargıtay kararını önüne koyuyor. işin komik tarafı şu. faturalar hala manuel emek üzerinden kesiliyor. yani avukat 10 saatlik araştırma parası alıyor ama işi 10 dakikada bitiriyor. buna gizli işsizlik diyorlar ama bence bu düpedüz arbitraj. global modellerin en büyük eksiği buydu. amerika verisiyle eğitilmiş model bizim hukukta çuvallıyor. yerel ve dikey çözüm gerekiyordu. bunu yapan kazanır diyorduk, yapmışlar. hukuk büroları şu an verimlilik sarhoşluğu yaşıyor. ama bu sürdürülebilir değil. yakında müvekkiller de uyanacak. o zaman gerçek rekabet başlayacak işte.",
+            "engagement_score": 6825.61,
+            "like_count": 2088,
+            "retweet_count": 189,
+            "reply_count": 70,
+            "impression_count": 1267898,
+            "created_at": "2025-12-21 16:01:08+00:00"
+          },
+          {
+            "text": "sıra youtube algoritmalarında. korkma twitter kadar karmaşık değil. tiktok kadar mühendislik eseri de değil. muhtemelen daha kolay anlayacaksın. ama odaklan.. önemli bir konu.\n\nönce düşündüm teknik tarafı mı anlatsam yoksa mrbeast'in stratejileri üzerinden gidip uygulamalı mı ilerlesek diye. ama her ikisini ayrı ayrı verdiğimde kafalarda hep bir şeylerin eksik kalacağını fark ettim. o yüzden hepsini birden anlatıyorum tiktok gibi. parça parça gidicez. bilgiler kopuk gibi gelebilir ama yazının sonunda hepsini anlayacaksın merak etme.\n\nşimdi youtube'un bilmen gereken ilk olayı şu. platform seni belirli bir alanda uzmanlaşmış bir tv kanalı gibi görüyor. senin videon değil, senin yarattığın session önemli. yani mesela eleman 5 dakikalık videonu izliyor ya senin, sonra youtube'u kapatıyorsa sen değerli üretici değilsin demek oluyor. ama 5 dakikalık videonu izleyip önerilerden başka video, oradan başka video derken 1 saat takılıyorsa, algoritma tanrıları seni seviyor. session duration deniyor buna. diğer platformlarda yok bu bak. twitter'da engagement, tiktok'ta video clustering, instagram'da dwell time var. dwell hepsine ama ağırlıklı ana mödülleri bunlar. yani kısacası diğer platformlar seni içeriğin ile kullanıcıyı ne kadar platformda tutuğunu ölçerken youtube seni daha genel olarak değerlendirip videon izlense de izlenmese de her izleyeni platformda ne kadar tuttuğunla değerlendiriyor en temelde. session based düşünüyoruz yani yazının ilerleyen kısmında. burayı anladıysak, geçelim seviye 2'ye.\n\nşimdi.. mrbeast neden algoritma tanrılarının favori user'ı bu platformda? çünkü eleman her videoda aynı formülü kullanıyor. progression hook + open loop + session hijacking. ne demek bunlar? gel abi. gel. onu da anlatıcaz tabiki. teorik bilgi yok. her şey açık ve net bizde.\n\nşimdi diyelim ki mrbeast 500 bin dolarlık araba yakıyor videoda. malum her videosu bu formatta biliyorsunuz zaten. ama soracağımız asıl soru şu: nasıl ve neden yapıyor bunu? şimdi klasik bir videosunda mesela 500 bin dolarlık araba yakıcam dediğinde önce 1 dolarlık arabadan başlıyor, 100 dolar, bin dolar, 10bin, 100bin derken finale geliyor. bu işte progression hook. aklında tut bunu. asıl olay başka ama bunu bilmen yardımcı olacak. videonun ilk 5 saniyesinde \"en sonda göstereceğim şey var ama onu sonra konuşuruz\" diyor. bu open loop. beynin merak döngüsüne giriyor, kapatamıyor videoyu. 20 dakika boyunca \"acaba o son şey ne\" diye bekliyor. atlamak da istemiyor videonun en sonuna çünkü adamın open loop'u aslında 2 seçenekli değil. araya 4-5 tane daha ara merak unsuru atmasının sebebi senin izleyen olarak onları da kaçırmak istememek için fomoya düşüyor olman. yani aslında 100 bin dolarlık bir arabanın yakılması umrunda değil. youtube'da bunu tekil bir video olarak görsen muhtelemen tıklamazsın bile. ben tıklamam açıkcası. ama bu arkadaş öyle bir loop'a alıyor ki merak izleyenin merak dürtüsünü, sen her birini atladığında ulan acaba ne kaçırdım fomosuna düşüyorsun. merakına yeniliyorsun. merak yaratıyor yani. insan psikolojisine oyuyor algoritmalar yerine. ah. şansa bak ki algoritmalar da insan psikolojisini anlamaya çalışan makinelerdir. yani sen makine gibi düşünürsen insan psikolojisini anlarsın. algoritmayı da anlarsın. noldu şimdi mrbeast'in taktiğiyle? hop retention %95. youtube görüyor bunu, bu content tanrısı diyor ki bu adamı sevdim. browse features'a basıyor içeriğini.\n\nbak güzel kardeşim. biliyorum karmaşık geliyor çünkü ilk kez bu gözle bakıyorsun. ama yazının sonunda açacaksın chatgpt'ye soracaksın. bana anlat bunu basitçe diyeceksin zaten. odaklan ve okumaya devam et. bağlıcam hepsini şimdi anlayacağın şekilde merak etme.\n\nişin bir de topic authority kısmı var. youtube seni kategorilemek istiyor. tv kanalı gibi düşün dedim ya. haber kanalı mısın, spor kanalı mısın, belgesel mi? karışık içerik atarsan algoritma şaşırıyor. gaming kanalıyken crypto videosu atarsan ölü doğuyor doğal olarak. otorite sistemi var. bir kişi her alanda uzman olamaz malum. algoritma neden izin versin buna. twitter gibi aslında bu özellik. ama 10 tane crypto videosu üst üste atarsan, youtube diyor ki tamam bu arkadaş artık crypto kanalı. yeni cluster'a sokuyorum bunu diyor. burası da tiktok gibi işte. o postu da okumadıysan oku kafan 3 kademe açılır algoritmalar konusunda.\n\nşimdi gelelim shorts olayına. o da buradan geliyor zaten. shorts'ta viral olmak kolay. 1 milyon izlenme kasıyorsun. sonra aynı topic'te long form atıyorsun. youtube bakıyor, bu adam hem short hem long yapıyor bu konuda, authority var bunda diyor. ana sayfaya sokuyor seni. şu an en basitinden youtube algoritma hack bu. tabiki diğer parametreleri anlamadan işine yaramaz. yine de anladıktan sonra kullan.\n\ngeçelim browse ve search traffic ayrımına. ben ne dedim sana? her şeyini anlatıyorum abi. her şeyini. yok öyle 2 satırda algoritma şu bu etkileşim postu. al sana tüm youtube. etkileşim verme bu posta umrumda bile değil. paylaşmak istiyorum paylaşıyorum. şimdi bunlar iki farklı algoritma. search traffic için hala keyword stuffing çalışıyor. title'a, description'a, tag'lere keyword basıyorsun. \"best ai tools 2025\" falan gibi düşün. biliyorsun zaten bunu. ama browse traffic başka. thumbnail ctr'ı ve ilk 1 saatlik performans belirliyor burayı. mesela algonun yaptığı erken fyp test denemesinde %10 ctr alamazsan browse'a giremiyorsun. suggested'a düşemiyorsun. noluyor? 10 saat çekmekle uğraştığın 20 saat edit yaptığın içerik ölüyor.\n\niyi de höcaaaam. ben nası para kazancam yav bu youtube'dan dediğin noktaya geldik sanırım. o yüzden teorik yeter bence. biraz pratik kısmına gelelim. sen ne yapacaksın biliyor musun. önce topic seçeceksin güzel kardeşim. orada consistent kalacaksın. her videon birbirine bağlı olacak. playlist mantığı. sonra her videoda progression yapacaksın. küçükten büyüğe, basitten karmaşığa. merak zinciri kuracaksın. videonun sonunda cliff hanger bırakacaksın. \"bir sonraki videoda bunu göstereceğim\" diyeceksin. session'ı sen kontrol edeceksin. youtube aslında retention'a bakmıyor artık. avd'ye de bakmıyor. session duration'a bakıyor. ne oldugunu yazının başında anlattım. hatırla hemen. sen 2 saatlik video atıyorsun, adam 10 dakika izliyor ama sonra başka videolara geçiyor, 3 saat kalıyor youtube'da. algoritma seni ödüllendiriyor. ama sen 10 dakikalık mükemmel video atıyorsun, herkes sonuna kadar izliyor ama sonra youtube'u kapatıyor ya. o zaman algoritma tanrıları sana bi kötü gözle bakmaya başlıyor, nimetlerini kısıyor.\n\nmrbeast bunu çözdüğü için kazanıyor. her video başka videoya bağlı. her thumbnail merak uyandırıyor. her progression bir sonrakine hazırlıyor. eleman youtube'u netflix'e çevirdi kendi kanalıyla. her içeriğinde sürekli merak zinciri var. sonuna dahi atlamaya çekiniyorsun. anladın bence ya. basit demiştim. ki basit de. twitter gibi tonla karmaşık hesap ml modeli yok. tiktok gibi clustering yok. yazıyı gerekirse ai'a atmadan önce sakin kafayla bir kez daha oku anlayacaksın ne kadar basit oldugunu. sonra aç youtube'u. aç ruhi'nin veya Orkun'un veya sevdiğin ne kadar youtuber varsa onların videolarını. izle bu gözle. görmeye başlayacaksın.\n\nha bu arada unutmadan şunu da söyleyim, hesap ısındırma olayı youtube'da yok. ama kanal ısındırma var. mesela ilk 10 videon aynı topic'te olmazsa algoritma seni random kategorisine atıyor. oradan çıkmak çok zor. o yüzden yeni kanal açtıysan, ilk 10 videoyu aynı konuda at. youtube anlasın sen necisin ne değilsin diye.\n\nalgoritmaları anlamak çok keyifli iş. ama unutma, bunlar sadece kaldıraç. asıl mesele insan psikolojisini anlamak. merak nasıl oluşur, nasıl sürdürülür, nasıl tatmin edilir.. bunu çözersen algoritma zaten seni iter. çözemezsen anlattığım tüm bu teknik bilgi çöpten farksız olur senin hayatında. yani insanları anlamaya çalış. algoritmaların da insanları anlamaya çalışan makineler olduğunu fark et. fark edince yürüyeceksin zaten.\n\nal güzel kardeşim. youtube algoritmasını da ifşaladım. artık twitter, tiktok, instagram, youtube hepsini biliyorsun. reddit kaldı bir tek sanırım. onu da anlatırız. insan psikolojisini ve content creation konularını da belki ileride anlatırım. bilemiyorum şu an. eşref saatlerime bakıyor bu postlar son zamanlarda. gerisi sende yani. bu bilgilerle bir şey yapmak da sende, kaydedip geçmek de sende. şimdi sen bu posta like atsan ne, atmasan ne.. zaten yazdım. zaten anlattım.\n\nsevgiler.",
+            "engagement_score": 6624.07,
+            "like_count": 2746,
+            "retweet_count": 154,
+            "reply_count": 57,
+            "impression_count": 682540,
+            "created_at": "2025-11-19 13:02:50+00:00"
+          },
+          {
+            "text": "adam 7 sülalesine yetecek hayır işlemiş şu postta ya. meta reklamı çıkıyorsanız alın bu yazıyı chatgpt'ye atın bana adım adım tarif et diyin. hatta kontrol falan etsin sizin reklam ayarlarını. al sana aylık 50 binlik ajans hizmeti beleşe. vay arkadaş.",
+            "engagement_score": 6551.71,
+            "like_count": 2796,
+            "retweet_count": 182,
+            "reply_count": 5,
+            "impression_count": 402432,
+            "created_at": "2025-12-05 13:48:20+00:00"
+          },
+          {
+            "text": "bir şeyi başardığımda veya kaybettiğimde aklıma hep ama hep kral solomon'ın hikayesi geliyor.\n\nkral solomon bir gün vezirini çağırmış. demiş ki bana bir yüzük getir. ama öyle bir yüzük olsun ki, en mutlu anımda beni hüzünlendirsin, hüzün anımda da mutlu etsin.\n\nvezir noluyor lan diyememiş tabi. içinden böyle yüzük mü olur birader diyebilmiş sadece. ama kral sonuçta. vermiş görevi. aylar boyunca o yüzüğü aramış. kuyumculara gitmiş, bilgelere sormuş, büyücülerin bile kapısını çalmış... ama kimse istediği şeyi yapamamış.\n\nvezir en sonunda yaşlı bir kuyumcuya denk gelmiş. anlatmış derdini. adam gülmüş. basit demiş. bir gümüş yüzük almış tezgahtan. içine de dört kelime kazımış, vermiş vezire.\n\nvezir koştur koştur akşam saraydaki büyük kutlamaya doğru yola çıkmış. solomon'ın keyfi acayip o sırada tabi. savaşlar kazanılmış, insanlar eğleniyor, dans ediyor. her şey yolunda..\n\nvezir gelmiş eğlence salonuna. kral veziri görünce kahkaha atmış. danslar durmuş, insanlar vezirle kralı izlemeye başlamış. ver de bakalım demiş kral veziri alaya alarak, en yüksekte hissettiği anda. \n\nvezir yüzüğü uzatmış. solomon bakmış yazıya: \"this shall too past\" yazıyormuş. bir an durmuş. yüzü düşmüş. o anki kudretini keyfini birden kaybetmiş. sonra gülümsemiş. anlamış.. en büyük zafer de geçecek. en büyük yenilgi de. o günden sonra hep takmış o yüzüğü.\n\nben de öyle yapıyorum. hayat iyi mi gidiyor? bu da geçecek. kötü mü gidiyor? bu da geçecek.\n\nhayat sadece geçiyor..",
+            "engagement_score": 6499.67,
+            "like_count": 2167,
+            "retweet_count": 191,
+            "reply_count": 34,
+            "impression_count": 287277,
+            "created_at": "2025-11-16 14:20:43+00:00"
+          },
+          {
+            "text": "başarılı olmam gerektiğini hissettiğimde kendime durmadan hatırlattığım bir hikaye var. sanskritçede lila diye bir kavram. tanrıların oyunu anlamına geliyor. divine play. işte onun hikayesi.\n\nçok eski zamanlarda çin’de yeni bir flüt icat ediliyor. japon bir usta da bu flütün sesinin güzelliğini duyunca flütü japonya’ya götürüp ülkenin her yerinde çalmaya başlıyor.\n\nişte bir keresinde, usta yine küçük bir köyde o flütü çaldıktan sonra derin bir sessizlik hakim olmuş. ardından oradaki en yaşlı adam şöyle demiş: tanrısal bir şey gibiydi...\n\nköylüler flüt çalmayı öğrenmenin ne kadar süreceğini sorunca yıllar demiş usta. ancak yanına yetiştirebileceği bir öğrenci almaya da istekliymiş. köylüler de yetenekli ve çalışkan genç bir müzisyen seçmişler ustanın yanına vermek için.\n\nusta bizim genç müzisyene onun çalmayı başaracağı kadar basit bir melodi verdi önce. çalıştı genç. ancak bir şeyler eksikti. genç öğrenci öğretmenini etkilemek için çok sıkı çalıştı, hep denemeye devam etti, fakat hala bir şeyler eksikti.. gittikçe daha fazla çaresizliğe ve hüsrana uğradı. artık müziğini sevmemeye başladı ve sonunda çalmayı bıraktı.\n\nuzun bir süre sonra köyüne döndü tabi. oranın haklı tanıdı elbet. uzun uğraşlarla tekrar çalmaya ikna ettiler. elindeki eski flütüyle birlikte utana sıkıla oturdu ustanın öğrencisi. kazanacak ya da kaybedecek hiçbir şeyi olmadan çaldı. performansının sonunda odada mutlak bir sessizlik hakimdi ve bir yaşlının şöyle dediği duyuldu: tanrısal bir şey gibiydi...\n\nişte sanskritçede buna lila deniyor. divine play. tanrıların oyunu. yani kazanacak bir şeyin varsa zaten kaybetmişsin demektir.\n\nburadan hepinize sesleniyorum. içeriğinizi, girişiminizi veya yaratıcılığınızı öldüren şey sonuca takılı kalmanız. biraz rahatlayın ve oyunu oynayın sadece..\n\nsevgiler.",
+            "engagement_score": 6294.43,
+            "like_count": 2235,
+            "retweet_count": 182,
+            "reply_count": 21,
+            "impression_count": 110458,
+            "created_at": "2025-12-15 00:09:02+00:00"
+          },
+          {
+            "text": "bence anlamıyorsun. ne istiyorsan o olmak zorunda olduğunu anlamıyorsun. takıntılı olmak zorundasın. para kazanmak mı istiyorsun. hep para konuşmalısın. twitterda büyümek mi istiyorsun. yatıp kalkıp burada olmalısın. app çıkartıp 10k mrr mı yapmak istiyorsun. gece gündüz başka hiçbir şey yokmuş gibi buna odaklanmalısın. hayat matrix. ve sırrı basit. ne istiyorsan sadece ona odaklanacaksın. verebildiğin her şeyi vereceksin. karşılık beklemeyeceksin. düşünmeyeceksin. tereddüt etmeyeceksin. istisnasız verebildiğin her şeyini vereceksin.. sonra istediğin şeyler birer birer kendiliğinden gerçek olmaya başlayacak. güven bana. bu işler hep böyle yürümüştür. ve hep böyle yürüyecektir. sevgiler.",
+            "engagement_score": 6072.16,
+            "like_count": 2069,
+            "retweet_count": 182,
+            "reply_count": 23,
+            "impression_count": 259957,
+            "created_at": "2025-12-24 18:34:34+00:00"
+          },
+          {
+            "text": "üretmediğin.\nsürece.\nfikrinin.\nhiçbir.\nönemi.\nyok. https://t.co/if4WZ9rUAt",
+            "engagement_score": 5444.72,
+            "like_count": 2020,
+            "retweet_count": 150,
+            "reply_count": 23,
+            "impression_count": 102344,
+            "created_at": "2025-12-02 10:39:33+00:00"
+          },
+          {
+            "text": "sana nasıl internet parası kazanabileceğini anlatıyorum\n\n1- claude code'a uygulama yaptırtıyorsun\n2- tiktok ve twitter'ı indiriyorsun\n3- post atıyorsun\n\nhttps://t.co/kZSajzoYHT",
+            "engagement_score": 5102.08,
+            "like_count": 2266,
+            "retweet_count": 121,
+            "reply_count": 27,
+            "impression_count": 236360,
+            "created_at": "2026-02-17 08:24:49+00:00"
+          },
+          {
+            "text": "açıkçası bunu paylaşırken elim titriyor biraz. çünkü elimizdeki en büyük kozu masaya koyuyorum şu an. https://t.co/Yb5n93FOpj...\n\nbizim ekibin gizli silahıydı. bir ai düşün senin yerine tweetler üretiyor. 2 ayda bizi bambaşka bir seviyeye taşıdı. 138k takipçi ve 20m görüntülenme getirdi. hem de sıfır reklamla. sadece içerik gücüyle. bu tool'a sadece tweet yazmayı öğretmedim. 10 bin tane kanıtlanmış viral tweetle ve yıllardır tırnaklarımla kazıdığım algoritma bilgimle eğittim. seni tanıyor, senin dilinden konuşuyor ama senden daha zeki davranıyor. villain persona ne demek biliyor, algoritmanın açıklarını tanıyor. maliyetli bir iş, öyle üç kuruşa olacak gibi değil çünkü arkada çalışan modeller çok ağır. ama getirisi de ortada.\n\nkendi içimizde aylardır kullanıyoruz. şimdi sizlere bizim kullandığımız aynı modeli açıyorum. birkaç haftaya yeni başlayanlar için lite plan da getiricem ama şuan biz ne kullanıyorsak o açık.\n\naboneleri private bir telegram grubuna da alıyoruz. üye olduktan sonra dashboard'daki topluluk sayfasına girerseniz sistem sizi yönlendirecek ve topluluğa geleceksiniz. kısacası biz yolu açtık. yürümekse sana kalmış.\n\nve son olarak, bu tweeti de https://t.co/Yb5n93FOpj üretti..",
+            "engagement_score": 4984.11,
+            "like_count": 1447,
+            "retweet_count": 86,
+            "reply_count": 134,
+            "impression_count": 1022265,
+            "created_at": "2026-01-15 11:26:18+00:00"
+          },
+          {
+            "text": "RT @Hailuo_AI: Repost &amp; Follow @Hailuo_AI to win mac mini 😆 Only 30hrs to go⏰",
+            "engagement_score": 4400.0,
+            "like_count": 0,
+            "retweet_count": 220,
+            "reply_count": 0,
+            "impression_count": 0,
+            "created_at": "2026-02-06 04:25:57+00:00"
+          },
+          {
+            "text": "çabuk yetişin.. higgsfield dün gece tüm ai fotoğraf üretme modellerini full ücretsiz yaptı. nano banana. reve. face swap. soul id. flux. hepsi. ve bugünlük de değil yıl boyunca free.\n\nnasıl rekabet edeceksin şu adamla.. sevmeyeceksin de taşa mı döneceksin... 29 kişiye pro hediyesini de bu post altında açılıyorum iyice delirelim...",
+            "engagement_score": 4258.56,
+            "like_count": 1230,
+            "retweet_count": 83,
+            "reply_count": 101,
+            "impression_count": 1188228,
+            "created_at": "2025-11-06 11:34:21+00:00"
+          },
+          {
+            "text": "24 saat hiçbir şeye yetmediği için artık 1 gün 48 saat yapılsın imza kampanyasını başlatıyorum her ment bir destek",
+            "engagement_score": 4025.66,
+            "like_count": 69,
+            "retweet_count": 3,
+            "reply_count": 278,
+            "impression_count": 9458,
+            "created_at": "2026-02-13 00:24:11+00:00"
+          },
+          {
+            "text": "3 haftadır günde 5 gram kreatin 400 mg magnezyum glisinat alıyorum ve vücudum farklı bir makineye döndü\n\nilk hafta hiçbir şey hissetmedim. ikinci hafta uyku kalitesi fark edilir şekilde değişti. sabah hic ağırlık olmadan uyaniyorum. magnezyum glisinatı yatmadan 1 saat önce alıyorum ve beyin sanki kapanma sinyalini daha net alıyor. o yatakta 45 dakika tavana bakma faslı bitti\n\nkreatin tarafında olan şey daha ilginç. antrenman kapasitesi artiyor ok ama beni asıl ilgilendiren bilişsel taraf oldu. öğleden sonra 3 4 gibi beynim normalde bi sislenirdi. şimdi o sis yok. atp üretiminin sadece kas için olmadığını kağıt üstünde biliyordum ama vücudunda deneyimlemek başka bir şey\n\nikisini birlikte almanın sinerjisi de var. magnezyum kreatin emilimini destekliyor, kreatin enerji üretimini, magnezyum o enerjiyi kullandıktan sonra sistemi sakinleştirmeyi üstleniyor. biri gaz biri fren ama ikisi birden çalışınca makine düzgün gidiyor işte",
+            "engagement_score": 3857.51,
+            "like_count": 1383,
+            "retweet_count": 99,
+            "reply_count": 35,
+            "impression_count": 264321,
+            "created_at": "2026-02-28 17:02:02+00:00"
+          },
+          {
+            "text": "&gt;&gt;&gt;&gt;topluluk çekilişi\n\nminimax sessiz sedasız claude code alternatifi oldu. 3 haftadır kullanıyorum. kodlama tarafında ciddi rakip. clawdbota bağlayınca ban riski de yok\n \nsiz de deneyin diye @MiniMax_AI'i takip edip \"minimax\" diye ment atan 50 kişiye 20 dolarlık abonelik hediyem https://t.co/xOIlyf6jft",
+            "engagement_score": 3765.78,
+            "like_count": 203,
+            "retweet_count": 47,
+            "reply_count": 194,
+            "impression_count": 442354,
+            "created_at": "2026-01-30 11:26:13+00:00"
+          },
+          {
+            "text": "ok. ne yapman lazım biliyo musun. aktif olmalısın. %90'ınız sadece post okuyor olm burada. ment bile atmıyorsun. bak like demiyorum insanlara ment at. ment atıp bağ kur. kendi kendine hesabın yürümeye başlar. sonra kendi düşüncelerini bildiklerini post at. şablon falan boşver. yürür tweet paylaşmaya çalışma bile. direkt kendi düşüncen abi. bunu yap ertesi ay iş bulmaya başlarsın. para gelsin diyorsun ama paranın seni görebileceği hiçbir yerde yoksun. nasıl gelsin. şu sosyal medyaya hizmet etmeyi bırak nolursun. yaşadığından haberimiz yok. göster kendini artık.",
+            "engagement_score": 3752.19,
+            "like_count": 1442,
+            "retweet_count": 51,
+            "reply_count": 93,
+            "impression_count": 169977,
+            "created_at": "2026-01-03 12:14:11+00:00"
+          },
+          {
+            "text": "bu tweeti alıntıla ve herhangi bir şey anlat. algoritma tanrıları seni ödüllendirecek. denemesi bedava. https://t.co/qZ4Mr4Oll0",
+            "engagement_score": 3628.23,
+            "like_count": 1043,
+            "retweet_count": 57,
+            "reply_count": 107,
+            "impression_count": 5994481,
+            "created_at": "2025-12-03 12:24:56+00:00"
+          },
+          {
+            "text": "google erken aşamadaki girişimlere 200 bin dolar destek veriyor. dandik işlerle kabul gören çok adam gördüm. mutlaka başvurun para bol gelmiş olacak ki dağıtıyorlar. \n\nhttps://t.co/GrrEFSXPNk https://t.co/gdScPhlwgQ",
+            "engagement_score": 3614.79,
+            "like_count": 1387,
+            "retweet_count": 95,
+            "reply_count": 24,
+            "impression_count": 1436076,
+            "created_at": "2026-01-25 17:22:13+00:00"
+          },
+          {
+            "text": "bundan sonra para kazanmak diye bir laf kullanmıyorsun hayatında. para basmak de. para yapmak de. paranın içinden geçmek de. ama para kazanmak lafını lügatından kaldırıyorsun.",
+            "engagement_score": 3514.11,
+            "like_count": 2097,
+            "retweet_count": 53,
+            "reply_count": 21,
+            "impression_count": 101474,
+            "created_at": "2026-01-02 17:00:24+00:00"
+          }
+        ],
+        "top_keywords": [
+          {
+            "keyword": "algoritmasını",
+            "avg_score": 94630.48
+          },
+          {
+            "keyword": "tanrılarını",
+            "avg_score": 92896.76
+          },
+          {
+            "keyword": "işim",
+            "avg_score": 92634.45
+          },
+          {
+            "keyword": "anlamak",
+            "avg_score": 71371.42
+          },
+          {
+            "keyword": "diyorsun",
+            "avg_score": 47384.53
+          },
+          {
+            "keyword": "höcaam",
+            "avg_score": 41602.17
+          },
+          {
+            "keyword": "yapıyorsun",
+            "avg_score": 35435.16
+          },
+          {
+            "keyword": "full",
+            "avg_score": 32132.11
+          },
+          {
+            "keyword": "tiktok",
+            "avg_score": 22754.83
+          },
+          {
+            "keyword": "minimax",
+            "avg_score": 18797.92
+          },
+          {
+            "keyword": "follow",
+            "avg_score": 17444.56
+          },
+          {
+            "keyword": "first",
+            "avg_score": 16001.58
+          },
+          {
+            "keyword": "mini",
+            "avg_score": 14387.12
+          },
+          {
+            "keyword": "posta",
+            "avg_score": 14055.51
+          },
+          {
+            "keyword": "bugün",
+            "avg_score": 13218.31
+          },
+          {
+            "keyword": "hesabını",
+            "avg_score": 12680.69
+          },
+          {
+            "keyword": "algoritma",
+            "avg_score": 12439.83
+          },
+          {
+            "keyword": "people",
+            "avg_score": 12124.92
+          },
+          {
+            "keyword": "podcast",
+            "avg_score": 12051.08
+          },
+          {
+            "keyword": "dzine",
+            "avg_score": 10298.0
+          },
+          {
+            "keyword": "etmek",
+            "avg_score": 10127.29
+          },
+          {
+            "keyword": "yapman",
+            "avg_score": 10033.82
+          },
+          {
+            "keyword": "benim",
+            "avg_score": 9587.26
+          },
+          {
+            "keyword": "vibe",
+            "avg_score": 8262.57
+          },
+          {
+            "keyword": "mention",
+            "avg_score": 7705.37
+          },
+          {
+            "keyword": "mac",
+            "avg_score": 7677.82
+          },
+          {
+            "keyword": "algoritmayı",
+            "avg_score": 7667.78
+          },
+          {
+            "keyword": "description",
+            "avg_score": 7648.02
+          },
+          {
+            "keyword": "off",
+            "avg_score": 7611.17
+          },
+          {
+            "keyword": "istiyor",
+            "avg_score": 7477.11
+          }
+        ],
+        "most_used_keywords": [
+          {
+            "keyword": "artık",
+            "count": 82
+          },
+          {
+            "keyword": "iyi",
+            "count": 74
+          },
+          {
+            "keyword": "diye",
+            "count": 65
+          },
+          {
+            "keyword": "para",
+            "count": 62
+          },
+          {
+            "keyword": "sadece",
+            "count": 61
+          },
+          {
+            "keyword": "yani",
+            "count": 58
+          },
+          {
+            "keyword": "bile",
+            "count": 57
+          },
+          {
+            "keyword": "değil",
+            "count": 54
+          },
+          {
+            "keyword": "şey",
+            "count": 53
+          },
+          {
+            "keyword": "bak",
+            "count": 52
+          },
+          {
+            "keyword": "adam",
+            "count": 50
+          },
+          {
+            "keyword": "işte",
+            "count": 49
+          },
+          {
+            "keyword": "tek",
+            "count": 49
+          },
+          {
+            "keyword": "şimdi",
+            "count": 46
+          },
+          {
+            "keyword": "çünkü",
+            "count": 46
+          },
+          {
+            "keyword": "yeni",
+            "count": 46
+          },
+          {
+            "keyword": "önce",
+            "count": 45
+          },
+          {
+            "keyword": "kendi",
+            "count": 44
+          },
+          {
+            "keyword": "zaten",
+            "count": 44
+          },
+          {
+            "keyword": "claude",
+            "count": 42
+          },
+          {
+            "keyword": "sana",
+            "count": 42
+          },
+          {
+            "keyword": "bana",
+            "count": 39
+          },
+          {
+            "keyword": "gün",
+            "count": 38
+          },
+          {
+            "keyword": "tüm",
+            "count": 37
+          },
+          {
+            "keyword": "falan",
+            "count": 37
+          },
+          {
+            "keyword": "senin",
+            "count": 36
+          },
+          {
+            "keyword": "aynı",
+            "count": 35
+          },
+          {
+            "keyword": "büyük",
+            "count": 35
+          },
+          {
+            "keyword": "benim",
+            "count": 32
+          },
+          {
+            "keyword": "veya",
+            "count": 31
+          }
+        ],
+        "length_analysis": {
+          "short": {
+            "count": 249,
+            "avg_score": 2343.6
+          },
+          "medium": {
+            "count": 63,
+            "avg_score": 1934.7
+          },
+          "long": {
+            "count": 108,
+            "avg_score": 1484.45
+          }
+        },
+        "question_analysis": {
+          "question_tweets": {
+            "count": 29,
+            "avg_score": 1665.83
+          },
+          "statement_tweets": {
+            "count": 391,
+            "avg_score": 2090.67
+          }
+        },
+        "top_hashtags": [
+          {
+            "tag": "#isbirligi",
+            "count": 12,
+            "avg_score": 655.89
+          },
+          {
+            "tag": "#2",
+            "count": 2,
+            "avg_score": 231.84
+          }
+        ],
+        "best_hours": [
+          {
+            "hour": 20,
+            "avg_score": 13447.93,
+            "tweet_count": 21
+          },
+          {
+            "hour": 0,
+            "avg_score": 3492.24,
+            "tweet_count": 3
+          },
+          {
+            "hour": 15,
+            "avg_score": 2905.87,
+            "tweet_count": 19
+          },
+          {
+            "hour": 14,
+            "avg_score": 2756.35,
+            "tweet_count": 28
+          },
+          {
+            "hour": 13,
+            "avg_score": 2740.96,
+            "tweet_count": 28
+          }
+        ]
+      },
+      "ai_report": ""
+    }
+  }
+}

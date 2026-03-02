@@ -26,34 +26,20 @@ def _safe_int(val) -> int:
 def pull_user_tweets(twikit_client, username: str, count: int = 500,
                      progress_callback=None) -> list[dict]:
     """
-    Pull last N tweets from a user via Twikit.
+    Pull last N tweets from a user via Twikit with full pagination.
     Returns list of tweet dicts with engagement data.
     """
     if not twikit_client or not twikit_client.is_authenticated:
         raise ValueError("Twikit client not authenticated")
 
-    all_tweets = []
-    batch_size = min(count, 100)
-    batches_needed = (count + batch_size - 1) // batch_size
-
-    for batch_num in range(batches_needed):
-        if progress_callback:
-            fetched = len(all_tweets)
-            progress_callback(f"@{username}: {fetched}/{count} tweet çekildi...")
-
-        tweets = twikit_client.get_user_tweets(username, count=batch_size)
-        if not tweets:
-            break
-
-        all_tweets.extend(tweets)
-
-        if len(tweets) < batch_size:
-            break
+    tweets = twikit_client.get_user_tweets(
+        username, count=count, progress_callback=progress_callback
+    )
 
     if progress_callback:
-        progress_callback(f"@{username}: {len(all_tweets)} tweet çekildi. Analiz yapılıyor...")
+        progress_callback(f"@{username}: {len(tweets)} tweet çekildi. Analiz yapılıyor...")
 
-    return all_tweets[:count]
+    return tweets
 
 
 def calculate_engagement_score(tweet: dict) -> float:

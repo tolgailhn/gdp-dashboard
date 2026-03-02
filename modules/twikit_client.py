@@ -221,13 +221,15 @@ class TwikitSearchClient:
             print(f"Twikit search error: {e}")
         return results
 
-    def get_user_tweets(self, username: str, count: int = 10) -> list[dict]:
-        """Get recent tweets from a user. Returns list of tweet dicts."""
+    def get_user_tweets(self, username: str, count: int = 10,
+                        progress_callback=None) -> list[dict]:
+        """Get recent tweets from a user with pagination. Returns list of tweet dicts."""
         if not self._authenticated:
             return []
-        return _run_async(self._user_tweets_async(username, count))
+        return _run_async(self._user_tweets_async(username, count, progress_callback))
 
-    async def _user_tweets_async(self, username: str, count: int) -> list[dict]:
+    async def _user_tweets_async(self, username: str, count: int,
+                                  progress_callback=None) -> list[dict]:
         results = []
         try:
             client = self._get_client()
@@ -235,13 +237,60 @@ class TwikitSearchClient:
             if not user:
                 return results
 
-            tweets = await client.get_user_tweets(user.id, 'Tweets', count=count)
-            for tweet in tweets:
-                d = self._tweet_to_dict(tweet)
-                d['author_name'] = user.name or username
-                d['author_username'] = user.screen_name or username
-                d['author_profile_image'] = getattr(user, 'profile_image_url', '') or ''
-                results.append(d)
+            cursor = None
+            seen_ids = set()
+            max_pages = (count // 20) + 2  # Safety limit
+
+            for page in range(max_pages):
+                if len(results) >= count:
+                    break
+
+                if progress_callback:
+                    progress_callback(
+                        f"@{username}: {len(results)}/{count} tweet çekiliyor... (sayfa {page + 1})"
+                    )
+
+                try:
+                    if cursor:
+                        tweets = await cursor.next()
+                    else:
+                        tweets = await client.get_user_tweets(
+                            user.id, 'Tweets', count=min(count, 20)
+                        )
+
+                    if not tweets:
+                        break
+
+                    cursor = tweets
+                    new_count = 0
+
+                    for tweet in tweets:
+                        tweet_id = str(getattr(tweet, 'id', ''))
+                        if tweet_id in seen_ids:
+                            continue
+                        seen_ids.add(tweet_id)
+
+                        d = self._tweet_to_dict(tweet)
+                        d['author_name'] = user.name or username
+                        d['author_username'] = user.screen_name or username
+                        d['author_profile_image'] = getattr(user, 'profile_image_url', '') or ''
+                        results.append(d)
+                        new_count += 1
+
+                        if len(results) >= count:
+                            break
+
+                    # No new tweets found, stop paginating
+                    if new_count == 0:
+                        break
+
+                except Exception as page_err:
+                    err_name = type(page_err).__name__
+                    if err_name in ("StopIteration", "StopAsyncIteration"):
+                        break  # No more pages
+                    print(f"Twikit pagination error (page {page + 1}): {page_err}")
+                    break
+
         except Exception as e:
             self.last_error = f"Kullanıcı tweet hatası (@{username}): {type(e).__name__}: {e}"
             print(f"Twikit user tweets error ({username}): {e}")

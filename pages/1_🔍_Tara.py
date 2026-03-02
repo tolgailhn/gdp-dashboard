@@ -6,7 +6,10 @@ import streamlit as st
 import datetime
 from collections import defaultdict
 from modules.ui_components import inject_custom_css, check_password, render_tweet_card, get_secret, render_sidebar_nav
-from modules.twitter_scanner import TwitterScanner, DEFAULT_AI_ACCOUNTS, is_turkish_account, generate_content_summary, MIN_FOLLOWER_COUNT_DISCOVER
+from modules.twitter_scanner import (
+    TwitterScanner, DEFAULT_AI_ACCOUNTS, is_turkish_account,
+    generate_content_summary, MIN_FOLLOWER_COUNT_DISCOVER, is_ai_relevant
+)
 from modules.style_manager import load_monitored_accounts
 
 # Page config
@@ -365,14 +368,36 @@ with main_tab2:
             key="discover_max"
         )
 
-    # Extra discovery queries — broader than the standard ones (English only)
+    # === AI DEVELOPMENT DISCOVERY QUERIES ===
+    # Specific AI model names + action verbs (avoids zodiac/gaming false positives)
     DISCOVER_QUERIES = [
-        "(AI OR artificial intelligence) (just released OR just launched OR just announced) -is:retweet lang:en min_faves:50",
-        "(new AI tool OR new AI model OR new LLM) -is:retweet lang:en min_faves:20",
-        "(AI startup OR AI company) (launch OR announce OR raise) -is:retweet lang:en min_faves:30",
-        "(foundation model OR frontier model) (release OR open source OR benchmark) -is:retweet lang:en min_faves:30",
-        "(AI coding OR AI agent OR AI assistant) (new OR update OR release) -is:retweet lang:en min_faves:20",
-        "(GPT OR Claude OR Gemini OR Llama) (release OR update OR benchmark) -is:retweet lang:en min_faves:30",
+        # Model releases & launches
+        '("new AI model" OR "new LLM" OR "just released" OR "just launched") (AI OR model OR LLM) -is:retweet lang:en min_faves:50',
+        # Specific model names with AI context (NOT generic "Gemini" etc.)
+        '(ChatGPT OR "GPT-4" OR "GPT-5" OR "Claude 4" OR "Claude Opus" OR "Claude Sonnet" OR "Gemini Pro" OR "Gemini Ultra" OR "Gemini 2") -is:retweet lang:en min_faves:30',
+        '(DeepSeek OR Qwen OR "Llama 4" OR "Llama 3" OR Mixtral OR Mistral OR Grok) (model OR release OR update OR benchmark) -is:retweet lang:en min_faves:30',
+        # AI tools & coding
+        '(Cursor OR Windsurf OR "GitHub Copilot" OR Devin OR "v0.dev" OR "bolt.new" OR Replit) (AI OR update OR release OR new) -is:retweet lang:en min_faves:20',
+        # AI agents & frameworks
+        '("AI agent" OR "AI agents" OR agentic OR "function calling" OR MCP OR "tool use") -is:retweet lang:en min_faves:30',
+        # Open source & benchmarks
+        '("open source" OR "open-source") (model OR AI OR LLM) (release OR new OR weights) -is:retweet lang:en min_faves:30',
+        '(benchmark OR MMLU OR HumanEval OR leaderboard OR SOTA) (AI OR model OR LLM) -is:retweet lang:en min_faves:30',
+        # AI companies & industry
+        '(OpenAI OR Anthropic OR "Google DeepMind" OR "Meta AI" OR xAI) (announce OR release OR launch OR update) -is:retweet lang:en min_faves:50',
+        # Generative AI (image/video)
+        '("Stable Diffusion" OR Midjourney OR "DALL-E" OR Sora OR Runway OR Flux) (new OR update OR release) -is:retweet lang:en min_faves:30',
+        # AI infrastructure
+        '(NVIDIA OR H100 OR H200 OR B200 OR "AI chip" OR TPU) (AI OR training OR inference) -is:retweet lang:en min_faves:40',
+    ]
+
+    # === GITHUB REPO DISCOVERY QUERIES ===
+    GITHUB_QUERIES = [
+        '(github.com) (AI OR LLM OR "machine learning" OR "deep learning" OR GPT OR agent) -is:retweet lang:en min_faves:20',
+        '("open source" OR "open-source") (github.com OR huggingface.co) (AI OR model OR tool) -is:retweet lang:en min_faves:15',
+        '(github.com) ("star" OR "stars" OR "just released" OR "check out" OR "built" OR repo) (AI OR LLM OR ML) -is:retweet lang:en min_faves:10',
+        '(huggingface.co OR "Hugging Face") (model OR dataset OR space) (new OR release OR open) -is:retweet lang:en min_faves:15',
+        '(arxiv.org) (AI OR LLM OR "machine learning" OR transformer OR diffusion) -is:retweet lang:en min_faves:20',
     ]
 
     discover_clicked = st.button("🌐 Keşfet", type="primary", use_container_width=True, key="discover_button")
@@ -403,68 +428,126 @@ with main_tab2:
                 from modules.twitter_scanner import is_spam, categorize_topic, calculate_relevance
 
                 all_discover = []
+                github_discover = []
                 seen_ids = set()
                 start_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=discover_time)
 
-                # Search with discovery queries
+                progress_bar = st.progress(0)
+                total_queries = len(DISCOVER_QUERIES) + len(GITHUB_QUERIES)
+                query_idx = 0
+
+                def _process_tweet(t, target_list):
+                    """Filter and process a single tweet result."""
+                    if t.id in seen_ids or is_spam(t.text):
+                        return
+                    # Filter Turkish accounts
+                    if is_turkish_account(t.text, t.author_name):
+                        return
+                    # Filter low-follower accounts
+                    if t.author_followers_count > 0 and t.author_followers_count < MIN_FOLLOWER_COUNT_DISCOVER:
+                        return
+                    # AI relevance check — reject zodiac, gaming, fashion etc.
+                    if not is_ai_relevant(t.text):
+                        return
+                    seen_ids.add(t.id)
+                    t.category = categorize_topic(t.text)
+                    t.relevance_score = calculate_relevance(t, discover_time)
+                    t.content_summary = generate_content_summary(t.text, t.category)
+                    target_list.append(t)
+
+                # Search with AI discovery queries
                 for query in DISCOVER_QUERIES:
                     try:
                         results = scanner._search_tweets(query, start_time, discover_max)
                         for t in results:
-                            if t.id not in seen_ids and not is_spam(t.text):
-                                # Filter Turkish accounts
-                                if is_turkish_account(t.text, t.author_name):
-                                    continue
-                                # Filter low-follower accounts
-                                if t.author_followers_count > 0 and t.author_followers_count < MIN_FOLLOWER_COUNT_DISCOVER:
-                                    continue
-                                seen_ids.add(t.id)
-                                t.category = categorize_topic(t.text)
-                                t.relevance_score = calculate_relevance(t, discover_time)
-                                t.content_summary = generate_content_summary(t.text, t.category)
-                                all_discover.append(t)
+                            _process_tweet(t, all_discover)
                     except Exception:
-                        continue
+                        pass
+                    query_idx += 1
+                    progress_bar.progress(query_idx / total_queries)
+
+                # Search with GitHub repo queries
+                for query in GITHUB_QUERIES:
+                    try:
+                        results = scanner._search_tweets(query, start_time, discover_max)
+                        for t in results:
+                            _process_tweet(t, github_discover)
+                    except Exception:
+                        pass
+                    query_idx += 1
+                    progress_bar.progress(query_idx / total_queries)
+
+                progress_bar.empty()
 
                 # Filter out tweets from accounts we already track
                 custom_accs = load_monitored_accounts()
                 tracked_lower = {a.lower() for a in DEFAULT_AI_ACCOUNTS + custom_accs}
                 new_discoveries = [t for t in all_discover if t.author_username.lower() not in tracked_lower]
-
-                # Also keep tracked results separately
                 tracked_discoveries = [t for t in all_discover if t.author_username.lower() in tracked_lower]
+
+                # GitHub results (separate, don't filter tracked accounts — repos are always useful)
+                github_results = sorted(github_discover, key=lambda t: t.relevance_score, reverse=True)
 
                 new_discoveries.sort(key=lambda t: t.relevance_score, reverse=True)
                 tracked_discoveries.sort(key=lambda t: t.relevance_score, reverse=True)
 
                 st.session_state.discover_new = new_discoveries
                 st.session_state.discover_tracked = tracked_discoveries
+                st.session_state.discover_github = github_results
 
             except Exception as e:
                 st.error(f"Keşfet hatası: {e}")
 
-    # Display discover results
+    # === DISPLAY DISCOVER RESULTS ===
     if "discover_new" in st.session_state:
         new_items = st.session_state.discover_new
         tracked_items = st.session_state.get("discover_tracked", [])
+        github_items = st.session_state.get("discover_github", [])
 
+        # --- GitHub Repos Section ---
+        if github_items:
+            st.markdown(f"### 📦 GitHub / Açık Kaynak ({len(github_items)} paylaşım)")
+            st.caption("AI ile ilgili GitHub repo ve açık kaynak proje paylaşımları")
+
+            for i, t in enumerate(github_items[:15]):
+                render_tweet_card(t, key_prefix=f"gh_{i}")
+
+                gh_col1, gh_col2, gh_col3 = st.columns([1, 1, 1])
+                with gh_col1:
+                    if st.button("✍️ Yaz", key=f"gh_write_{i}", use_container_width=True):
+                        st.session_state.selected_topic = {
+                            "text": t.text, "author": t.author_username,
+                            "url": t.url, "id": t.id, "category": t.category,
+                        }
+                        st.switch_page("pages/2_✍️_Yaz.py")
+                with gh_col2:
+                    if st.button("💬 Quote", key=f"gh_quote_{i}", use_container_width=True):
+                        st.session_state.quote_topic = {
+                            "text": t.text, "author": t.author_username,
+                            "url": t.url, "id": t.id,
+                        }
+                        st.session_state.write_mode = "quote"
+                        st.switch_page("pages/2_✍️_Yaz.py")
+                with gh_col3:
+                    st.link_button("🔗 X'te Aç", t.url, use_container_width=True)
+
+            st.markdown("---")
+
+        # --- AI Developments Section ---
         if new_items:
-            # Show new accounts found
             new_accounts = defaultdict(list)
             for t in new_items:
                 new_accounts[t.author_username].append(t)
 
             sorted_new = sorted(new_accounts.items(), key=lambda x: -max(t.engagement_score for t in x[1]))
 
-            st.markdown(f"### 🆕 Yeni Hesaplardan {len(new_items)} tweet ({len(sorted_new)} farklı hesap)")
-            st.caption("Bu hesaplar izleme listende yok ama AI hakkında paylaşım yapıyorlar")
+            st.markdown(f"### 🆕 AI Gelişmeleri — {len(new_items)} tweet ({len(sorted_new)} farklı hesap)")
+            st.caption("AI hakkında paylaşım yapan yeni hesaplar")
 
             for acc_name, acc_tweets in sorted_new[:20]:
-                best = max(acc_tweets, key=lambda t: t.engagement_score)
                 total_eng = sum(t.like_count + t.retweet_count for t in acc_tweets)
 
                 with st.expander(f"@{acc_name} — {len(acc_tweets)} tweet | Etkileşim: {total_eng:,}"):
-                    # Add to tracked button
                     if st.button(f"➕ @{acc_name} hesabını izleme listesine ekle", key=f"add_{acc_name}"):
                         from modules.style_manager import save_monitored_accounts
                         current = load_monitored_accounts()
@@ -496,8 +579,8 @@ with main_tab2:
                                 st.switch_page("pages/2_✍️_Yaz.py")
                         with dcol3:
                             st.link_button("🔗 X'te Aç", t.url, use_container_width=True)
-        else:
-            st.info("Yeni hesaplardan AI içerik bulunamadı. Zaman aralığını artırmayı deneyin.")
+        elif not github_items:
+            st.info("AI içerik bulunamadı. Zaman aralığını artırmayı deneyin.")
 
         if tracked_items:
             with st.expander(f"📌 İzlenen hesaplardan da {len(tracked_items)} trend tweet bulundu"):
@@ -505,4 +588,4 @@ with main_tab2:
                     render_tweet_card(t, key_prefix=f"disc_tracked_{i}")
     elif not discover_clicked:
         st.info("💡 Keşfet butonuna basarak takip etmediğin hesaplardan AI gelişmelerini bul. "
-                "Beğendiğin hesapları izleme listene ekleyebilirsin.")
+                "GitHub repo paylaşımları ayrı gösterilir.")

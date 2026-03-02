@@ -113,6 +113,72 @@ SPAM_PATTERNS = [
     r"(?i)(alpha leak|insider info|you won'?t believe|secret.{0,10}reveal)",
 ]
 
+# Non-AI content patterns — these indicate the tweet is NOT about AI tech
+# Used to filter out false positives (e.g. "Gemini" zodiac, "Agent" movie, etc.)
+NOT_AI_PATTERNS = [
+    # Astrology / Zodiac — "Gemini" is both a zodiac sign and Google's AI
+    r"(?i)\b(zodiac|horoscope|astrology|natal chart|birth chart|mercury retrograde)\b",
+    r"(?i)\b(aries|taurus|cancer|leo|virgo|libra|scorpio|sagittarius|capricorn|aquarius|pisces)\b",
+    r"(?i)\b(eclipse|full moon|new moon|lunar|solar return|rising sign|moon sign|sun sign)\b",
+    r"(?i)\b(tarot|psychic|spiritual|manifestation|crystals|chakra|numerology)\b",
+    # Entertainment / Gaming — "agent", "model", etc. have non-AI meanings
+    r"(?i)\b(movie|film|trailer|season \d|episode \d|netflix|disney|marvel|dc comics)\b",
+    r"(?i)\b(fortnite|valorant|league of legends|call of duty|xbox|playstation|nintendo)\b",
+    r"(?i)\b(fashion model|runway model|modeling agency|photo shoot|vogue|magazine cover)\b",
+    # Sports
+    r"(?i)\b(nba|nfl|fifa|premier league|champions league|world cup|touchdown|goal scored)\b",
+    # Crypto/Finance (not AI-related)
+    r"(?i)\b(bitcoin|ethereum|solana|dogecoin|memecoin|defi|nft collection|token launch)\b",
+    # Music
+    r"(?i)\b(album drop|new single|concert|tour dates|spotify|billboard|grammy)\b",
+    # Politics
+    r"(?i)\b(election|democrat|republican|congress|senate|parliament|vote for)\b",
+]
+
+# AI-relevance keywords — at least one must appear for a tweet to be considered AI-related
+AI_RELEVANCE_KEYWORDS = [
+    # Core AI terms
+    "artificial intelligence", "machine learning", "deep learning", "neural network",
+    "large language model", "LLM", "NLP", "natural language",
+    # Model names and companies
+    "GPT", "GPT-4", "GPT-5", "ChatGPT", "OpenAI", "o1", "o3", "o4",
+    "Claude", "Anthropic", "Sonnet", "Opus", "Haiku",
+    "Gemini Pro", "Gemini Ultra", "Gemini 2", "Google AI", "DeepMind",
+    "Llama", "Llama 3", "Llama 4", "Meta AI",
+    "Mistral", "Mixtral", "Qwen", "DeepSeek",
+    "Grok", "xAI",
+    "Copilot", "GitHub Copilot",
+    "Stable Diffusion", "Midjourney", "DALL-E", "Sora", "Runway",
+    "Whisper", "Codex",
+    # Technical terms
+    "transformer", "attention mechanism", "fine-tuning", "fine tuning",
+    "RLHF", "reinforcement learning", "inference", "tokenizer",
+    "embedding", "vector database", "RAG", "retrieval augmented",
+    "prompt engineering", "chain of thought", "CoT",
+    "multimodal", "vision language", "text-to-image", "text-to-video",
+    "text-to-speech", "speech-to-text",
+    "diffusion model", "generative AI", "gen AI", "genAI",
+    "foundation model", "frontier model", "AI model",
+    "AI agent", "AI agents", "agentic", "tool use", "function calling",
+    "AI coding", "AI code", "code generation",
+    "AI safety", "AI alignment", "AI regulation",
+    "benchmark", "MMLU", "HumanEval", "GPQA", "ARC",
+    "open source model", "open-source model", "weights released",
+    "SOTA", "state-of-the-art", "state of the art",
+    # Tools and platforms
+    "Cursor", "Windsurf", "Replit", "v0.dev", "bolt.new",
+    "Hugging Face", "HuggingFace", "Ollama", "vLLM", "LangChain", "LlamaIndex",
+    "AutoGPT", "CrewAI", "Devin",
+    "Perplexity", "NotebookLM", "AI Studio",
+    # GitHub/repo terms
+    "github.com", "open source", "open-source", "repository", "repo",
+    "huggingface.co", "arxiv.org",
+    # Industry
+    "AI startup", "AI company", "AI lab", "AI chip", "AI infrastructure",
+    "GPU", "NVIDIA", "H100", "H200", "B200", "TPU",
+    "data center", "compute", "training run",
+]
+
 # Minimum content quality thresholds
 MIN_TWEET_LENGTH = 50  # Skip very short tweets
 MIN_FOLLOWER_COUNT_DISCOVER = 1000  # Min followers for discover results
@@ -178,6 +244,28 @@ CONTENT_SUMMARY_MAP = {
     "AWS": "AWS/Amazon gelişmesi",
     "Azure": "Azure/Microsoft gelişmesi",
     "competition": "Rekabet/yarış",
+    "github.com": "GitHub repo paylaşımı",
+    "repository": "Açık kaynak repo",
+    "pip install": "Python paketi",
+    "npm install": "NPM paketi",
+    "docker": "Docker/konteyner",
+    "huggingface.co": "HuggingFace modeli",
+    "arxiv.org": "Araştırma makalesi",
+    "Cursor": "Cursor IDE gelişmesi",
+    "Windsurf": "Windsurf IDE gelişmesi",
+    "Copilot": "GitHub Copilot gelişmesi",
+    "Devin": "AI kodlama ajanı",
+    "MCP": "Model Context Protocol",
+    "context window": "Bağlam penceresi güncellemesi",
+    "H100": "NVIDIA H100 GPU",
+    "H200": "NVIDIA H200 GPU",
+    "B200": "NVIDIA B200 GPU",
+    "MMLU": "MMLU benchmark sonucu",
+    "leaderboard": "Liderlik tablosu",
+    "Perplexity": "Perplexity AI gelişmesi",
+    "DeepSeek": "DeepSeek modeli gelişmesi",
+    "Grok": "Grok modeli gelişmesi",
+    "xAI": "xAI gelişmesi",
 }
 
 
@@ -220,9 +308,12 @@ def generate_content_summary(text: str, category: str) -> str:
         "Araştırma": "AI araştırması",
         "Benchmark": "Performans karşılaştırması",
         "Açık Kaynak": "Açık kaynak gelişmesi",
+        "GitHub/Repo": "GitHub repo paylaşımı",
         "API/Platform": "Platform/API gelişmesi",
         "AI Ajanlar": "AI ajan gelişmesi",
+        "AI Araçlar": "AI araç gelişmesi",
         "Görüntü/Video": "Görsel/video AI gelişmesi",
+        "Donanım": "AI donanım gelişmesi",
         "Endüstri": "Endüstri gelişmesi",
         "Genel": "AI gelişmesi",
     }
@@ -241,15 +332,29 @@ def _safe_int(val) -> int:
 
 # Category keywords for classification
 CATEGORY_KEYWORDS = {
-    "Yeni Model": ["new model", "release", "launch", "introducing", "announce", "unveiled"],
-    "Model Güncelleme": ["update", "upgrade", "improved", "v2", "v3", "v4", "new version", "patch"],
-    "Araştırma": ["paper", "research", "study", "findings", "arxiv", "published"],
-    "Benchmark": ["benchmark", "SOTA", "state-of-the-art", "outperforms", "beats", "score"],
-    "Açık Kaynak": ["open source", "open-source", "github", "huggingface", "weights released"],
-    "API/Platform": ["API", "platform", "developer", "SDK", "endpoint", "pricing"],
-    "AI Ajanlar": ["agent", "agentic", "autonomous", "tool use", "function calling"],
-    "Görüntü/Video": ["image", "video", "diffusion", "generation", "Sora", "DALL-E", "Midjourney"],
-    "Endüstri": ["acquisition", "funding", "partnership", "billion", "valuation", "IPO"],
+    "Yeni Model": ["new model", "release", "launch", "introducing", "announce", "unveiled",
+                    "just released", "just launched", "now available"],
+    "Model Güncelleme": ["update", "upgrade", "improved", "v2", "v3", "v4", "new version", "patch",
+                         "new feature", "changelog"],
+    "Araştırma": ["paper", "research", "study", "findings", "arxiv", "published", "preprint"],
+    "Benchmark": ["benchmark", "SOTA", "state-of-the-art", "outperforms", "beats", "score",
+                   "MMLU", "HumanEval", "leaderboard", "evaluation"],
+    "Açık Kaynak": ["open source", "open-source", "huggingface", "weights released",
+                     "model weights", "Apache 2.0", "MIT license"],
+    "GitHub/Repo": ["github.com", "repository", "repo", "star", "fork", "pull request",
+                     "pip install", "npm install", "docker", "readme"],
+    "API/Platform": ["API", "platform", "developer", "SDK", "endpoint", "pricing",
+                     "rate limit", "context window", "token limit"],
+    "AI Ajanlar": ["agent", "agentic", "autonomous", "tool use", "function calling",
+                    "MCP", "computer use", "browser use"],
+    "AI Araçlar": ["AI tool", "AI app", "Cursor", "Windsurf", "Copilot", "Replit",
+                    "v0.dev", "bolt.new", "Devin", "IDE", "code editor"],
+    "Görüntü/Video": ["image", "video", "diffusion", "generation", "Sora", "DALL-E",
+                       "Midjourney", "Stable Diffusion", "Flux", "text-to-image", "text-to-video"],
+    "Donanım": ["GPU", "TPU", "H100", "H200", "B200", "chip", "NVIDIA", "data center",
+                 "inference chip", "AI chip", "compute"],
+    "Endüstri": ["acquisition", "funding", "partnership", "billion", "valuation", "IPO",
+                  "Series A", "Series B", "raised", "investment"],
 }
 
 
@@ -269,6 +374,37 @@ def is_spam(text: str) -> bool:
     if len(text_no_urls) < 30:
         return True
 
+    return False
+
+
+def is_ai_relevant(text: str) -> bool:
+    """Check if a tweet is actually about AI/tech, not zodiac/gaming/etc."""
+    text_lower = text.lower()
+
+    # First: check if it matches any NOT-AI pattern (strong negative signal)
+    not_ai_score = 0
+    for pattern in NOT_AI_PATTERNS:
+        matches = re.findall(pattern, text)
+        not_ai_score += len(matches)
+
+    # If 2+ non-AI matches, very likely not about AI
+    if not_ai_score >= 2:
+        return False
+
+    # Second: check if at least one AI keyword exists
+    for kw in AI_RELEVANCE_KEYWORDS:
+        if kw.lower() in text_lower:
+            return True
+
+    # Third: check for AI-related URLs
+    if "github.com" in text_lower or "huggingface.co" in text_lower or "arxiv.org" in text_lower:
+        return True
+
+    # If 1 non-AI match and no AI keywords, reject
+    if not_ai_score >= 1:
+        return False
+
+    # No AI keywords found at all — not relevant
     return False
 
 

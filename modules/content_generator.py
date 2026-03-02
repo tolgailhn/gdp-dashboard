@@ -769,10 +769,13 @@ Bu bir tweet, blog yazısı değil. Şu kurallara kesinlikle uy:
                            style: str, additional_context: str,
                            max_length: int, thread_mode: bool) -> str:
         """Build the user prompt"""
+        # Cap topic text to prevent token overflow (research summaries can be huge)
+        safe_topic = topic_text[:5000] if len(topic_text) > 5000 else topic_text
+
         prompt = f"""Aşağıdaki AI gelişmesi/konusu hakkında bir tweet yaz.
 
 KONU:
-{topic_text}
+{safe_topic}
 
 {f"KAYNAK: {topic_source}" if topic_source else ""}
 {f"EK TALİMATLAR: {additional_context}" if additional_context else ""}

@@ -951,7 +951,7 @@ def research_topic_from_text(
         # In deep mode, search wider time range and more tweets per query
         search_hours = max(time_hours, 48) if is_deep_mode else time_hours
         start = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=search_hours)
-        per_query = 30 if is_deep_mode else 20
+        per_query = 15 if is_deep_mode else 20
 
         seen_ids = set()
 
@@ -1005,8 +1005,8 @@ def research_topic_from_text(
         # Sort by engagement
         result.x_tweets.sort(key=lambda x: x.get("likes", 0) + x.get("retweets", 0) * 2, reverse=True)
 
-        # Keep more tweets for deep personal mode
-        max_keep = 80 if is_deep_mode else 25
+        # Keep top tweets sorted by engagement
+        max_keep = 35 if is_deep_mode else 25
         result.x_tweets = result.x_tweets[:max_keep]
 
         if progress_callback:
@@ -1216,11 +1216,11 @@ def _compile_topic_research_summary(r: TopicResearchResult) -> str:
 
     # X tweets — ALWAYS the primary source
     if r.x_tweets:
-        parts.append(f"\n## X'TE SON PAYLAŞIMLAR ({len(r.x_tweets)} tweet):")
+        show_count = 10 if r.search_mode == "x_deep" else 15
+        parts.append(f"\n## X'TE SON PAYLAŞIMLAR ({len(r.x_tweets)} tweet, en iyi {show_count} gösteriliyor):")
         parts.append("(Bu tweetler konuyla ilgili EN GÜNCEL bilgiler — BİRİNCİL KAYNAĞIN BUNLAR!)\n")
-        for i, tw in enumerate(r.x_tweets[:15], 1):
-            parts.append(f"  {i}. @{tw['author']} ({tw['likes']} beğeni, {tw['retweets']} RT):")
-            parts.append(f"     {tw['text'][:400]}")
+        for i, tw in enumerate(r.x_tweets[:show_count], 1):
+            parts.append(f"  {i}. @{tw['author']} ({tw['likes']}L {tw['retweets']}RT): {tw['text'][:250]}")
 
     # Web content only if search_mode was x_and_web
     if r.search_mode == "x_and_web":

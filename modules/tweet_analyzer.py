@@ -388,8 +388,36 @@ def load_tweet_analysis(username: str, session_state=None) -> dict | None:
     return None
 
 
+def _auto_import_export_files():
+    """Auto-import any export JSON files found in data/ folder into tweet_analyses/."""
+    imported = 0
+    for path in DATA_DIR.glob("tweet_analyses_export*.json"):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if data.get("type") != "tweet_analyses_export":
+                continue
+            analyses = data.get("analyses", {})
+            if not analyses:
+                continue
+            ANALYSES_DIR.mkdir(parents=True, exist_ok=True)
+            for username, analysis_data in analyses.items():
+                dest = ANALYSES_DIR / f"{username.lower()}.json"
+                if not dest.exists():
+                    with open(dest, "w", encoding="utf-8") as f:
+                        json.dump(analysis_data, f, ensure_ascii=False, indent=2, default=str)
+                    imported += 1
+        except Exception:
+            continue
+    return imported
+
+
 def load_all_analyses(session_state=None) -> list[dict]:
-    """Load all analyses — merges session_state and file system."""
+    """Load all analyses — merges session_state and file system.
+    Also auto-imports any export files found in data/ folder."""
+    # Auto-import export files from data/ folder (only writes missing ones)
+    _auto_import_export_files()
+
     analyses_map = {}
 
     # Load from files first
@@ -485,13 +513,67 @@ def import_analyses_from_json(json_str: str, session_state=None) -> int:
     return count
 
 
+def _extract_writing_dna(tweets: list[dict]) -> dict:
+    """Extract writing style patterns (DNA) from a list of tweets."""
+    if not tweets:
+        return {}
+
+    texts = [t.get("text", "") for t in tweets if t.get("text", "")]
+
+    # Hook patterns — first lines of tweets
+    hooks = []
+    for text in texts:
+        first_line = text.split("\n")[0].strip()
+        if len(first_line) > 15:
+            hooks.append(first_line)
+
+    # Common sentence starters
+    starters = Counter()
+    for text in texts:
+        sentences = re.split(r'[.!?\n]+', text)
+        for s in sentences:
+            s = s.strip()
+            if len(s) > 10:
+                words = s.split()[:3]
+                if words:
+                    starters[" ".join(words).lower()] += 1
+
+    # Average paragraph structure
+    para_counts = []
+    for text in texts:
+        paras = [p.strip() for p in text.split("\n\n") if p.strip()]
+        para_counts.append(len(paras))
+
+    avg_paras = sum(para_counts) / len(para_counts) if para_counts else 1
+
+    # Character traits: lowercase preference, emoji usage, question ending
+    lowercase_starts = sum(1 for t in texts if t and t[0].islower())
+    question_endings = sum(1 for t in texts if t.rstrip().endswith("?"))
+    emoji_pattern = re.compile(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF'
+                               r'\U0001F680-\U0001F6FF\U0001F900-\U0001F9FF]')
+    emoji_tweets = sum(1 for t in texts if emoji_pattern.search(t))
+
+    return {
+        "hooks": hooks[:30],
+        "top_starters": starters.most_common(20),
+        "avg_paragraphs": round(avg_paras, 1),
+        "lowercase_pct": round(lowercase_starts / len(texts) * 100) if texts else 0,
+        "question_pct": round(question_endings / len(texts) * 100) if texts else 0,
+        "emoji_pct": round(emoji_tweets / len(texts) * 100) if texts else 0,
+        "total_analyzed": len(texts),
+    }
+
+
 def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
     """
-    Build training context string from saved analyses.
+    Build optimized training context string from saved analyses.
     This gets injected into the system prompt for MiniMax/AI.
 
-    Uses ALL original tweets for style/tone training (not just top performers).
-    High-engagement tweets are highlighted separately for strategy insights.
+    Strategy:
+    - Top 15 high-engagement tweets for STRATEGY training (what works)
+    - 30 sampled tweets across engagement levels for STYLE training
+    - Writing DNA analysis (patterns, hooks, starters)
+    - Keeps total context under ~20K chars to avoid token limits
     """
     if not analyses:
         return ""
@@ -503,60 +585,114 @@ def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
         analysis = analysis_data.get("analysis", {})
         ai_report = analysis_data.get("ai_report", "")
 
-        # --- STYLE TRAINING: All original tweets ---
         all_originals = analysis.get("all_original_tweets", [])
-        original_count = analysis.get("original_count", 0)
+        top_tweets = analysis.get("top_tweets", [])
 
+        # --- WRITING DNA: Pattern analysis from ALL tweets ---
         if all_originals:
-            # Use ALL original tweets for style training
-            style_examples = []
-            for t in all_originals:
-                text = t.get("text", "").strip()
-                if text and len(text) > 20:  # Skip very short/empty tweets
-                    style_examples.append(f'"{text[:600]}"')
+            dna = _extract_writing_dna(all_originals)
 
-            if style_examples:
+            dna_text = f"### @{username} - YAZIM DNA'SI ({dna['total_analyzed']} tweet analizi):\n"
+            dna_text += f"- Küçük harfle başlama: %{dna['lowercase_pct']}\n"
+            dna_text += f"- Soru ile bitirme: %{dna['question_pct']}\n"
+            dna_text += f"- Emoji kullanımı: %{dna['emoji_pct']}\n"
+            dna_text += f"- Ortalama paragraf sayısı: {dna['avg_paragraphs']}\n"
+
+            if dna["top_starters"]:
+                starter_text = ", ".join(
+                    [f'"{s}" ({c}x)' for s, c in dna["top_starters"][:15]]
+                )
+                dna_text += f"- Sık kullanılan cümle başlangıçları: {starter_text}\n"
+
+            context_parts.append(dna_text)
+
+            # --- HOOK PATTERNS: First lines of top tweets ---
+            top_hooks = []
+            sorted_by_score = sorted(all_originals,
+                                     key=lambda t: t.get("engagement_score", 0),
+                                     reverse=True)
+            for t in sorted_by_score[:20]:
+                first_line = t.get("text", "").split("\n")[0].strip()
+                if len(first_line) > 20:
+                    score = t.get("engagement_score", 0)
+                    top_hooks.append(f'- "{first_line[:200]}" [skor:{score:,.0f}]')
+
+            if top_hooks:
                 context_parts.append(
-                    f"### @{username} - YAZIM TARZI EĞİTİM VERİSİ "
-                    f"({len(style_examples)} orijinal tweet):\n"
+                    f"### @{username} - EN İYİ HOOK'LAR (ilk satırlar):\n"
+                    + "\n".join(top_hooks[:15])
+                )
+
+        # --- ENGAGEMENT STRATEGY: Top 15 performing tweets (full text) ---
+        strategy_tweets = []
+        if all_originals:
+            sorted_orig = sorted(all_originals,
+                                 key=lambda t: t.get("engagement_score", 0),
+                                 reverse=True)
+            strategy_tweets = [t for t in sorted_orig[:15]
+                               if not t.get("text", "").startswith("RT @")]
+        elif top_tweets:
+            strategy_tweets = [t for t in top_tweets[:15]
+                               if not t.get("text", "").startswith("RT @")]
+
+        if strategy_tweets:
+            examples = []
+            for t in strategy_tweets:
+                text = t.get("text", "")[:500]
+                score = t.get("engagement_score", 0)
+                likes = t.get("like_count", 0)
+                rts = t.get("retweet_count", 0)
+                replies = t.get("reply_count", 0)
+                examples.append(
+                    f'[Skor:{score:,.0f} | ❤️{likes:,} 🔁{rts:,} 💬{replies:,}]\n"{text}"'
+                )
+
+            context_parts.append(
+                f"### @{username} - EN ÇOK ETKİLEŞİM ALAN TWEET'LER "
+                f"(bu yapıları ve hook'ları referans al):\n\n"
+                + "\n---\n".join(examples)
+            )
+
+        # --- STYLE TRAINING: Sampled tweets across engagement levels ---
+        if all_originals:
+            # Smart sampling: pick from different engagement tiers
+            sorted_all = sorted(all_originals,
+                                key=lambda t: t.get("engagement_score", 0),
+                                reverse=True)
+            # Filter meaningful tweets
+            meaningful = [t for t in sorted_all
+                          if len(t.get("text", "")) > 40
+                          and not t.get("text", "").startswith("RT @")]
+
+            sampled = []
+            n = len(meaningful)
+            if n > 0:
+                # Take from top 25%, middle 50%, bottom 25%
+                top_tier = meaningful[:max(n // 4, 1)]
+                mid_tier = meaningful[n // 4:3 * n // 4]
+                low_tier = meaningful[3 * n // 4:]
+
+                import random
+                random.seed(42)  # Deterministic sampling
+                sampled.extend(top_tier[:8])  # 8 from top
+                if mid_tier:
+                    sampled.extend(random.sample(mid_tier, min(15, len(mid_tier))))
+                if low_tier:
+                    sampled.extend(random.sample(low_tier, min(7, len(low_tier))))
+
+            if sampled:
+                style_texts = []
+                for t in sampled:
+                    text = t.get("text", "").strip()[:400]
+                    style_texts.append(f'"{text}"')
+
+                context_parts.append(
+                    f"### @{username} - YAZIM TARZI ÖRNEKLERİ "
+                    f"({len(sampled)} tweet, farklı seviyelerden):\n"
                     f"Bu tweet'lerin TONUNU, CÜMLE YAPISINI, KELİME SEÇİMİNİ "
                     f"ve YAZIM TARZINI model al:\n\n"
-                    + "\n---\n".join(style_examples)
+                    + "\n---\n".join(style_texts)
                 )
-
-        # --- ENGAGEMENT STRATEGY: Top performers ---
-        top_tweets = analysis.get("top_tweets", [])
-        # Filter to only original top tweets (not RTs)
-        top_originals = [t for t in top_tweets if not t.get("text", "").startswith("RT @")]
-        top_to_show = top_originals[:max_examples // max(len(analyses), 1)]
-
-        if top_to_show:
-            examples = []
-            for t in top_to_show:
-                examples.append(
-                    f'- "{t["text"][:400]}" '
-                    f'[Skor:{t["engagement_score"]} | '
-                    f'❤️{t["like_count"]} 🔁{t["retweet_count"]} 💬{t["reply_count"]}]'
-                )
-
-            context_parts.append(
-                f"### @{username} - EN ÇOK ETKİLEŞİM ALAN ORİJİNAL TWEET'LER:\n"
-                + chr(10).join(examples)
-            )
-
-        # Fallback: if no all_original_tweets, use top_tweets (old format)
-        if not all_originals and top_tweets:
-            examples = []
-            for t in top_tweets[:max_examples // max(len(analyses), 1)]:
-                examples.append(
-                    f'- "{t["text"][:400]}" '
-                    f'[Skor:{t["engagement_score"]} | '
-                    f'❤️{t["like_count"]} 🔁{t["retweet_count"]} 💬{t["reply_count"]}]'
-                )
-            context_parts.append(
-                f"### @{username} - En İyi Performans Gösteren Tweet'ler:\n"
-                + chr(10).join(examples)
-            )
 
         # Top keywords
         top_kw = analysis.get("top_keywords", [])[:10]
@@ -591,19 +727,22 @@ def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
 
     return f"""## EĞİTİM VERİSİ — YAZIM TARZI + ETKİLEŞİM ANALİZİ:
 
-Aşağıdaki veriler gerçek Twitter hesaplarının TÜM tweet'lerinden elde edilmiştir.
+Aşağıdaki veriler gerçek Twitter hesaplarının tweet'lerinden elde edilmiştir.
+Yazım DNA'sı TÜM tweet'lerden çıkarılmış, örnekler akıllı örnekleme ile seçilmiştir.
 
 ### NASIL KULLANACAKSIN:
-1. YAZIM TARZI: Tüm orijinal tweet'lerdeki ton, dil, cümle yapısı, kelime tercihleri ve
-   anlatım biçimini model al. Engagement düşük olsa bile YAZIM TARZI aynı.
-2. ETKİLEŞİM STRATEJİSİ: En çok etkileşim alan tweet'lerin hook, konu ve yapılarını
-   referans al.
-3. BİREBİR KOPYALAMA: Tweet'leri kopyalama ama aynı RUHU, TONU ve YAKLAŞIMI koru.
+1. YAZIM DNA'SI: Küçük/büyük harf tercihi, cümle başlangıçları, paragraf yapısı,
+   emoji kullanımı ve soru sorma alışkanlıklarını AYNEN uygula.
+2. HOOK STRATEJİSİ: En iyi hook'ları (ilk satırlar) incele ve benzer yapıda yaz.
+3. YÜKSEK ETKİLEŞİM: En çok etkileşim alan tweet'lerin yapısını, tonunu ve
+   konulara yaklaşımını referans al.
+4. STİL ÖRNEKLERİ: Farklı engagement seviyelerindeki tweet'lerdeki tonu,
+   kelime seçimini ve akışı model al.
+5. BİREBİR KOPYALAMA: Tweet'leri kopyalama ama aynı RUHU, TONU ve YAKLAŞIMI koru.
 
 {chr(10).join(context_parts)}
 
-KRİTİK: Yukarıdaki TÜM orijinal tweet'lerdeki yazım tarzını, kelime tercihlerini,
-cümle yapılarını ve tonlamayı içselleştir. Bu kişi gibi YAZ — aynı kelimeler,
-aynı akış, aynı samimiyet. Yüksek engagement alan tweet'lerin yapısal özelliklerini
-(hook tarzı, paragraf yapısı, kapanış biçimi) yeni tweet'lere uygula.
+KRİTİK: Yukarıdaki yazım DNA'sını ve stil örneklerini içselleştir. Bu kişi gibi YAZ —
+aynı kelimeler, aynı akış, aynı samimiyet, aynı cümle yapısı. Yüksek engagement alan
+tweet'lerin hook tarzını, paragraf yapısını ve kapanış biçimini yeni tweet'lere uygula.
 """

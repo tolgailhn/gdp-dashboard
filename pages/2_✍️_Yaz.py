@@ -770,8 +770,10 @@ with mode_tab4:
                 training_context=training_context if training_context else None,
             )
 
-            # Build context from X research
+            # Build context from X research (cap at 6000 chars to avoid API token limits)
             full_context = personal_research.summary
+            if len(full_context) > 6000:
+                full_context = full_context[:6000] + "\n\n[Araştırma özeti kısaltıldı]"
             if personal_extra:
                 full_context += f"\n\nKullanıcının kişisel notu: {personal_extra}"
 
@@ -831,6 +833,8 @@ with mode_tab4:
 
                     pr = st.session_state.personal_research
                     full_ctx = pr.summary
+                    if len(full_ctx) > 6000:
+                        full_ctx = full_ctx[:6000] + "\n\n[Araştırma özeti kısaltıldı]"
                     p_extra = st.session_state.get("personal_extra", "")
                     if p_extra:
                         full_ctx += f"\n\nKullanıcının kişisel notu: {p_extra}"

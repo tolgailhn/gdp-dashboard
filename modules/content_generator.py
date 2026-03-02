@@ -720,7 +720,7 @@ DİĞER KURALLAR:
 """
 
         if user_samples:
-            samples_text = "\n".join([f"- {s}" for s in user_samples[:10]])
+            samples_text = "\n".join([f"- {s}" for s in user_samples[:5]])
             prompt += f"""
 ## KULLANICININ GERÇEK TWEET ÖRNEKLERİ (bu tarzda yaz):
 {samples_text}
@@ -746,10 +746,22 @@ Bu bir tweet, blog yazısı değil. Şu kurallara kesinlikle uy:
 """
 
         # Inject training data from tweet analyses
+        # Limit training context to prevent exceeding API token limits
         if self.training_context:
+            # For styles that already have detailed examples (tolga_kisisel),
+            # use a shorter training context to avoid token overflow
+            max_training_chars = 4000 if style == "tolga_kisisel" else 8000
+            tc = self.training_context
+            if len(tc) > max_training_chars:
+                tc = tc[:max_training_chars] + "\n\n[Eğitim verisi uzunluk limiti nedeniyle kısaltıldı]"
             prompt += f"""
-{self.training_context}
+{tc}
 """
+
+        # Final safety: hard-cap total prompt length (~30K chars ≈ ~8K tokens)
+        MAX_PROMPT_CHARS = 30000
+        if len(prompt) > MAX_PROMPT_CHARS:
+            prompt = prompt[:MAX_PROMPT_CHARS] + "\n\n[Prompt uzunluk limiti nedeniyle kısaltıldı]"
 
         return prompt
 

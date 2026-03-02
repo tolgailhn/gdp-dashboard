@@ -11,7 +11,7 @@ from modules.ui_components import (inject_custom_css, check_password,
                                    get_secret, render_sidebar_nav)
 from modules.content_generator import ContentGenerator, get_available_styles, get_style_info
 from modules.tweet_publisher import TweetPublisher
-from modules.deep_research import extract_tweet_id, research_topic
+from modules.deep_research import extract_tweet_id, research_topic, research_topic_from_text
 from modules.style_manager import (
     load_user_samples, load_custom_persona,
     add_to_post_history, add_draft, load_draft_tweets
@@ -356,7 +356,7 @@ with mode_tab1:
     elif write_mode != "quote":
         topic_text = st.text_area(
             "Konu / AI Gelişmesi",
-            placeholder="Tweet yazmak istediğiniz konuyu veya AI gelişmesini buraya yazın...\n\nÖrnek: Qwen 3 modeli çıktı, coding benchmark'larında GPT-4o'yu geçti",
+            placeholder="Tweet yazmak istediğiniz konuyu veya AI gelişmesini buraya yazın...\n\nÖrnek: Qwen 3 modeli çıktı, coding benchmark'larında GPT-4o'yu geçti\nÖrnek: Amazon'un BAE'deki AWS deposu bombalandı",
             height=120,
             key="manual_topic"
         )
@@ -365,6 +365,139 @@ with mode_tab1:
             placeholder="Tweet URL'si veya kaynak",
             key="topic_source"
         )
+
+        # --- Topic Research Button ---
+        if topic_text:
+            research_col1, research_col2 = st.columns([1, 2])
+            with research_col1:
+                topic_research_time = st.selectbox(
+                    "Araştırma süresi",
+                    options=[6, 12, 24],
+                    format_func=lambda x: f"Son {x} saat",
+                    index=1,
+                    key="topic_research_time"
+                )
+            with research_col2:
+                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                topic_research_clicked = st.button(
+                    "🔍 X'te Araştır",
+                    type="secondary",
+                    use_container_width=True,
+                    key="topic_research_btn",
+                    help="Yazdığınız konuyu X ve web'de araştırır, güncel bilgileri toplar"
+                )
+
+            if topic_research_clicked:
+                # Build AI client for topic extraction
+                import openai as _openai
+                import anthropic as _anthropic
+
+                _ai_client = None
+                _ai_model = None
+                _ai_provider = "minimax"
+
+                minimax_key = get_secret("minimax_api_key", "")
+                anthropic_key = get_secret("anthropic_api_key", "")
+                openai_key = get_secret("openai_api_key", "")
+
+                if minimax_key:
+                    _ai_client = _openai.OpenAI(api_key=minimax_key, base_url="https://api.minimax.io/v1")
+                    _ai_model = "MiniMax-M2.5"
+                    _ai_provider = "minimax"
+                elif anthropic_key:
+                    _ai_client = _anthropic.Anthropic(api_key=anthropic_key)
+                    _ai_model = "claude-haiku-4-5-20251001"
+                    _ai_provider = "anthropic"
+                elif openai_key:
+                    _ai_client = _openai.OpenAI(api_key=openai_key)
+                    _ai_model = "gpt-4o-mini"
+                    _ai_provider = "openai"
+
+                # Build scanner for X search
+                bearer_token = get_secret("twitter_bearer_token", "")
+                twikit_username = get_secret("twikit_username", "")
+                twikit_password = get_secret("twikit_password", "")
+                twikit_email = get_secret("twikit_email", "")
+
+                _scanner = None
+                if bearer_token or twikit_username:
+                    from modules.twitter_scanner import TwitterScanner
+                    _scanner = TwitterScanner(
+                        bearer_token=bearer_token,
+                        api_key=get_secret("twitter_api_key", ""),
+                        api_secret=get_secret("twitter_api_secret", ""),
+                        access_token=get_secret("twitter_access_token", ""),
+                        access_secret=get_secret("twitter_access_secret", ""),
+                        twikit_username=twikit_username,
+                        twikit_password=twikit_password,
+                        twikit_email=twikit_email,
+                    )
+
+                progress_text = st.empty()
+                with st.spinner("Konu araştırılıyor..."):
+                    topic_research = research_topic_from_text(
+                        topic_input=topic_text,
+                        scanner=_scanner,
+                        time_hours=topic_research_time,
+                        progress_callback=lambda msg: progress_text.caption(msg),
+                        ai_client=_ai_client,
+                        ai_model=_ai_model,
+                        ai_provider=_ai_provider,
+                    )
+                    progress_text.empty()
+
+                st.session_state.topic_research_data = topic_research
+                st.session_state.topic_research_summary = topic_research.summary
+
+            # Show previous/current research results
+            if "topic_research_data" in st.session_state and st.session_state.topic_research_data:
+                tr = st.session_state.topic_research_data
+
+                with st.expander(f"📊 Araştırma Sonuçları — {tr.topic}", expanded=True):
+                    # X tweets found
+                    if tr.x_tweets:
+                        st.markdown(f"**𝕏 Son Tweetler ({len(tr.x_tweets)}):**")
+                        for i, tw in enumerate(tr.x_tweets[:8]):
+                            eng = f"❤️ {tw['likes']:,} 🔁 {tw['retweets']:,}"
+                            st.markdown(f"""
+                            <div style="background:#1a1a2e; border-left:3px solid #1DA1F2;
+                                        padding:8px 12px; margin:4px 0; border-radius:4px;">
+                                <div style="color:#1DA1F2; font-size:12px; font-weight:bold;">
+                                    @{tw['author']} <span style="color:#8899a6; font-weight:normal;">{eng}</span>
+                                </div>
+                                <div style="color:#f0f0f0; font-size:13px; margin-top:4px;">{tw['text'][:250]}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    else:
+                        st.info("X'te bu konuyla ilgili güncel tweet bulunamadı.")
+
+                    # Deep articles
+                    if tr.deep_articles:
+                        st.markdown(f"**📖 Okunan Makaleler ({len(tr.deep_articles)}):**")
+                        for article in tr.deep_articles:
+                            st.markdown(f"- **{article['title']}**")
+                            st.caption(f"  {article['content'][:200]}...")
+
+                    # News
+                    if tr.news_results:
+                        st.markdown(f"**📰 Son Haberler ({len(tr.news_results)}):**")
+                        for n in tr.news_results[:3]:
+                            src = f" ({n['source']})" if n.get("source") else ""
+                            st.markdown(f"- **{n['title']}**{src}")
+
+                    # Web
+                    if tr.web_results:
+                        deep_urls = {a["url"] for a in tr.deep_articles}
+                        remaining_web = [w for w in tr.web_results if w["url"] not in deep_urls]
+                        if remaining_web:
+                            st.markdown(f"**🌐 Web Bulguları ({len(remaining_web)}):**")
+                            for w in remaining_web[:3]:
+                                st.markdown(f"- {w['title']}")
+
+                    if not tr.x_tweets and not tr.deep_articles and not tr.news_results:
+                        st.warning("Bu konu için yeterli bilgi bulunamadı. Konuyu daha spesifik yazmayı deneyin.")
+
+                st.success("Araştırma tamamlandı! Aşağıdaki 'Tweet Üret' butonuna basarak araştırma sonuçlarıyla tweet yazabilirsiniz.")
 
 # Get research summary if available (from research tab)
 if "research_summary" in st.session_state:
@@ -611,6 +744,11 @@ if generate_clicked or regenerate_clicked:
             if "edit_tweet" in st.session_state:
                 del st.session_state["edit_tweet"]
 
+            # Check if we have topic research for normal tweet
+            topic_research_ctx = ""
+            if "topic_research_summary" in st.session_state and st.session_state.topic_research_summary:
+                topic_research_ctx = st.session_state.topic_research_summary
+
             if write_mode == "quote" and quote_topic:
                 # Quote tweet mode (with or without research)
                 result = generator.generate_quote_tweet(
@@ -640,7 +778,12 @@ if generate_clicked or regenerate_clicked:
                 st.session_state.generated_tweet = None
 
             else:
-                # Normal tweet
+                # Normal tweet (with optional topic research context)
+                if topic_research_ctx:
+                    # Append research context to additional instructions
+                    research_note = f"\n\n## ARAŞTIRMA SONUÇLARI (bu bilgileri kullanarak güncel ve bilgili bir tweet yaz):\n{topic_research_ctx}"
+                    additional = additional + research_note
+
                 result = generator.generate_tweet(
                     topic_text=topic_text,
                     topic_source=topic_source,

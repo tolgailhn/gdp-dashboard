@@ -118,6 +118,13 @@ def _extract_style_dna(original_tweets: list[dict]) -> dict:
         "ya", "bak", "böyle", "öyle", "güzel", "mesela", "aslında", "abi",
         "gerçekten", "neyse", "valla", "sonuçta", "kısacası", "ulan", "tamam",
         "hadi", "lan", "höcaam", "cidden", "harbiden", "arkadaşım", "kardeşim",
+        # sakevoid / agresif tarz
+        "aga", "beyler", "agalar", "herif", "millet", "resmen", "net",
+        "bence", "düşünün", "kaybedecek", "kazanır", "sahaya", "başla",
+        "treni", "oyun", "sistem", "kurdu", "para", "bedava",
+        # parsluci / haber tarzı
+        "üstelik", "henüz", "artık", "açık", "kaynak", "çıktı", "geldi",
+        "duyurdu", "sağlıyor", "yapıyor", "kullanabiliyor",
     ]
     signature_words = {}
     for w in casual_markers:
@@ -130,6 +137,13 @@ def _extract_style_dna(original_tweets: list[dict]) -> dict:
         "olm", "ok.", "güzel kardeşim", "o yüzden", "aslında", "biliyor musun",
         "diyor ki", "bayanlar baylar", "bak şimdi", "şu an", "bu adam",
         "az önce", "anladın mı", "test ettim", "sevgiler", "algoritma tanrıları",
+        # sakevoid kalıpları
+        "sahaya in", "oyun alanı", "para basma", "treni kaç", "sistem kur",
+        "bu kadar basit", "benim gördüğüm", "erken adapte", "haberin yok",
+        "kendine gel aga", "analiz felci", "tek kişilik ordu", "açık kaynak",
+        # parsluci kalıpları
+        "reklam değildir", "güzel gelişme", "paylaşayım dedim", "denemek lazım",
+        "ben denemedim", "bakalım nasıl", "umarım", "bedava", "açık kaynaklı",
     ]
     signature_phrases = {}
     for phrase in phrase_candidates:

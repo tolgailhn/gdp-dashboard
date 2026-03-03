@@ -294,37 +294,94 @@ sizce cursor mı windsurf mü?
     },
     "haber": {
         "name": "Haber / Bilgi Paylaşımı",
-        "description": "Haber hesapları gibi bilgilendirici ama senin tarzında",
+        "description": "@parsluci tarzı — detaylı AI haber, açıklama + kişisel yorum",
         "prompt": """
-yazım tarzı: HABER / BİLGİ PAYLAŞIMI
+yazım tarzı: HABER / BİLGİ PAYLAŞIMI (parsluci ilham)
 
-haber hesapları gibi bilgilendirici yaz ama robot haber bülteni değil, senin tarzında.
-gelişmeyi net ve hızlı aktar, sonra kendi yorumunu ekle.
+@parsluci (495 tweet, ort. 1110 karakter) tarzında yaz: AI gelişmelerini detaylı ama anlaşılır aktar.
 
-- haberi direkt ver — ne oldu, kim yaptı, neden önemli
-- rakamları ve detayları net yaz (tarih, miktar, isim)
-- kısa ve vurucu cümleler, her cümle yeni bilgi versin
-- haber kısmından sonra KENDİ ANALİZİNİ ekle — "bu ne anlama geliyor?", "bence..."
-- son olarak provokatif soru veya güçlü tahmin
-- emoji 0-1 tane, hiç kullanmamak da OK
-- türkçe-ingilizce karışık, teknik terimler ingilizce kalsın
-- madde işareti veya numara listesi KULLANMA, doğal paragraflar yaz
+YAPI (2 PARAGRAF):
+1. PARAGRAF — Haber: Ne çıktı, kim yaptı, ne yapıyor, teknik detaylar (parametre, benchmark, fiyat).
+   Açık ve net. Türkçe günlük dilde. Teknik terimleri Türkçeleştirmeye çalışma, olduğu gibi kullan.
+2. PARAGRAF — Kişisel yorum: "Ben denemedim ama...", "Güzel gelişme olduğu için paylaşayım dedim",
+   "Umarım...", "Bakalım nasıl olacak", "Denemek lazım". Samimi, dürüst.
 
-ÖNEMLİ FARKLAR:
-- haber hesapları gibi "ne oldu" kısmını net ver ama gazete manşeti gibi yazma
-- "son dakika", "flaş", "breaking" gibi klişeler YASAK
-- bilgiyi ver ama kendi perspektifini de kat — salt haber değil, yorum da var
-- kısa tut, gereksiz detaya girme, önemli olan neyse onu vur
+İMZA KALIPLARI (parsluci'den — mutlaka kullan):
+- "güzel gelişme olduğu için paylaşayım dedim" veya benzeri kapanış
+- "Reklam değildir." — EN SONA MUTLAKA EKLE
+- "artık", "üstelik", "bedava", "açık kaynaklı" kelimeleri sık geçer
+- "herkes deneyebiliyor", "GitHub'da mevcut", "Hugging Face üzerinden"
 
-örnek: "amazon openai'a 50 milyar dolar yatırdı. nvidia 30, softbank 30 ekledi. toplam tur 110 milyar, ön değerleme 730 milyar.
+YAPMA:
+- Madde işareti/liste KULLANMA
+- "Son dakika!", "Flaş!" gibi klişeler YASAK
+- Emoji kullanma (parsluci %6 emoji, senaryomuzda 0)
+- Büyük harfle başla (parsluci %99 büyük harfle başlıyor)
 
-bu artık yapay zeka şirketi değil, küçük bir ülke ekonomisi. microsoft'un openai üzerindeki tekeli fiilen kırıldı — artık AWS de resmi dağıtıcı.
+ÖRNEK 1 (gerçek parsluci):
+"Bedava çıktı ve Claude'u geçti: GLM-5 ajan özelliğiyle işleri otomatik yapıyor
 
-asıl mesele şu: 2 gigawatt trainium kapasitesi, 1 milyon çip cluster'ı. bu compute yarışı model yarışını geride bıraktı.
+Zhipu AI'nin yeni modeli GLM-5 bugün siteleri üzerinden erişime açıldı ve ortalık karıştı. Çin'den gelen bu yapay zeka ajan özelliğiyle dikkat çekiyor yani sadece sohbet etmiyor araçları kullanıp karmaşık görevleri baştan sona planlayıp tamamlayabiliyor. Kod yazma, mantık yürütme ve uzun zincir işlerde Claude Opus 4.6 seviyesine yaklaşıyor yada bazı testlerde geçiyor üstelik maliyeti çok daha düşük.
 
-bu kadar parayı gerçekten ürüne dönüştürebilecekler mi?
+Açık kaynaklı olur diye düşünüyorum bu model gizlice sunulduğunda denemiştim baya iyidi. Denemek lazım ben hemen deniyorum. Reklam değildir."
 
-#OpenAI #AWS"
+ÖRNEK 2 (gerçek parsluci):
+"Claude code masaüstüne çok iyi özellikler geldi!
+
+Yerel eklentilerle marketplace'ten slash komutları ve beceriler yükleyip masaüstü ile CLI arasında otomatik senkronize edebiliyorsun. SSH desteği geldi uzak makinelere bağlanıp Claude'un orada doğrudan çalışmasını sağlayabiliyorsun.
+
+Kullananlar için baya iyi oldu anthropic artık çok hızlı ilerlemeye başladı kodları artık claude yazıyor işler değişti. Reklam değildir."
+""",
+    },
+    "agresif": {
+        "name": "Agresif Motivasyon",
+        "description": "@sakevoid tarzı — direkt, agresif, para odaklı, aksiyon çağrısı",
+        "prompt": """
+yazım tarzı: AGRESİF MOTİVASYON (sakevoid ilham)
+
+@sakevoid (260 tweet, ort. 625 karakter, ort. engagement 600) tarzında yaz:
+Agresif, motivasyonel, para/fırsat odaklı. Direkt hitap, sokak dili, "sahaya in" mentalitesi.
+
+TEMEL KURALLAR:
+- küçük harfle başla (%87 küçük harf)
+- "aga", "beyler", "adam", "millet", "herif" sık kullan
+- doğrudan hitap: "sen hala X yapıyorsun", "sahaya in artık", "başla ağa"
+- fırsat + aciliyet tonu: "bu treni kaçıranlar...", "herkes fark ettiğinde sen çoktan..."
+- somut örnekler ver: para rakamları, tool isimleri, iş modelleri
+- kısa paragraflar, doğal akış, madde işareti KULLANMA
+- emoji neredeyse yok (%2)
+
+İMZA KALIPLARI (sakevoid'den):
+- "aga", "beyler", "adam gelmiş", "millet hala X yapıyor"
+- "bu adam", "bu kadar basit", "sahaya in", "treni kaç"
+- "analiz felci", "tek kişilik ordu", "sistem kur"
+- "açık kaynak", "bedava", "para basma makinesi"
+- "erken adapte olan kazanır geç kalan izler"
+
+HOOK TARZI (ilk cümle):
+- Sert giriş: "ortalık kan gölü zannediyorsunuz ama..."
+- Şok veri: "100 satır python kodu ile senin gizli hesabını buluyorlar"
+- Direkt provokasyon: "millet hala X diye Y yapıyor ama..."
+
+YAPMA:
+- Resmi/akademik dil kullanma
+- "Son olarak...", "Kısacası..." gibi kapanış klişeleri
+- Emoji bolluğu
+- Haber bülteni formatı
+
+ÖRNEK 1 (gerçek sakevoid):
+"ortalık kan gölü zannediyorsunuz ama aslında para muslukları sonuna kadar açık sadece kimse eğilip yerden almaya tenezzül etmiyor. adamlar dağıtacak yer arıyor resmen. mükemmel fikir falan hikaye, çalışan bir sistemi alıp üzerine iki tane ai özelliği ekleyip sunacaksın bu kadar basit.
+
+git sektörde halihazırda para kazanan bir mikro saas bul, eksiklerini analiz et, claude opus açıp bana bunun daha iyisini kodla de, vercel üzerinde deploy et ve başvur. kaybedecek neyin var ki en fazla reddederler ama ya tutarsa.
+
+analiz felci dediğimiz illet sizi yeyip bitirmeden aksiyon alın."
+
+ÖRNEK 2 (gerçek sakevoid):
+"bloomberg terminali dediğin şey wall streetin en pahalı oyuncağı. yıllık 30 bin dolar ödüyorsun sırf verilere erişmek için. adam gelmiş bunu sıfırdan yazmış üstüne bedavaya dağıtmış. bu kafayı anlıyor musun?
+
+açık kaynak olması bambaşka bir seviye. community arkasına aldığın zaman o proje artık tek bir adamın değil binlerce geliştiricinin eseri oluyor.
+
+hala excelde pivot table çevirerek analiz yapan varsa kendine gel aga. araçlar önünde duruyor bedava. öğren, kur, kullan."
 """,
     },
     "quote_tweet": {

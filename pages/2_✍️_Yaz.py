@@ -44,9 +44,10 @@ quote_topic = st.session_state.get("quote_topic", None)
 
 # --- Header ---
 st.markdown("""
-<div class="main-header">
-    <h1>✍️ Tweet Yazıcı</h1>
-    <p style="color:#8899a6;">AI ile doğal, insan gibi tweet üret</p>
+<div class="page-header">
+    <span class="page-icon">✍️</span>
+    <h1>Tweet Yazıcı</h1>
+    <p>AI ile doğal, insan gibi tweet üret</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -62,10 +63,10 @@ research_summary = ""
 
 with mode_tab2:
     st.markdown("""
-    <div style="background:#16213e; border:1px solid #1DA1F2; border-radius:12px;
+    <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:12px;
                 padding:16px; margin-bottom:16px;">
-        <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">🔬 Araştırmalı Quote Tweet</div>
-        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+        <div style="color:#a5b4fc; font-weight:bold; font-size:16px;">🔬 Araştırmalı Quote Tweet</div>
+        <div style="color:#94a3b8; font-size:13px; margin-top:4px;">
             Tweet URL → Thread'i oku → Web'de araştır → X'te ara → Bilgili quote yaz
         </div>
     </div>
@@ -163,13 +164,13 @@ with mode_tab2:
                 original_author = original_tweet.author_username
 
                 st.markdown(f"""
-                <div class="tweet-card" style="border-color:#1DA1F2;">
+                <div class="tweet-card" style="border-color:#a5b4fc;">
                     <div>
                         <span class="tweet-author">{original_tweet.author_name}</span>
                         <span class="tweet-username">@{original_author}</span>
                     </div>
                     <div class="tweet-text">{original_tweet_text}</div>
-                    <div style="color:#8899a6; font-size:12px; margin-top:8px;">
+                    <div style="color:#94a3b8; font-size:12px; margin-top:8px;">
                         ❤️ {original_tweet.like_count:,} · 🔁 {original_tweet.retweet_count:,} · 💬 {original_tweet.reply_count:,}
                     </div>
                 </div>
@@ -243,10 +244,10 @@ with mode_tab2:
                 with st.expander(f"🧵 Thread ({len(research.thread_texts)} tweet)", expanded=True):
                     for i, t in enumerate(research.thread_texts, 1):
                         st.markdown(f"""
-                        <div style="background:#1a1a2e; border-left:3px solid #1DA1F2;
+                        <div style="background:rgba(15,20,35,0.7); border-left:3px solid #6366f1;
                                     padding:8px 12px; margin:4px 0; border-radius:4px;">
-                            <span style="color:#1DA1F2; font-weight:bold;">{i}/</span>
-                            <span style="color:#f0f0f0; font-size:13px;">{t}</span>
+                            <span style="color:#a5b4fc; font-weight:bold;">{i}/</span>
+                            <span style="color:#f1f5f9; font-size:13px;">{t}</span>
                         </div>
                         """, unsafe_allow_html=True)
 
@@ -362,10 +363,10 @@ with mode_tab2:
 
 with mode_tab3:
     st.markdown("""
-    <div style="background:#16213e; border:1px solid #1DA1F2; border-radius:12px;
+    <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:12px;
                 padding:16px; margin-bottom:16px;">
-        <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">💬 Hızlı Quote Tweet</div>
-        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+        <div style="color:#a5b4fc; font-weight:bold; font-size:16px;">💬 Hızlı Quote Tweet</div>
+        <div style="color:#94a3b8; font-size:13px; margin-top:4px;">
             Tweet URL yapıştır → Hızlıca quote tweet yaz ve paylaş
         </div>
     </div>
@@ -410,7 +411,7 @@ with mode_tab3:
 
             if original_text:
                 st.markdown(f"""
-                <div class="tweet-card" style="border-color:#1DA1F2;">
+                <div class="tweet-card" style="border-color:#a5b4fc;">
                     <div>
                         <span class="tweet-author">Orijinal Tweet</span>
                         <span class="tweet-username">@{original_author}</span>
@@ -444,7 +445,7 @@ with mode_tab3:
     elif write_mode == "quote" and quote_topic:
         # Previously set from Scanner page
         st.markdown(f"""
-        <div class="tweet-card" style="border-color:#1DA1F2;">
+        <div class="tweet-card" style="border-color:#a5b4fc;">
             <div>
                 <span class="tweet-author">Orijinal Tweet</span>
                 <span class="tweet-username">@{quote_topic.get('author', '')}</span>
@@ -489,10 +490,10 @@ with mode_tab1:
         # --- Topic Research Section ---
         if topic_text:
             st.markdown("""
-            <div style="background:#16213e; border:1px solid #2a2a4a; border-radius:8px;
+            <div style="background:rgba(99,102,241,0.06); border:1px solid rgba(255,255,255,0.06); border-radius:8px;
                         padding:12px; margin:8px 0;">
-                <div style="color:#e0e0e0; font-size:13px; font-weight:bold;">🔍 Konu Araştır</div>
-                <div style="color:#8899a6; font-size:11px;">Konuyu X'te, web'de araştır ve AI ile doğrula</div>
+                <div style="color:#e2e8f0; font-size:13px; font-weight:bold;">🔍 Konu Araştır</div>
+                <div style="color:#94a3b8; font-size:11px;">Konuyu X'te, web'de araştır ve AI ile doğrula</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -631,12 +632,12 @@ with mode_tab1:
                         for i, tw in enumerate(tr.x_tweets[:12]):
                             eng = f"❤️ {tw['likes']:,} 🔁 {tw['retweets']:,}"
                             st.markdown(f"""
-                            <div style="background:#1a1a2e; border-left:3px solid #1DA1F2;
+                            <div style="background:rgba(15,20,35,0.7); border-left:3px solid #6366f1;
                                         padding:8px 12px; margin:4px 0; border-radius:4px;">
-                                <div style="color:#1DA1F2; font-size:12px; font-weight:bold;">
-                                    @{tw['author']} <span style="color:#8899a6; font-weight:normal;">{eng}</span>
+                                <div style="color:#a5b4fc; font-size:12px; font-weight:bold;">
+                                    @{tw['author']} <span style="color:#94a3b8; font-weight:normal;">{eng}</span>
                                 </div>
-                                <div style="color:#f0f0f0; font-size:13px; margin-top:4px;">{tw['text'][:300]}</div>
+                                <div style="color:#f1f5f9; font-size:13px; margin-top:4px;">{tw['text'][:300]}</div>
                             </div>
                             """, unsafe_allow_html=True)
                     else:
@@ -696,14 +697,14 @@ for i, (key, label) in enumerate(zip(style_options, style_labels)):
     with cols[i]:
         desc = display_styles[key]["description"]
         is_selected = selected_style == key
-        border = "2px solid #1DA1F2" if is_selected else "1px solid #2a2a4a"
-        bg = "#16213e" if is_selected else "#1a1a2e"
+        border = "2px solid #6366f1" if is_selected else "1px solid rgba(255,255,255,0.06)"
+        bg = "rgba(99,102,241,0.06)" if is_selected else "rgba(15,20,35,0.7)"
 
         st.markdown(f"""
         <div style="background:{bg}; border:{border}; border-radius:12px;
                     padding:12px; text-align:center; min-height:80px;">
-            <div style="color:#f0f0f0; font-weight:bold; font-size:14px;">{label}</div>
-            <div style="color:#8899a6; font-size:11px; margin-top:4px;">{desc}</div>
+            <div style="color:#f1f5f9; font-weight:bold; font-size:14px;">{label}</div>
+            <div style="color:#94a3b8; font-size:11px; margin-top:4px;">{desc}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -728,15 +729,15 @@ len_cols = st.columns(len(length_options))
 for i, (lkey, linfo) in enumerate(length_options.items()):
     with len_cols[i]:
         is_sel = selected_length == lkey
-        border = "2px solid #1DA1F2" if is_sel else "1px solid #2a2a4a"
-        bg = "#16213e" if is_sel else "#1a1a2e"
+        border = "2px solid #6366f1" if is_sel else "1px solid rgba(255,255,255,0.06)"
+        bg = "rgba(99,102,241,0.06)" if is_sel else "rgba(15,20,35,0.7)"
 
         st.markdown(f"""
         <div style="background:{bg}; border:{border}; border-radius:12px;
                     padding:12px; text-align:center; min-height:70px;">
-            <div style="color:#f0f0f0; font-weight:bold; font-size:14px;">{linfo['icon']} {linfo['label']}</div>
-            <div style="color:#1DA1F2; font-size:13px;">{linfo['range']} karakter</div>
-            <div style="color:#8899a6; font-size:11px; margin-top:2px;">{linfo['desc']}</div>
+            <div style="color:#f1f5f9; font-weight:bold; font-size:14px;">{linfo['icon']} {linfo['label']}</div>
+            <div style="color:#a5b4fc; font-size:13px;">{linfo['range']} karakter</div>
+            <div style="color:#94a3b8; font-size:11px; margin-top:2px;">{linfo['desc']}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -772,8 +773,8 @@ with st.expander("Ek Seçenekler"):
     if _analyses:
         usernames = [a.get("username", "?") for a in _analyses]
         st.markdown(f"""
-        <div style="background:#16213e; border:1px solid #2a2a4a; border-radius:8px;
-                    padding:8px 12px; margin:4px 0; font-size:12px; color:#8899a6;">
+        <div style="background:rgba(99,102,241,0.06); border:1px solid rgba(255,255,255,0.06); border-radius:8px;
+                    padding:8px 12px; margin:4px 0; font-size:12px; color:#94a3b8;">
             🧠 Egitim verisi aktif: {', '.join(['@' + u for u in usernames[:5]])}
             ({sum(a.get('analysis', {}).get('total_tweets', 0) for a in _analyses)} tweet analiz edilmis)
         </div>
@@ -1338,10 +1339,10 @@ if drafts:
                 if len(draft["text"]) > 100:
                     preview += "..."
                 st.markdown(f"""
-                <div style="background:#1a1a2e; border:1px solid #2a2a4a;
+                <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.06);
                             border-radius:8px; padding:10px 14px; margin:4px 0;">
-                    <div style="color:#f0f0f0; font-size:13px;">{preview}</div>
-                    <div style="color:#8899a6; font-size:11px; margin-top:4px;">
+                    <div style="color:#f1f5f9; font-size:13px;">{preview}</div>
+                    <div style="color:#94a3b8; font-size:11px; margin-top:4px;">
                         {draft.get('style', '')} | {draft.get('created_at', '')[:10]}
                     </div>
                 </div>

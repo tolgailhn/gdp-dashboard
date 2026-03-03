@@ -29,9 +29,10 @@ render_sidebar_nav(current_page="tara")
 
 # --- Header ---
 st.markdown("""
-<div class="main-header">
-    <h1>🔍 AI Gündem Tarayıcı</h1>
-    <p style="color:#8899a6;">X/Twitter'da son saatlerin AI gelişmelerini tara</p>
+<div class="page-header">
+    <span class="page-icon">🔍</span>
+    <h1>AI Gündem Tarayıcı</h1>
+    <p>X/Twitter'da son saatlerin AI gelişmelerini tara</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -265,10 +266,10 @@ with main_tab1:
                                 st.link_button("🔗 X'te Aç", t.url, use_container_width=True)
                 else:
                     st.markdown(f"""
-                    <div style="background:#1a1a2e; border:1px solid #2a2a4a; border-radius:8px;
+                    <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.06); border-radius:8px;
                                 padding:10px 14px; margin:4px 0;">
-                        <span style="color:#1DA1F2; font-weight:bold;">@{account_name}</span>
-                        <span style="color:#8899a6; font-size:12px; margin-left:8px;">— Bu zaman aralığında tweet bulunamadı</span>
+                        <span style="color:#a5b4fc; font-weight:bold;">@{account_name}</span>
+                        <span style="color:#94a3b8; font-size:12px; margin-left:8px;">— Bu zaman aralığında tweet bulunamadı</span>
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -322,12 +323,12 @@ with main_tab1:
         for i, account in enumerate(all_accounts):
             with cols[i % 4]:
                 is_custom = account in custom_accounts
-                border_color = "#1DA1F2" if is_custom else "#2a2a4a"
-                badge = " <span style='color:#1DA1F2; font-size:10px;'>✦ özel</span>" if is_custom else ""
+                border_color = "#6366f1" if is_custom else "rgba(255,255,255,0.06)"
+                badge = " <span style='color:#a5b4fc; font-size:10px;'>✦ özel</span>" if is_custom else ""
                 st.markdown(f"""
-                <div style="background:#1a1a2e; border:1px solid {border_color}; border-radius:8px;
+                <div style="background:rgba(15,20,35,0.7); border:1px solid {border_color}; border-radius:8px;
                             padding:8px 12px; margin:4px 0; font-size:13px;">
-                    <span style="color:#1DA1F2;">@{account}</span>{badge}
+                    <span style="color:#a5b4fc;">@{account}</span>{badge}
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -343,10 +344,10 @@ with main_tab1:
 # ============================================================
 with main_tab2:
     st.markdown("""
-    <div style="background:#16213e; border:1px solid #1DA1F2; border-radius:12px;
+    <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:12px;
                 padding:16px; margin-bottom:16px;">
-        <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">🌐 AI Keşfet</div>
-        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+        <div style="color:#a5b4fc; font-weight:bold; font-size:16px;">🌐 AI Keşfet</div>
+        <div style="color:#94a3b8; font-size:13px; margin-top:4px;">
             Takip etmediğin hesaplardan ve trending konulardan yeni AI gelişmelerini bul
         </div>
     </div>

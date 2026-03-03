@@ -32,9 +32,10 @@ render_sidebar_nav(current_page="ayarlar")
 
 # --- Header ---
 st.markdown("""
-<div class="main-header">
-    <h1>⚙️ Ayarlar</h1>
-    <p style="color:#8899a6;">API anahtarları, hesaplar ve yazım tarzı ayarları</p>
+<div class="page-header">
+    <span class="page-icon">⚙️</span>
+    <h1>Ayarlar</h1>
+    <p>API anahtarları, hesaplar ve yazım tarzı ayarları</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -489,10 +490,10 @@ with tab2:
                     with col1:
                         st.markdown(f"""
                         <div class="stat-box">
-                            <div style="font-size:24px; font-weight:bold; color:#f0f0f0;">
+                            <div style="font-size:24px; font-weight:bold; color:#f1f5f9;">
                                 {me['name']}
                             </div>
-                            <div style="color:#1DA1F2; font-size:14px;">@{me['username']}</div>
+                            <div style="color:#a5b4fc; font-size:14px;">@{me['username']}</div>
                         </div>
                         """, unsafe_allow_html=True)
 
@@ -646,9 +647,9 @@ with tab4:
             col1, col2 = st.columns([5, 1])
             with col1:
                 st.markdown(f"""
-                <div style="background:#1a1a2e; border:1px solid #2a2a4a;
+                <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.06);
                             border-radius:8px; padding:8px 12px; margin:4px 0;
-                            font-size:13px; color:#f0f0f0;">
+                            font-size:13px; color:#f1f5f9;">
                     {sample}
                 </div>
                 """, unsafe_allow_html=True)
@@ -671,9 +672,9 @@ with tab4:
     if custom_persona:
         st.markdown("**Mevcut Tarz Profili:**")
         st.markdown(f"""
-        <div style="background:#1a1a2e; border:1px solid #2a2a4a;
+        <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.06);
                     border-radius:8px; padding:14px; margin:8px 0;
-                    font-size:13px; color:#f0f0f0; line-height:1.6;">
+                    font-size:13px; color:#f1f5f9; line-height:1.6;">
             {custom_persona}
         </div>
         """, unsafe_allow_html=True)
@@ -755,7 +756,7 @@ with tab5:
                     <div class="tweet-text" style="margin:8px 0; font-size:14px;">
                         {entry.get('text', '')[:200]}
                     </div>
-                    <div style="color:#8899a6; font-size:12px;">
+                    <div style="color:#94a3b8; font-size:12px;">
                         Tarz: {entry.get('style', 'N/A')}
                     </div>
                 </div>

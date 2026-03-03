@@ -37,9 +37,10 @@ render_sidebar_nav(current_page="analiz")
 
 # --- Header ---
 st.markdown("""
-<div class="main-header">
-    <h1>📊 Tweet Analizi</h1>
-    <p style="color:#8899a6;">Hesaplarin tweet'lerini cek, engagement analizi yap, AI'i egit</p>
+<div class="page-header">
+    <span class="page-icon">📊</span>
+    <h1>Tweet Analizi</h1>
+    <p>Hesapların tweet'lerini çek, engagement analizi yap, AI'ı eğit</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -81,22 +82,22 @@ def _display_analysis(username: str, analysis: dict, ai_report: str = ""):
             text = t.get("text", "")[:300]
 
             if i <= 3:
-                border_color = "#1DA1F2"
+                border_color = "#6366f1"
             elif i <= 7:
-                border_color = "#2a2a4a"
+                border_color = "rgba(255,255,255,0.06)"
             else:
-                border_color = "#1a1a2e"
+                border_color = "rgba(15,20,35,0.7)"
 
             st.markdown(f"""
-            <div style="background:#1a1a2e; border-left:3px solid {border_color};
+            <div style="background:rgba(15,20,35,0.7); border-left:3px solid {border_color};
                         padding:10px 14px; margin:6px 0; border-radius:4px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                    <span style="color:#1DA1F2; font-weight:bold; font-size:13px;">#{i}</span>
-                    <span style="color:#8899a6; font-size:12px;">
+                    <span style="color:#a5b4fc; font-weight:bold; font-size:13px;">#{i}</span>
+                    <span style="color:#94a3b8; font-size:12px;">
                         Skor: {score:,.0f} | ❤️ {likes:,} | 🔁 {rts:,} | 💬 {replies:,}
                     </span>
                 </div>
-                <div style="color:#f0f0f0; font-size:13px; line-height:1.5;">{text}</div>
+                <div style="color:#f1f5f9; font-size:13px; line-height:1.5;">{text}</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -108,28 +109,28 @@ def _display_analysis(username: str, analysis: dict, ai_report: str = ""):
         with len_col1:
             short = length_data.get("short", {})
             st.markdown(f"""
-            <div style="background:#1a1a2e; border:1px solid #2a2a4a; border-radius:8px; padding:12px; text-align:center;">
-                <div style="color:#f0f0f0; font-weight:bold;">Kisa (≤280)</div>
-                <div style="color:#1DA1F2; font-size:20px; font-weight:bold;">{short.get('count', 0)} tweet</div>
-                <div style="color:#8899a6; font-size:12px;">Ort. Skor: {short.get('avg_score', 0):,.0f}</div>
+            <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:12px; text-align:center;">
+                <div style="color:#f1f5f9; font-weight:bold;">Kisa (≤280)</div>
+                <div style="color:#a5b4fc; font-size:20px; font-weight:bold;">{short.get('count', 0)} tweet</div>
+                <div style="color:#94a3b8; font-size:12px;">Ort. Skor: {short.get('avg_score', 0):,.0f}</div>
             </div>
             """, unsafe_allow_html=True)
         with len_col2:
             medium = length_data.get("medium", {})
             st.markdown(f"""
-            <div style="background:#1a1a2e; border:1px solid #2a2a4a; border-radius:8px; padding:12px; text-align:center;">
-                <div style="color:#f0f0f0; font-weight:bold;">Orta (281-500)</div>
-                <div style="color:#1DA1F2; font-size:20px; font-weight:bold;">{medium.get('count', 0)} tweet</div>
-                <div style="color:#8899a6; font-size:12px;">Ort. Skor: {medium.get('avg_score', 0):,.0f}</div>
+            <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:12px; text-align:center;">
+                <div style="color:#f1f5f9; font-weight:bold;">Orta (281-500)</div>
+                <div style="color:#a5b4fc; font-size:20px; font-weight:bold;">{medium.get('count', 0)} tweet</div>
+                <div style="color:#94a3b8; font-size:12px;">Ort. Skor: {medium.get('avg_score', 0):,.0f}</div>
             </div>
             """, unsafe_allow_html=True)
         with len_col3:
             long_d = length_data.get("long", {})
             st.markdown(f"""
-            <div style="background:#1a1a2e; border:1px solid #2a2a4a; border-radius:8px; padding:12px; text-align:center;">
-                <div style="color:#f0f0f0; font-weight:bold;">Uzun (>500)</div>
-                <div style="color:#1DA1F2; font-size:20px; font-weight:bold;">{long_d.get('count', 0)} tweet</div>
-                <div style="color:#8899a6; font-size:12px;">Ort. Skor: {long_d.get('avg_score', 0):,.0f}</div>
+            <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:12px; text-align:center;">
+                <div style="color:#f1f5f9; font-weight:bold;">Uzun (>500)</div>
+                <div style="color:#a5b4fc; font-size:20px; font-weight:bold;">{long_d.get('count', 0)} tweet</div>
+                <div style="color:#94a3b8; font-size:12px;">Ort. Skor: {long_d.get('avg_score', 0):,.0f}</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -141,19 +142,19 @@ def _display_analysis(username: str, analysis: dict, ai_report: str = ""):
         with q_col1:
             q = q_data.get("question_tweets", {})
             st.markdown(f"""
-            <div style="background:#1a1a2e; border:1px solid #2a2a4a; border-radius:8px; padding:12px; text-align:center;">
-                <div style="color:#f0f0f0; font-weight:bold;">❓ Soru Iceren</div>
-                <div style="color:#1DA1F2; font-size:20px; font-weight:bold;">{q.get('count', 0)} tweet</div>
-                <div style="color:#8899a6; font-size:12px;">Ort. Skor: {q.get('avg_score', 0):,.0f}</div>
+            <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:12px; text-align:center;">
+                <div style="color:#f1f5f9; font-weight:bold;">❓ Soru Iceren</div>
+                <div style="color:#a5b4fc; font-size:20px; font-weight:bold;">{q.get('count', 0)} tweet</div>
+                <div style="color:#94a3b8; font-size:12px;">Ort. Skor: {q.get('avg_score', 0):,.0f}</div>
             </div>
             """, unsafe_allow_html=True)
         with q_col2:
             s = q_data.get("statement_tweets", {})
             st.markdown(f"""
-            <div style="background:#1a1a2e; border:1px solid #2a2a4a; border-radius:8px; padding:12px; text-align:center;">
-                <div style="color:#f0f0f0; font-weight:bold;">📝 Beyan</div>
-                <div style="color:#1DA1F2; font-size:20px; font-weight:bold;">{s.get('count', 0)} tweet</div>
-                <div style="color:#8899a6; font-size:12px;">Ort. Skor: {s.get('avg_score', 0):,.0f}</div>
+            <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:12px; text-align:center;">
+                <div style="color:#f1f5f9; font-weight:bold;">📝 Beyan</div>
+                <div style="color:#a5b4fc; font-size:20px; font-weight:bold;">{s.get('count', 0)} tweet</div>
+                <div style="color:#94a3b8; font-size:12px;">Ort. Skor: {s.get('avg_score', 0):,.0f}</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -163,9 +164,9 @@ def _display_analysis(username: str, analysis: dict, ai_report: str = ""):
         st.markdown("#### Etkilesim Ceken Kelimeler")
         kw_text = ""
         for kw in top_kw[:20]:
-            kw_text += f"""<span style="display:inline-block; background:#16213e; border:1px solid #1DA1F2;
-                            border-radius:16px; padding:4px 12px; margin:3px; font-size:12px; color:#f0f0f0;">
-                            {kw['keyword']} <span style="color:#1DA1F2;">{kw['avg_score']:,.0f}</span>
+            kw_text += f"""<span style="display:inline-block; background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2);
+                            border-radius:16px; padding:4px 12px; margin:3px; font-size:12px; color:#f1f5f9;">
+                            {kw['keyword']} <span style="color:#a5b4fc;">{kw['avg_score']:,.0f}</span>
                           </span>"""
         st.markdown(f'<div style="margin:8px 0;">{kw_text}</div>', unsafe_allow_html=True)
 
@@ -175,8 +176,8 @@ def _display_analysis(username: str, analysis: dict, ai_report: str = ""):
         st.markdown("#### En Iyi Hashtag'ler")
         tag_text = ""
         for tag in top_tags[:10]:
-            tag_text += f"""<span style="display:inline-block; background:#16213e; border:1px solid #2a2a4a;
-                            border-radius:16px; padding:4px 12px; margin:3px; font-size:12px; color:#1DA1F2;">
+            tag_text += f"""<span style="display:inline-block; background:rgba(99,102,241,0.08); border:1px solid rgba(255,255,255,0.06);
+                            border-radius:16px; padding:4px 12px; margin:3px; font-size:12px; color:#a5b4fc;">
                             {tag['tag']} ({tag['count']}x, skor:{tag['avg_score']:,.0f})
                           </span>"""
         st.markdown(f'<div style="margin:8px 0;">{tag_text}</div>', unsafe_allow_html=True)
@@ -187,15 +188,15 @@ def _display_analysis(username: str, analysis: dict, ai_report: str = ""):
         st.markdown("#### En Iyi Saat Dilimleri")
         hours_text = " | ".join([f"🕐 {h['hour']:02d}:00 (skor: {h['avg_score']:,.0f}, {h['tweet_count']} tweet)"
                                   for h in best_hours[:5]])
-        st.markdown(f"<div style='color:#8899a6; font-size:13px;'>{hours_text}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='color:#94a3b8; font-size:13px;'>{hours_text}</div>", unsafe_allow_html=True)
 
     # AI Report
     if ai_report:
         st.markdown("#### 🧠 AI Analiz Raporu")
         st.markdown(f"""
-        <div style="background:#1a1a2e; border:1px solid #2a2a4a;
+        <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.06);
                     border-radius:8px; padding:14px; margin:8px 0;
-                    font-size:13px; color:#f0f0f0; line-height:1.6;
+                    font-size:13px; color:#f1f5f9; line-height:1.6;
                     max-height:500px; overflow-y:auto;">
             {ai_report}
         </div>
@@ -210,10 +211,10 @@ tab1, tab2, tab3 = st.tabs(["🔍 Yeni Analiz", "📁 Kayitli Analizler", "💾 
 # ===================
 with tab1:
     st.markdown("""
-    <div style="background:#16213e; border:1px solid #1DA1F2; border-radius:12px;
+    <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:12px;
                 padding:16px; margin-bottom:16px;">
-        <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">Nasil Calisiyor?</div>
-        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+        <div style="color:#a5b4fc; font-weight:bold; font-size:16px;">Nasil Calisiyor?</div>
+        <div style="color:#94a3b8; font-size:13px; margin-top:4px;">
             1. Hesap adi gir (birden fazla olabilir)<br>
             2. Twikit ile son tweet'leri ceker<br>
             3. Engagement analizi yapar (hangi tweet'ler ne kadar etkilesim almis)<br>
@@ -359,9 +360,9 @@ with tab2:
         if training_context:
             with st.expander("🧠 AI Egitim Verisi Onizleme (Tweet yazarken kullanilan)"):
                 st.markdown(f"""
-                <div style="background:#1a1a2e; border:1px solid #2a2a4a;
+                <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.06);
                             border-radius:8px; padding:14px; font-size:12px;
-                            color:#8899a6; max-height:400px; overflow-y:auto;">
+                            color:#94a3b8; max-height:400px; overflow-y:auto;">
                     <pre style="white-space:pre-wrap;">{training_context[:3000]}...</pre>
                 </div>
                 """, unsafe_allow_html=True)
@@ -389,10 +390,10 @@ with tab3:
     st.markdown("### Disa / Iceri Aktar")
 
     st.markdown("""
-    <div style="background:#16213e; border:1px solid #1DA1F2; border-radius:12px;
+    <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:12px;
                 padding:16px; margin-bottom:16px;">
-        <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">Neden Gerekli?</div>
-        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+        <div style="color:#a5b4fc; font-weight:bold; font-size:16px;">Neden Gerekli?</div>
+        <div style="color:#94a3b8; font-size:13px; margin-top:4px;">
             Streamlit Cloud'da dosya sistemi gecicidir — uygulama yeniden basladiginda
             analiz verileri kaybolur.<br><br>
             <strong>Cozum:</strong><br>

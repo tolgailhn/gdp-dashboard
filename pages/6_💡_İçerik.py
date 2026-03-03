@@ -28,9 +28,10 @@ render_sidebar_nav(current_page="icerik")
 
 # --- Header ---
 st.markdown("""
-<div class="main-header">
-    <h1>💡 İçerik Üretici</h1>
-    <p style="color:#8899a6;">Konu keşfet, araştır, uzun içerik üret</p>
+<div class="page-header">
+    <span class="page-icon">💡</span>
+    <h1>İçerik Üretici</h1>
+    <p>Konu keşfet, araştır, uzun içerik üret</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -84,10 +85,10 @@ tab1, tab2 = st.tabs(["🔍 Konu Keşfet", "✍️ İçerik Üret"])
 # ============================================================
 with tab1:
     st.markdown("""
-    <div style="background:#16213e; border:1px solid #1DA1F2; border-radius:12px;
+    <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:12px;
                 padding:16px; margin-bottom:16px;">
-        <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">🔍 Konu Keşfet</div>
-        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+        <div style="color:#a5b4fc; font-weight:bold; font-size:16px;">🔍 Konu Keşfet</div>
+        <div style="color:#94a3b8; font-size:13px; margin-top:4px;">
             AI, X'te trend konuları ve güncel haberleri tarayıp sana içerik önerileri sunar
         </div>
     </div>
@@ -157,12 +158,12 @@ with tab1:
 
         st.markdown("---")
         st.markdown(f"""
-        <div style="background:#1a2940; border:1px solid #1DA1F2; border-radius:12px;
+        <div style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.25); border-radius:12px;
                     padding:16px; margin-bottom:16px;">
-            <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">
+            <div style="color:#a5b4fc; font-weight:bold; font-size:16px;">
                 ✍️ Seçilen Konu: {sel_title}
             </div>
-            <div style="color:#8899a6; font-size:13px; margin-top:4px;">{sel_desc}</div>
+            <div style="color:#94a3b8; font-size:13px; margin-top:4px;">{sel_desc}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -322,9 +323,9 @@ with tab1:
             st.markdown("### 📝 Üretilen İçerik")
 
             st.markdown(f"""
-            <div style="background:#192734; border:1px solid #38444d; border-radius:16px;
+            <div style="background:rgba(15,20,35,0.8); border:1px solid rgba(99,102,241,0.15); border-radius:16px;
                         padding:20px; margin:12px 0; font-size:15px; line-height:1.7;
-                        color:#e1e8ed; white-space:pre-wrap;">{d_content}</div>
+                        color:#e2e8f0; white-space:pre-wrap;">{d_content}</div>
             """, unsafe_allow_html=True)
 
             char_count = len(d_content)
@@ -372,10 +373,10 @@ with tab1:
 # ============================================================
 with tab2:
     st.markdown("""
-    <div style="background:#16213e; border:1px solid #1e3a5f; border-radius:12px;
+    <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.15); border-radius:12px;
                 padding:16px; margin-bottom:16px;">
-        <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">✍️ Uzun İçerik Üret</div>
-        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+        <div style="color:#a5b4fc; font-weight:bold; font-size:16px;">✍️ Uzun İçerik Üret</div>
+        <div style="color:#94a3b8; font-size:13px; margin-top:4px;">
             Konu gir → AI araştırsın → Detaylı, uzun-form X içeriği üretsin
         </div>
     </div>
@@ -557,9 +558,9 @@ with tab2:
 
         # Preview box
         st.markdown(f"""
-        <div style="background:#192734; border:1px solid #38444d; border-radius:16px;
+        <div style="background:rgba(15,20,35,0.8); border:1px solid rgba(99,102,241,0.15); border-radius:16px;
                     padding:20px; margin:12px 0; font-size:15px; line-height:1.7;
-                    color:#e1e8ed; white-space:pre-wrap;">{content}</div>
+                    color:#e2e8f0; white-space:pre-wrap;">{content}</div>
         """, unsafe_allow_html=True)
 
         char_count = len(content)

@@ -124,17 +124,18 @@ def _import_followers_json(json_str: str) -> int:
 
 # --- Header ---
 st.markdown("""
-<div class="main-header">
-    <h1>👥 Onayli Takipci Kesfet</h1>
-    <p style="color:#8899a6;">Benzer hesaplarin mavi tikli takipcilerini bul, manuel takip et</p>
+<div class="page-header">
+    <span class="page-icon">👥</span>
+    <h1>Onaylı Takipçi Keşfet</h1>
+    <p>Benzer hesapların mavi tiklı takipçilerini bul, manuel takip et</p>
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("""
-<div style="background:#16213e; border:1px solid #1DA1F2; border-radius:12px;
+<div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:12px;
             padding:16px; margin-bottom:16px;">
-    <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">Nasil Calisiyor?</div>
-    <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+    <div style="color:#a5b4fc; font-weight:bold; font-size:16px;">Nasil Calisiyor?</div>
+    <div style="color:#94a3b8; font-size:13px; margin-top:4px;">
         1. Senin nisindeki bir hesabin kullanici adini gir<br>
         2. O hesabin onayli (mavi tikli) takipcilerini cekeriz<br>
         3. Listeden profillerine tikla ve manuel takip et<br>
@@ -201,17 +202,17 @@ with tab1:
             st.stop()
 
         st.markdown(f"""
-        <div style="background:#1a1a2e; border:1px solid #1DA1F2; border-radius:12px;
+        <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(99,102,241,0.2); border-radius:12px;
                     padding:16px; margin:12px 0;">
             <div style="display:flex; align-items:center; gap:12px;">
                 <div>
-                    <span style="color:#f0f0f0; font-weight:bold; font-size:16px;">{user_info['name']}</span>
-                    <span style="color:#1DA1F2; font-size:14px;"> @{user_info['username']}</span>
-                    {"<span style='color:#1DA1F2;'> ✓</span>" if user_info.get('is_blue_verified') else ""}
+                    <span style="color:#f1f5f9; font-weight:bold; font-size:16px;">{user_info['name']}</span>
+                    <span style="color:#a5b4fc; font-size:14px;"> @{user_info['username']}</span>
+                    {"<span style='color:#a5b4fc;'> ✓</span>" if user_info.get('is_blue_verified') else ""}
                 </div>
             </div>
-            <div style="color:#8899a6; font-size:13px; margin-top:6px;">{user_info.get('bio', '')[:200]}</div>
-            <div style="color:#8899a6; font-size:12px; margin-top:8px;">
+            <div style="color:#94a3b8; font-size:13px; margin-top:6px;">{user_info.get('bio', '')[:200]}</div>
+            <div style="color:#94a3b8; font-size:12px; margin-top:8px;">
                 👥 {user_info.get('followers_count', 0):,} takipci |
                 👤 {user_info.get('following_count', 0):,} takip |
                 📝 {user_info.get('tweet_count', 0):,} tweet
@@ -273,10 +274,10 @@ with tab3:
     st.markdown("### Disa / Iceri Aktar")
 
     st.markdown("""
-    <div style="background:#16213e; border:1px solid #1DA1F2; border-radius:12px;
+    <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:12px;
                 padding:16px; margin-bottom:16px;">
-        <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">Neden Gerekli?</div>
-        <div style="color:#8899a6; font-size:13px; margin-top:4px;">
+        <div style="color:#a5b4fc; font-weight:bold; font-size:16px;">Neden Gerekli?</div>
+        <div style="color:#94a3b8; font-size:13px; margin-top:4px;">
             Streamlit Cloud'da dosya sistemi gecicidir.<br>
             Takipci listelerinizi indirin ve bir sonraki oturumda geri yukleyin.
         </div>
@@ -369,18 +370,18 @@ def _display_followers(followers: list[dict], source_username: str):
         is_verified = f.get("is_blue_verified", False)
         profile_url = f"https://x.com/{uname}"
 
-        verified_badge = ' <span style="color:#1DA1F2;">✓</span>' if is_verified else ""
+        verified_badge = ' <span style="color:#a5b4fc;">✓</span>' if is_verified else ""
 
         st.markdown(f"""
-        <div style="background:#1a1a2e; border:1px solid #2a2a4a; border-radius:8px;
+        <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.06); border-radius:8px;
                     padding:10px 14px; margin:4px 0; display:flex; justify-content:space-between; align-items:center;">
             <div style="flex:1;">
                 <div>
-                    <span style="color:#f0f0f0; font-weight:bold; font-size:14px;">{name}</span>{verified_badge}
-                    <span style="color:#8899a6; font-size:13px;"> @{uname}</span>
+                    <span style="color:#f1f5f9; font-weight:bold; font-size:14px;">{name}</span>{verified_badge}
+                    <span style="color:#94a3b8; font-size:13px;"> @{uname}</span>
                 </div>
-                <div style="color:#8899a6; font-size:12px; margin-top:2px;">{bio}</div>
-                <div style="color:#8899a6; font-size:11px; margin-top:2px;">👥 {f_count:,} takipci</div>
+                <div style="color:#94a3b8; font-size:12px; margin-top:2px;">{bio}</div>
+                <div style="color:#94a3b8; font-size:11px; margin-top:2px;">👥 {f_count:,} takipci</div>
             </div>
         </div>
         """, unsafe_allow_html=True)

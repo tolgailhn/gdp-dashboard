@@ -204,7 +204,8 @@ with mode_tab2:
                 progress_text.empty()
 
             st.session_state.research_data = research
-            research_summary = research.summary
+            # Use AI-synthesized brief if available, fallback to raw summary
+            research_summary = research.synthesized_brief or research.summary
 
             # --- Show thread if found ---
             if len(research.thread_texts) > 1:
@@ -250,6 +251,11 @@ with mode_tab2:
 
                 if not research.web_results and not research.deep_articles and not research.related_tweets:
                     st.warning("Bu konu için web'de yeterli bilgi bulunamadı.")
+
+            # Show AI-synthesized brief if available
+            if research.synthesized_brief:
+                with st.expander("🧠 AI Araştırma Sentezi", expanded=False):
+                    st.markdown(research.synthesized_brief)
 
             # Set state for generation
             st.session_state.write_mode = "quote"

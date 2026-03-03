@@ -495,84 +495,82 @@ class ContentGenerator:
 
             # Detect if tweet is rich enough to be primary source
             tweet_is_rich = len(original_tweet) > 400
-            if tweet_is_rich:
-                richness_note = """⚠️ BU TWEET ÇOK DETAYLI VE ZENGİN İÇERİKLİ.
-Tweet'in kendi içindeki bilgiler (rakamlar, detaylar, alıntılar) birincil kaynağın.
-Araştırma sonuçlarını SADECE tweet'te olmayan kritik bağlam bilgisi için kullan.
-Tweet'te yazan şeyleri araştırma verisiyle DEĞİŞTİRME — tweet ne diyorsa onu kullan.
-Araştırmada bulduğun borsa fiyatı, analist tahmini, EPS gibi tweet'te OLMAYAN finansal verileri EKLEME."""
-            else:
-                richness_note = """Tweet kısa/öz. Araştırma sonuçlarından ek detay ve bağlam ekleyerek zenginleştir."""
 
-            # RESEARCH MODE: AI has full context, write analytical post
-            user_prompt = f"""## ORİJİNAL TWEET (BU TWEET HAKKINDA YAZIYORSUN — EN ÖNEMLİ KISIM):
+            # Detect if research_summary is AI-synthesized (structured brief)
+            # AI synthesis produces "## TEMEL BULGULAR" sections
+            is_synthesized = "## TEMEL BULGULAR" in research_summary or "## RAKAMLAR" in research_summary
+
+            if tweet_is_rich:
+                source_strategy = """KAYNAK STRATEJİSİ: Tweet detaylı ve zengin.
+- Tweet'in kendi bilgileri (rakamlar, detaylar, alıntılar) = BİRİNCİL kaynak
+- Araştırma = tweet'te OLMAYAN ek bağlam, trend bilgisi, sektör etkisi için kullan
+- Tweet'teki verileri araştırma verileriyle DEĞİŞTİRME"""
+            else:
+                source_strategy = """KAYNAK STRATEJİSİ: Tweet kısa/öz.
+- Tweet'in konusunu ANA ÇERÇEVE olarak kullan
+- Araştırmadaki verileri, rakamları ve bulguları MUTLAKA ekle — tweet'i zenginleştir
+- Araştırmadan en az 1 spesifik veri/rakam/bilgi kullanmak ZORUNLU"""
+
+            if is_synthesized:
+                # AI-synthesized brief — use directly with focused instructions
+                research_section = f"""## ARAŞTIRMA SENTEZI (AI tarafından özetlendi):
+{research_summary}
+
+BU SENTEZ NASIL KULLANILIR:
+- "TEMEL BULGULAR" bölümündeki bilgiler en değerli — tweet'e EN AZ 1 tanesini dahil et
+- "RAKAMLAR VE VERİLER" varsa tweet'e güç katar, kullan
+- "KARŞIT GÖRÜŞ" varsa ilginç bir açı sağlar
+- "BAĞLAM" kısmı konuyu büyük resme oturtmana yardımcı olur"""
+            else:
+                # Raw research summary — guide the AI more explicitly
+                research_section = f"""## ARAŞTIRMA SONUÇLARI (ham veriler):
+{research_summary}
+
+ARAŞTIRMA NASIL KULLANILIR:
+- Araştırmada tweet konusuyla DOĞRUDAN İLGİLİ bilgileri bul ve kullan
+- SPESİFİK rakamlar, tarihler, isimler ara — bunlar tweet'e güç katar
+- Araştırmayla tweet konusu UYUŞMUYORSA o bilgiyi GÖRMEZDEN GEL
+- Genel/yüzeysel bilgi yerine spesifik veri ve bulgu tercih et"""
+
+            user_prompt = f"""## ORİJİNAL TWEET:
 @{original_author} şunu yazmış:
 "{original_tweet}"
 
-{richness_note}
+{source_strategy}
 
 ---
 
-## ARAŞTIRMA SONUÇLARI (SADECE ek bağlam — tweet'teki bilgilerin yerini ALMAZ):
-
-{research_summary}
+{research_section}
 
 {f"Kullanıcı notu: {additional_context}" if additional_context else ""}
 
 ---
 
 ## GÖREV:
-ORİJİNAL TWEET'İN İÇERİĞİNDEN yola çıkarak kendi analizini Türkçe yaz.
-Tweet'in kendi detaylarını (rakamlar, isimler, alıntılar, olaylar) ANA MALZEME olarak kullan.
-Araştırma sonuçlarını sadece tweet'i anlamlandırmak için BAĞLAM olarak kullan.
+Orijinal tweet'in konusu hakkında KENDİ ANALİZİNİ Türkçe yaz.
 
-ÖNEMLİ: Tweet'te ne yazıyorsa ONU anlat ve yorumla. Tweet'te olmayan bilgileri (borsa fiyatı, analist tahminleri, EPS rakamları gibi) tweet'tekilermiş gibi SUNMA.
-
-## NASIL YAZMALISIN (ÇOK ÖNEMLİ):
-
-1. **TWEET'İN KENDİ VERİLERİNİ KULLAN**: Tweet'te rakamlar, detaylar, alıntılar varsa BUNLARI kullan. Araştırmadan başka rakamlar getirip tweet'tekilerle karıştırma.
-
-2. **TWEET'İN RUHUNU YAKALA**: Tweet ne anlatıyorsa (işten çıkarma, yeni model, yatırım vs.) o konunun özünü yaz. Tweet'in vermek istediği mesajı anla.
-
-3. **KENDİ ANALİZİNİ EKLE**: Tweet'teki bilgilerden yola çıkarak kendi yorumunu, paradoks tespitini, stratejik analizini ekle.
-
-4. **GÜÇLÜ İFADEYLE BİTİR**: Cesur tahmin veya kesin görüşle kapat. SORU SORMA — "sizce?", "denediniz mi?" gibi CTA YASAK.
+ZORUNLU KURALLAR:
+1. Tweet'in KONUSUNA sadık kal — tweet ne anlatıyorsa o konuda yaz
+2. Araştırmadan EN AZ 1 spesifik bilgi/rakam/veri kullan (genel yorum yetmez)
+3. Kendi bakış açını ve analizini ekle — sadece özetleme, YORUM KAT
+4. GÜÇLÜ İFADEYLE BİTİR — cesur tahmin veya kesin görüş. SORU SORMA.
 
 {length_instructions}
 
-## ÇIKTI FORMATI (KRİTİK - BUNA UYMAZSAN BAŞARISIZ OLURSUN):
-Tweet'i şu formatta yaz:
-- İlk satır = HOOK: Konuyu tanıt ama merak uyandır. Doğal, merak uyandıran bir cümle
-- Her paragraf arasında BİR BOŞ SATIR bırak
-- Her paragraf 1-3 cümle olsun
-- Hook'tan sonra konuya gir, detayları anlat
-- Son satır = GÜÇLÜ GÖRÜŞ veya CESUR TAHMİN (SORU SORMA)
-- En sona 1-2 hashtag ekle
-- METIN DUVARI yazma! Paragraflar arasında mutlaka boşluk olacak!
-
-## ÖRNEK: Tweet uzun ve detaylıysa nasıl yazmalısın:
-
-Orijinal tweet Jack Dorsey'in 4.000 kişiyi çıkarma mektubu olsun. Tweet'te "20 hafta maaş, 6 ay sağlık sigortası, $5.000 geçiş desteği" gibi detaylar var. Şöyle yazmalısın:
-
-Jack Dorsey Block'ta 10.000'den 6.000 kişiye iniyor ve bunu açıkça "AI yüzünden" diyor.
-
-İşin ilginç tarafı: çıkarılanlara 20 hafta maaş, 6 ay sağlık sigortası, $5.000 geçiş desteği veriyor. Slack kanallarını Perşembe'ye kadar açık bırakıyor vedalaşsınlar diye. Canlı video bile yapacak.
-
-"Küçük ama yetenekli ekipler AI ile daha verimli" diyor Jack. Yani diğer şirketler gibi AI bağlantısını gizlemiyor, açıkça söylüyor.
-
-Block bunu açıkça söyleyen ilk büyük şirket ama diğerleri de gizlice aynısını yapıyor zaten. fark şu ki jack söylüyor diğerleri sessiz kalıyor.
-
-#Block #AI
+## FORMAT:
+- İlk satır = HOOK (merak uyandıran doğal giriş)
+- Her paragraf arası BOŞ SATIR
+- Her paragraf 1-3 cümle
+- Son satır = güçlü görüş/tahmin
+- En sona 1-2 hashtag
 
 ## YAPMA:
-- Tweet'te OLMAYAN verileri ekleme (borsa fiyatı, EPS, analist tahminleri gibi araştırmadan gelen rakamları tweet'tekilermiş gibi yazma)
-- Orijinal tweet'in konusundan SAPMA
-- Orijinal tweet'i Türkçeye çevirme veya birebir özetleme
-- "Heyecan verici", "çığır açan", "dikkat çekici gelişme" gibi klişeler kullanma
-- Orijinal tweet'teki cümleleri tekrarlama
-- Madde işareti veya numara listesi kullanma
-- Metin duvarı (paragraflar arası boşluk olmadan) yazma
-- Hashtag'siz bırakma
+- Tweet konusundan SAPMA
+- Tweet'i birebir çevirme/özetleme
+- Araştırmayla tweet'i KARIŞITIRMA (tweet ne diyorsa onu kullan)
+- Klişe kullanma: "heyecan verici", "çığır açan", "dikkat çekici"
+- Madde işareti/liste kullanma
+- CTA soru sorma: "sizce?", "denediniz mi?" YASAK
 
 Sadece tweet metnini yaz, başka bir şey yazma."""
         else:
@@ -726,28 +724,24 @@ Sadece yeni tweet metnini yaz."""
 ## ARAŞTIRMA MODU:
 Araştırma verilerini kullanarak {length_desc.get(length_preference, length_desc['orta'])} yazıyorsun.
 
-KRİTİK KURAL — TWEET ODAKLI YAZ:
-- Orijinal tweet'in KENDİ İÇERİĞİ senin ana malzemen. Tweet'te ne yazıyorsa ONU kullan
-- Tweet'teki detayları (rakamlar, isimler, alıntılar, olaylar) doğrudan kullan
-- Araştırma sonuçları SADECE bağlam ve ek bilgi için. Tweet'teki bilgilerin YERİNE araştırma verisi koyma
-- Tweet'te OLMAYAN verileri (borsa fiyatı, EPS, analist tahminleri) tweet'tekilermiş gibi sunma
-- Araştırmada tweet'le ALAKASIZ bilgi varsa GÖRMEZDEN GEL
+## ARAŞTIRMAYI TWEET'E ÇEVİRME REHBERİ:
 
-DİĞER KURALLAR:
-- Tweet'in verdiği mesajı ve ruhunu yakala, kendi analizini ekle
-- Paradoksları, çelişkileri ve ilginç ilişkileri yakala
-- Stratejik analiz yap - "neden" sorusunu cevapla
-- Doğal Türkçe yaz, teknik terimler İngilizce kalabilir
-- Robotik AI kalıpları YASAK
+1. KONU SABİTLEME: Orijinal tweet ne hakkındaysa O KONU hakkında yaz.
+   Araştırmada tweet konusuyla alakasız bilgi varsa GÖRMEZDEN GEL.
 
-## YAZIYI FORMATLA (KRİTİK):
-- İlk satır HOOK olmalı: "[Konu] tarafı sessiz sedasız X noktasına geldi" gibi doğal, merak uyandıran giriş. Konuyu tanıt ama detayı henüz verme. ASLA klişe hook kullanma!
-- Her düşünce/paragraf arasında BOŞ SATIR bırak (\\n\\n ile ayır)
-- Her paragraf 1-3 cümle olsun. METIN DUVARI yazma!
-- Hook'tan sonra konuya gir, araştırma verilerini kullanarak detayları anlat
-- Son satır GÜÇLÜ GÖRÜŞ veya CESUR TAHMİN olmalı (SORU SORMA, CTA YASAK)
-- En sona konuyla ilgili 1-2 hashtag ekle (#AI #OpenAI gibi)
-- Liste/madde işareti kullanma, doğal paragraflar halinde yaz
+2. VERİ KULLANIMI: Araştırmadaki SPESİFİK rakamları, tarihleri, isimleri ve
+   bulguları tweet'e dahil et. "Yapay zeka gelişiyor" gibi genel ifadeler yerine
+   "GPT-5 benchmark'ta %15 artış gösterdi" gibi spesifik ol.
+
+3. TWEET + ARAŞTIRMA BİRLEŞTİR: Tweet'in verdiği mesajı AL, araştırmayla ZENGİNLEŞTİR.
+   Tweet kısa ise → araştırmadan detay ve veri ekle.
+   Tweet uzun ise → tweet'in verilerini kullan, araştırmadan bağlam ekle.
+
+4. ANALİZ EKLE: Bilgiyi ver, sonra KENDİ YORUMUNU kat.
+   Paradoksları, çelişkileri ve stratejik boyutu yakala.
+
+5. DOĞAL YAZ: Türkçe günlük dil, teknik terimler İngilizce.
+   AI kalıpları YASAK. Madde işareti/liste YASAK.
 """
 
         if user_samples:

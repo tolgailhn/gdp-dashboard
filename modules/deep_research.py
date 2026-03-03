@@ -45,6 +45,7 @@ class ResearchResult:
     reddit_results: list = field(default_factory=list)
     related_tweets: list = field(default_factory=list)
     summary: str = ""
+    synthesized_brief: str = ""  # AI-synthesized structured research brief
 
 
 def extract_tweet_id(url_or_id: str) -> str | None:
@@ -144,32 +145,47 @@ def ai_extract_topic(tweet_text: str, ai_client=None, ai_model: str = None,
 
     current_year = str(datetime.datetime.now().year)
 
+    # Detect if tweet is short (needs deeper query expansion)
+    is_short_tweet = len(tweet_text.strip()) < 300
+
+    short_tweet_extra = """
+ÖNEMLİ: Bu tweet KISA. Konu hakkında derinlemesine araştırma yapabilmek için
+sorguları çeşitlendir. Sadece "X nedir" değil, şu açılardan da sorgula:
+- Bu konuda son gelişmeler neler?
+- Rakamlar/istatistikler neler?
+- Uzman görüşleri ve karşıt fikirler neler?
+- Bu konunun piyasa/sektör etkisi nedir?
+""" if is_short_tweet else ""
+
     prompt = f"""Aşağıdaki tweet'i oku ve konusunu analiz et. Tweet'in ASIL konusu nedir?
 
 TWEET:
 {tweet_text[:1500]}
 
-Görevin: Bu tweet'in gerçek konusunu anla ve araştırma yapmak için arama sorguları üret.
+Görevin: Bu tweet'in gerçek konusunu anla ve araştırma yapmak için HEDEFLI arama sorguları üret.
 
 DİKKAT: Tweet'te birçok marka/ürün adı geçebilir ama asıl konu farklı olabilir.
 Örnek: "Claude ve Codex built-in" diyen bir tweet Claude hakkında değil, o ürünleri entegre eden ARAÇ hakkındadır.
-
+{short_tweet_extra}
 Yanıtını SADECE şu JSON formatında ver, başka hiçbir şey yazma:
 {{
     "topic": "tweet'in asıl konusunun 5-10 kelimelik özeti (İngilizce)",
     "main_subject": "tweet'in ana konusu olan ürün/şirket/olay (tek isim)",
-    "general_queries": ["genel web araması 1", "genel web araması 2", "genel web araması 3"],
-    "technical_queries": ["teknik detay araması 1", "teknik detay araması 2"],
-    "reddit_queries": ["site:reddit.com ile reddit araması 1", "site:reddit.com ile reddit araması 2"]
+    "general_queries": ["ne oldu/ne çıktı araması", "detay/özellik araması", "etki/analiz araması"],
+    "technical_queries": ["teknik detay/benchmark araması", "karşılaştırma/rakip araması"],
+    "reddit_queries": ["site:reddit.com spesifik tartışma 1", "site:reddit.com spesifik tartışma 2"],
+    "news_queries": ["haber araması 1", "haber araması 2"]
 }}
 
 KURALLAR:
 - Arama sorgularını İngilizce yaz
 - Her sorguya "{current_year}" ekle
-- "general_queries" konunun ne olduğunu araştırsın
-- "technical_queries" teknik detayları bulsun
-- "reddit_queries" Reddit'te tartışmaları bulsun
-- Sorgular SPESİFİK olsun, genel "AI news" gibi değil"""
+- general_queries: 3 farklı AÇI ile ara (ne oldu + detaylar + etki/analiz)
+- technical_queries: teknik detay + benchmark/karşılaştırma
+- reddit_queries: Reddit'te kullanıcı deneyimleri ve tartışmaları bul
+- news_queries: son haberler ve duyurular
+- Sorgular KISA olsun (3-7 kelime ideal), spesifik olsun
+- "AI news" gibi genel sorgular YASAK, her sorgu konuya özel olmalı"""
 
     try:
         if provider == "anthropic":
@@ -200,6 +216,14 @@ KURALLAR:
 
         data = json.loads(json_match.group())
 
+        # Use AI-generated news queries if available, fallback to auto-generated
+        news_queries = data.get("news_queries", [])[:2]
+        if not news_queries:
+            news_queries = [
+                f"{data.get('main_subject', '')} news {current_year}",
+                f"{data.get('topic', '')[:40]} {current_year}",
+            ]
+
         return {
             "topic": data.get("topic", ""),
             "main_subject": data.get("main_subject", ""),
@@ -207,10 +231,7 @@ KURALLAR:
                 "general": data.get("general_queries", [])[:3],
                 "technical": data.get("technical_queries", [])[:2],
                 "reddit": data.get("reddit_queries", [])[:2],
-                "news": [
-                    f"{data.get('main_subject', '')} news {current_year}",
-                    f"{data.get('topic', '')[:40]} {current_year}",
-                ],
+                "news": news_queries,
             }
         }
 
@@ -720,11 +741,29 @@ def research_topic(tweet_text: str, tweet_author: str = "",
         except Exception as e:
             print(f"Twitter search error: {e}")
 
-    # === STEP 8: Compile ===
+    # === STEP 8: Compile raw summary ===
     if progress_callback:
         progress_callback("Araştırma derleniyor...")
 
     result.summary = compile_research_summary(result)
+
+    # === STEP 9: AI Synthesis — structured research brief ===
+    # This transforms raw research into prioritized, tweet-friendly format
+    if ai_client and (result.deep_articles or result.web_results or result.reddit_results):
+        if progress_callback:
+            progress_callback("AI ile araştırma sentezleniyor...")
+        brief = ai_synthesize_research(
+            raw_summary=result.summary,
+            original_tweet=result.full_thread_text or result.original_tweet_text,
+            ai_client=ai_client,
+            ai_model=ai_model,
+            provider=ai_provider,
+        )
+        if brief:
+            result.synthesized_brief = brief
+            if progress_callback:
+                progress_callback("Araştırma sentezi tamamlandı")
+
     return result
 
 
@@ -787,20 +826,109 @@ def _pick_best_urls(results: list[dict], max_urls: int = 8) -> list[str]:
 
 
 # ========================================================================
+# AI-POWERED RESEARCH SYNTHESIS — structured Research Brief
+# ========================================================================
+
+def ai_synthesize_research(raw_summary: str, original_tweet: str,
+                           ai_client=None, ai_model: str = None,
+                           provider: str = "minimax") -> str | None:
+    """
+    Use AI to transform raw research into a structured Research Brief.
+    This is the KEY step: instead of dumping raw articles into the tweet prompt,
+    we first extract the most useful facts, data, and angles.
+
+    Returns a structured brief optimized for tweet writing, or None if AI unavailable.
+    """
+    if not ai_client:
+        return None
+
+    prompt = f"""Aşağıda bir tweet ve o tweet hakkında yapılmış araştırma sonuçları var.
+
+ORİJİNAL TWEET:
+"{original_tweet[:800]}"
+
+ARAŞTIRMA SONUÇLARI:
+{raw_summary[:6000]}
+
+---
+
+GÖREV: Bu araştırmadan tweet yazarken kullanılabilecek en değerli bilgileri çıkar.
+Sadece TWEET KONUSUYLA İLGİLİ bilgileri dahil et, alakasız olanları AT.
+
+Yanıtını şu formatta yaz:
+
+## TEMEL BULGULAR
+(Tweet'in konusuyla doğrudan ilgili en önemli 3-5 bilgi. Her biri tek cümle.)
+
+## RAKAMLAR VE VERİLER
+(Spesifik rakamlar, yüzdeler, dolar tutarları, tarihler — tweet'e güç katacak veriler.)
+
+## UZMAN GÖRÜŞLERİ / ALITILAR
+(Varsa, kaynaklardan alıntılanabilecek görüşler veya ifadeler.)
+
+## KARŞIT GÖRÜŞ / ÇELİŞKİ
+(Konuyla ilgili karşıt bir bakış açısı veya ilginç bir çelişki varsa yaz.)
+
+## BAĞLAM
+(Bu olay neden önemli? Piyasa etkisi, sektörel anlam, trend bağlamı.)
+
+KURALLAR:
+- Her madde TEK CÜMLE olsun, kısa ve net
+- Sadece GERÇEK bilgi yaz, yorum ekleme
+- Tweet konusuyla ALAKASIZ bilgileri dahil etme
+- "Bulunamadı" yazmak yerine o bölümü boş bırak
+- Araştırmada bilgi yoksa bölümü atla"""
+
+    try:
+        if provider == "anthropic":
+            import anthropic
+            response = ai_client.messages.create(
+                model=ai_model or "claude-haiku-4-5-20251001",
+                max_tokens=1500,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+            )
+            return response.content[0].text.strip()
+        else:
+            response = ai_client.chat.completions.create(
+                model=ai_model or "MiniMax-M2.5",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1500,
+                temperature=0.1,
+            )
+            result = response.choices[0].message.content.strip()
+            # Strip <think> tags from reasoning models
+            result = re.sub(r'<think>.*?</think>', '', result, flags=re.DOTALL).strip()
+            return result
+
+    except Exception as e:
+        print(f"AI research synthesis error: {e}")
+        return None
+
+
+# ========================================================================
 # RESEARCH SUMMARY COMPILER
 # ========================================================================
 
 def compile_research_summary(r: ResearchResult) -> str:
     """
-    Build the research context that will be sent to the AI.
-    Now includes FULL ARTICLE CONTENT, not just snippets.
-    Original tweet content is prominently placed at the top.
+    Build structured research context optimized for tweet writing.
+
+    Priority order (most important first):
+    1. Original tweet/thread (the ANCHOR)
+    2. Deep articles (highest info density)
+    3. Web snippets (supporting context)
+    4. Reddit discussions (community perspective)
+    5. X opinions (limited — only high-engagement ones)
+
+    Keeps total under ~5000 chars to avoid token bloat.
     """
     parts = []
+    total_chars = 0
+    MAX_TOTAL = 5500  # Target max for research context
 
-    # Section 1: Original tweet/thread — MOST IMPORTANT
+    # Section 1: Original tweet/thread — MOST IMPORTANT (always included)
     parts.append(f"# ANA KONU: {r.topic}")
-    parts.append("(Aşağıdaki orijinal tweet YAZI KONUNUN TEMELIDIR — bu tweet ne hakkındaysa o konu hakkında yaz!)")
 
     if len(r.thread_texts) > 1:
         parts.append(f"\n## ORİJİNAL THREAD (@{r.original_tweet_author}) - {len(r.thread_texts)} tweet:")
@@ -810,46 +938,63 @@ def compile_research_summary(r: ResearchResult) -> str:
         parts.append(f"\n## ORİJİNAL TWEET (@{r.original_tweet_author}):")
         parts.append(f"  {r.original_tweet_text}")
 
-    parts.append("\n(Yukarıdaki tweet'teki veriler, rakamlar ve bilgiler ANA KAYNAĞINDIR. Aşağıdaki araştırma sadece EK bilgidir.)")
+    total_chars = sum(len(p) for p in parts)
 
-    # Section 2: DEEP ARTICLES — Full content from fetched pages
+    # Section 2: DEEP ARTICLES — Key content from fetched pages
+    # Limit each article to 2000 chars, max 3 articles
     if r.deep_articles:
-        parts.append(f"\n## DERİN ARAŞTIRMA — Okunan Makaleler ({len(r.deep_articles)} kaynak):")
-        parts.append("(Bu makalelerdeki spesifik verileri, rakamları ve detayları kullan!)\n")
-        for i, article in enumerate(r.deep_articles, 1):
-            parts.append(f"### Kaynak {i}: {article['title']}")
-            parts.append(f"URL: {article['url']}")
-            parts.append(f"{article['content']}")
-            parts.append("")  # blank line
+        parts.append(f"\n## ARAŞTIRMA KAYNAKLARI ({len(r.deep_articles)} makale okundu):")
+        for i, article in enumerate(r.deep_articles[:3], 1):
+            content = article['content'][:2000]
+            article_text = f"\n### Kaynak {i}: {article['title']}\n{content}"
+            if total_chars + len(article_text) > MAX_TOTAL:
+                # Truncate this article to fit budget
+                remaining = max(500, MAX_TOTAL - total_chars - 200)
+                article_text = f"\n### Kaynak {i}: {article['title']}\n{article['content'][:remaining]}..."
+            parts.append(article_text)
+            total_chars += len(article_text)
 
-    # Section 3: Web search snippets (for results we couldn't deep-fetch)
-    if r.web_results:
-        # Only show snippets for results NOT in deep_articles
+    # Section 3: Web search snippets (compact — title + snippet)
+    if r.web_results and total_chars < MAX_TOTAL - 300:
         deep_urls = {a["url"] for a in r.deep_articles}
         remaining = [wr for wr in r.web_results if wr["url"] not in deep_urls]
 
         if remaining:
             parts.append(f"\n## Ek Web Bulguları ({len(remaining)} kaynak):")
-            for i, wr in enumerate(remaining[:8], 1):
-                src = f" ({wr['source']})" if wr.get("source") else ""
-                parts.append(f"  {i}. {wr['title']}{src}")
-                parts.append(f"     {wr['body'][:400]}")
+            for i, wr in enumerate(remaining[:5], 1):
+                snippet = f"  {i}. {wr['title']}: {wr['body'][:250]}"
+                if total_chars + len(snippet) > MAX_TOTAL:
+                    break
+                parts.append(snippet)
+                total_chars += len(snippet)
 
-    # Section 4: Reddit discussions
-    if r.reddit_results:
+    # Section 4: Reddit (compact)
+    if r.reddit_results and total_chars < MAX_TOTAL - 200:
         deep_urls = {a["url"] for a in r.deep_articles}
         remaining_reddit = [rr for rr in r.reddit_results if rr["url"] not in deep_urls]
         if remaining_reddit:
             parts.append(f"\n## Reddit Tartışmaları:")
-            for i, rr in enumerate(remaining_reddit[:4], 1):
-                parts.append(f"  {i}. {rr['title']}")
-                parts.append(f"     {rr['body'][:300]}")
+            for i, rr in enumerate(remaining_reddit[:3], 1):
+                snippet = f"  {i}. {rr['title']}: {rr['body'][:200]}"
+                if total_chars + len(snippet) > MAX_TOTAL:
+                    break
+                parts.append(snippet)
+                total_chars += len(snippet)
 
-    # Section 5: X/Twitter opinions
-    if r.related_tweets:
-        parts.append(f"\n## X'te Diğer Yorumlar:")
-        for i, rt in enumerate(r.related_tweets[:5], 1):
-            parts.append(f"  {i}. @{rt['author']} ({rt['likes']} beğeni): {rt['text'][:200]}")
+    # Section 5: X opinions — ONLY high-engagement, max 3
+    # (This is where irrelevant tangents come from — be very selective)
+    if r.related_tweets and total_chars < MAX_TOTAL - 200:
+        # Only include tweets with significant engagement
+        quality_tweets = [rt for rt in r.related_tweets
+                          if rt.get("likes", 0) >= 5 or rt.get("retweets", 0) >= 2]
+        if quality_tweets:
+            parts.append(f"\n## X'te Öne Çıkan Yorumlar ({len(quality_tweets)} kaliteli):")
+            for i, rt in enumerate(quality_tweets[:3], 1):
+                snippet = f"  {i}. @{rt['author']} ({rt['likes']}❤️): {rt['text'][:150]}"
+                if total_chars + len(snippet) > MAX_TOTAL:
+                    break
+                parts.append(snippet)
+                total_chars += len(snippet)
 
     return "\n".join(parts)
 

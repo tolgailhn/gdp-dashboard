@@ -904,6 +904,146 @@ Sadece tweet metnini yaz, başka bir şey yazma. Tırnak işareti kullanma."""
 
         return prompt
 
+    def generate_long_content(self, topic: str, research_context: str = "",
+                               style: str = "deneyim", length: str = "orta",
+                               additional_instructions: str = "",
+                               user_samples: list = None) -> str:
+        """
+        Generate long-form content (multi-paragraph X post).
+
+        Unlike generate_tweet (short, punchy), this creates storytelling
+        content like personal experiences, tutorials, analyses.
+
+        Args:
+            topic: The topic to write about
+            research_context: Research data (X tweets, web findings, agentic research)
+            style: Content style (deneyim, egitici, karsilastirma, analiz, hikaye)
+            length: kisa (300-500), orta (500-1000), uzun (1000-2000)
+            additional_instructions: Extra user instructions
+            user_samples: Example tweets for style matching
+        """
+        if not self.client:
+            raise ValueError("API client not initialized.")
+
+        # Content styles
+        content_styles = {
+            "deneyim": """İÇERİK TARZI: KİŞİSEL DENEYİM
+- Birinci şahıs anlat: "Ben bunu denedim...", "Bir süredir kullanıyorum..."
+- Somut örnekler ver: ne yaptın, ne oldu, sonuç ne
+- Okuyucuya konuşur gibi yaz — samimi, gerçek, filtresiz
+- "Beni asıl şaşırtan şey şu oldu:" gibi hook cümleler kullan
+- Pratik faydaları anlat, teknik jargondan kaçın
+- Sonda bir tavsiye/çağrı: "Eğer hâlâ... bir şans ver bence"
+- Paragraflari kısa tut (2-3 cümle). Metin duvarı YAZMA.""",
+
+            "egitici": """İÇERİK TARZI: EĞİTİCİ / TUTORIAL
+- "Nasıl yapılır" formatında yaz
+- Adım adım açıkla, sıralı olsun
+- Her adımda somut örnek ver
+- Teknik detayları basitleştir, herkesin anlayacağı dilde yaz
+- "İşte adımlar:", "Önce şunu yapıyorsun..." gibi geçişler kullan
+- İpuçları ve trickler ekle: "Pro tip:", "Dikkat:"
+- Sonda özet: "Kısacası...".""",
+
+            "karsilastirma": """İÇERİK TARZI: KARŞILAŞTIRMA / VS
+- İki veya daha fazla şeyi karşılaştır
+- Her birinin artıları ve eksileri
+- Spesifik kriterler: fiyat, hız, kalite, kullanım kolaylığı
+- Kendi tercihini ve nedenini belirt
+- "X bunda daha iyi, ama Y şunda öne çıkıyor" formatı
+- Rakamlar ve benchmarklar varsa kullan
+- Sonda net bir öneri: "Eğer ... istiyorsan X, ... istiyorsan Y".""",
+
+            "analiz": """İÇERİK TARZI: DERİN ANALİZ
+- Konunun büyük resmini çiz
+- "Bu neden önemli?" sorusunu cevapla
+- Sektör etkisi, stratejik boyut, gelecek öngörüleri
+- Verilerle destekle: rakamlar, trendler, karşılaştırmalar
+- Kendi yorumunu ekle: "Bence asıl mesele şu:", "Kimse bundan bahsetmiyor ama..."
+- Hem olumlu hem olumsuz tarafları göster (dengeli analiz)
+- Sonda tahmin/öngörü: "6 ay içinde...".""",
+
+            "hikaye": """İÇERİK TARZI: HİKAYE / STORYTELLING
+- Bir olay/deneyim üzerinden anlat
+- Başlangıç → gelişme → sonuç yapısı
+- Duyguları hissettir: şaşkınlık, hayal kırıklığı, heyecan
+- Diyalog veya iç monolog ekle: "Dedim ki kendime..."
+- Beklenmedik bir dönüş noktası olsun
+- Okuyucuyu merakta tut, ama sonu net olsun
+- Sonda ders/çıkarım: "Bu deneyimden öğrendiğim şey...".""",
+        }
+
+        style_prompt = content_styles.get(style, content_styles["deneyim"])
+
+        # Length instructions
+        length_map = {
+            "kisa": "UZUNLUK: 300-500 karakter. Kısa ama etkili. 3-5 paragraf, her paragraf 1-2 cümle.",
+            "orta": "UZUNLUK: 500-1000 karakter. Detaylı anlatım. 5-8 paragraf, her paragraf 2-3 cümle.",
+            "uzun": "UZUNLUK: 1000-2000 karakter. Derinlemesine içerik. 8-12 paragraf, detaylı anlatım.",
+        }
+        length_inst = length_map.get(length, length_map["orta"])
+
+        # Build system prompt
+        persona = self.custom_persona or """Sen Türk teknoloji/AI topluluğunda içerik üreten bir yazarsın.
+X (Twitter) için uzun form içerikler yazıyorsun — kişisel deneyimler, analizler, eğitici paylaşımlar.
+Amacın takipçilerin için DEĞER üretmek — bilgi vermek, deneyim paylaşmak, yol göstermek.
+Yazım tarzın samimi, gerçek ve filtresiz. Robot gibi değil, insan gibi yazarsın."""
+
+        training_block = ""
+        if self.training_context:
+            training_block = f"\n\n## EĞİTİM VERİSİ (bu yazarın gerçek tweet analizi):\n{self.training_context}"
+
+        samples_block = ""
+        if user_samples:
+            samples = "\n".join([f"- {s}" for s in user_samples[:5]])
+            samples_block = f"\n\n## ÖRNEK YAZILAR (bu tarzda yaz):\n{samples}"
+
+        system_prompt = f"""{persona}
+
+{style_prompt}
+
+{length_inst}
+{training_block}
+{samples_block}
+
+ÖNEMLİ KURALLAR:
+1. Türkçe yaz (teknik terimler İngilizce kalabilir)
+2. Paragraflari KISA tut — her paragraf 1-3 cümle
+3. Her paragraftan sonra boş satır bırak (okunabilirlik)
+4. Metin duvarı YAZMA — kısa paragraflar, bol boşluk
+5. Doğal ve samimi ol — "corporate speak" YAPMA
+6. Araştırma sonuçlarındaki GÜNCEL bilgileri kullan
+7. Spesifik ol — genel laflar değil, somut detaylar
+8. Sadece içerik metnini yaz — başlık, meta, açıklama YAZMA
+9. Tırnak işareti ile sarma"""
+
+        # Build user prompt
+        research_block = ""
+        if research_context:
+            research_block = f"""
+
+## ARAŞTIRMA SONUÇLARI (bu bilgileri kullanarak yaz, uydurma):
+{research_context[:4000]}"""
+
+        additional_block = ""
+        if additional_instructions:
+            additional_block = f"\n\nEK TALİMATLAR: {additional_instructions}"
+
+        user_prompt = f"""Bu konu hakkında bir X (Twitter) uzun form içerik yaz:
+
+KONU: {topic}
+{research_block}
+{additional_block}
+
+Yukarıdaki araştırma sonuçlarını kullanarak, {style} tarzında, samimi ve bilgilendirici bir içerik yaz.
+Paragraflari kısa tut, metin duvarı olmasın. Her paragraftan sonra boş satır bırak.
+Sadece içerik metnini yaz."""
+
+        if self.provider == "anthropic":
+            return self._generate_anthropic(system_prompt, user_prompt)
+        else:
+            return self._generate_openai(system_prompt, user_prompt)
+
     def _generate_anthropic(self, system_prompt: str, user_prompt: str) -> str:
         """Generate content using Anthropic Claude API"""
         response = self.client.messages.create(

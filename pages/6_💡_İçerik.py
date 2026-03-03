@@ -6,7 +6,8 @@ import streamlit as st
 import datetime
 from urllib.parse import quote as url_quote
 from modules.ui_components import (inject_custom_css, check_password,
-                                   get_secret, render_sidebar_nav)
+                                   get_secret, render_sidebar_nav,
+                                   render_research_engine_toggle, render_agentic_mode_toggle)
 from modules.content_generator import ContentGenerator
 from modules.deep_research import discover_topics, research_topic_from_text
 from modules.style_manager import load_user_samples, load_custom_persona, add_draft
@@ -109,10 +110,14 @@ with tab1:
         st.write("")
         discover_btn = st.button("🔍 Konuları Keşfet", type="primary", use_container_width=True)
 
+    # Grok engine toggle for topic discovery
+    discover_engine = render_research_engine_toggle(key_suffix="icerik_discover")
+
     if discover_btn:
         scanner = get_scanner()
         progress = st.empty()
-        with st.spinner("Konular araştırılıyor..."):
+        spinner_label = "🧠 Grok ile konular araştırılıyor..." if discover_engine == "grok" else "Konular araştırılıyor..."
+        with st.spinner(spinner_label):
             topics = discover_topics(
                 ai_client=ai_client,
                 ai_model=ai_model,
@@ -120,6 +125,7 @@ with tab1:
                 scanner=scanner,
                 focus_area=focus_area,
                 progress_callback=lambda msg: progress.info(msg),
+                engine=discover_engine,
             )
         progress.empty()
 
@@ -221,7 +227,7 @@ with tab1:
         )
 
         # Research mode
-        d_col_rm, d_col_ag = st.columns(2)
+        d_col_rm, d_col_engine = st.columns(2)
         with d_col_rm:
             d_research_mode_options = {
                 "x_and_web": "🌐 X + Web (Önerilen)",
@@ -235,15 +241,15 @@ with tab1:
                 index=0,
                 key="discover_research_mode",
             )
-        with d_col_ag:
+        with d_col_engine:
             st.write("")
             st.write("")
-            d_use_agentic = st.checkbox(
-                "🤖 AI Otonom Araştırma",
-                value=False,
-                key="discover_agentic",
-                help="AI internette kendi başına gezinip bilgi toplar",
-            )
+            d_engine = render_research_engine_toggle(key_suffix="discover_gen")
+
+        # Agentic research mode
+        d_agentic_mode = render_agentic_mode_toggle(key_suffix="discover_content")
+        d_use_agentic = (d_agentic_mode == "standard")
+        d_use_grok_agentic = (d_agentic_mode == "grok")
 
         col_gen, col_cancel = st.columns([3, 1])
         with col_gen:
@@ -271,6 +277,8 @@ with tab1:
                         ai_model=ai_model,
                         ai_provider=ai_provider,
                         use_agentic=d_use_agentic,
+                        engine=d_engine,
+                        use_grok_agentic=d_use_grok_agentic,
                     )
                     d_progress.empty()
                     if d_research_result and d_research_result.summary:
@@ -453,7 +461,7 @@ with tab2:
             "x_only": "🐦 Sadece X",
             "x_deep": "🔬 Derin X (50-100 tweet)",
         }
-        col_rm, col_ag = st.columns(2)
+        col_rm, col_engine = st.columns(2)
         with col_rm:
             research_mode = st.selectbox(
                 "Araştırma Modu",
@@ -462,17 +470,21 @@ with tab2:
                 index=0,
                 key="research_mode",
             )
-        with col_ag:
+        with col_engine:
             st.write("")
             st.write("")
-            use_agentic = st.checkbox(
-                "🤖 AI Otonom Araştırma",
-                value=False,
-                key="use_agentic",
-                help="AI internette kendi başına gezinip bilgi toplar (daha yavaş ama daha kapsamlı)",
-            )
+            content_engine = render_research_engine_toggle(key_suffix="content_gen")
+
+        content_agentic_mode = render_agentic_mode_toggle(key_suffix="content_gen")
+        use_agentic = (content_agentic_mode == "standard")
+        content_use_grok_agentic = (content_agentic_mode == "grok")
 
     generate_btn = st.button("✨ İçerik Üret", type="primary", use_container_width=True, key="gen_content_btn")
+
+    # Ensure variables exist even when research is disabled
+    if not do_research:
+        content_engine = "standard"
+        content_use_grok_agentic = False
 
     if generate_btn and topic:
         research_context = ""
@@ -480,7 +492,8 @@ with tab2:
         # Step 1: Research if requested
         if do_research:
             progress = st.empty()
-            with st.spinner("Konu araştırılıyor..."):
+            spinner_label = "🧠 Grok ile konu araştırılıyor..." if content_engine == "grok" else "Konu araştırılıyor..."
+            with st.spinner(spinner_label):
                 try:
                     scanner = get_scanner()
                     research_result = research_topic_from_text(
@@ -493,6 +506,8 @@ with tab2:
                         ai_model=ai_model,
                         ai_provider=ai_provider,
                         use_agentic=use_agentic,
+                        engine=content_engine,
+                        use_grok_agentic=content_use_grok_agentic,
                     )
                     progress.empty()
                     if research_result and research_result.summary:

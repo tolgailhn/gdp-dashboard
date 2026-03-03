@@ -948,7 +948,9 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                    ai_client=None, ai_model: str = None,
                    ai_provider: str = "minimax",
                    research_sources: list = None,
-                   use_agentic: bool = False) -> ResearchResult:
+                   use_agentic: bool = False,
+                   engine: str = "standard",
+                   use_grok_agentic: bool = False) -> ResearchResult:
     """
     Full deep research pipeline with selectable sources:
 
@@ -962,6 +964,9 @@ def research_topic(tweet_text: str, tweet_author: str = "",
     use_agentic: If True, AI model browses the internet autonomously
         using tool calling (web_search, read_article). Much more thorough
         but slower. The model decides what to search and when to stop.
+
+    engine: "standard" (DuckDuckGo) or "grok" (xAI Grok x_search + web_search)
+    use_grok_agentic: If True, use Grok model for agentic research (X + web)
 
     1. Fetch thread (if scanner available)
     2. AI-powered topic extraction (understands what the tweet is ACTUALLY about)
@@ -1026,6 +1031,70 @@ def research_topic(tweet_text: str, tweet_author: str = "",
         search_queries = topic_info["search_queries"]
 
     all_urls = set()
+
+    # === GROK AGENTIC MODE: Grok browses X + web autonomously ===
+    if use_grok_agentic:
+        if progress_callback:
+            progress_callback("🧠 Grok otonom araştırma modunda — X ve web'de geziniyor...")
+
+        try:
+            from modules.grok_client import grok_agentic_research
+            grok_result = grok_agentic_research(
+                tweet_text=result.full_thread_text or tweet_text,
+                tweet_author=tweet_author,
+                max_iterations=5,
+                progress_callback=progress_callback,
+            )
+
+            if grok_result:
+                result.synthesized_brief = grok_result
+
+                if progress_callback:
+                    progress_callback("🧠 Grok araştırma tamamlandı, X araması yapılıyor...")
+
+                # Still do X search via scanner if requested
+                if "x" in research_sources and scanner:
+                    topic_info = extract_topic_from_text(result.full_thread_text)
+                    try:
+                        parts = topic_info["products"][:2] + topic_info["companies"][:1]
+                        x_queries = []
+                        if parts:
+                            x_queries.append(f"({' OR '.join(parts)}) -is:retweet lang:en")
+                        else:
+                            general_q = (result.topic or tweet_text[:50])
+                            x_queries.append(f"({general_q}) -is:retweet")
+
+                        start = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=72)
+                        seen_ids = set()
+                        for idx, q in enumerate(x_queries[:2]):
+                            if len(result.related_tweets) >= 15:
+                                break
+                            try:
+                                related = scanner._search_tweets(q, start, 15)
+                                for t in related:
+                                    if t.id != tweet_id and t.id not in seen_ids and len(t.text) > 50:
+                                        seen_ids.add(t.id)
+                                        result.related_tweets.append({
+                                            "text": t.text, "author": t.author_username,
+                                            "likes": t.like_count,
+                                            "retweets": getattr(t, 'retweet_count', 0),
+                                            "followers": getattr(t, 'author_followers_count', 0),
+                                        })
+                            except Exception as e:
+                                print(f"X search in Grok agentic mode error: {e}")
+                        result.related_tweets.sort(key=lambda x: x.get("likes", 0) + x.get("retweets", 0) * 2, reverse=True)
+                        result.related_tweets = result.related_tweets[:15]
+                    except Exception as e:
+                        print(f"X search in Grok agentic error: {e}")
+
+                result.topic = ai_topic["topic"] if ai_topic else topic_info.get("topic", "")
+                result.summary = compile_research_summary(result)
+                return result
+
+        except Exception as e:
+            print(f"Grok agentic research error: {e}")
+            if progress_callback:
+                progress_callback(f"⚠️ Grok araştırma hatası, standart moda geçiliyor...")
 
     # === AGENTIC MODE: Let AI browse the internet autonomously ===
     if use_agentic and ai_client:
@@ -1100,25 +1169,52 @@ def research_topic(tweet_text: str, tweet_author: str = "",
 
     # === STEP 3: Web search (only if "web" in sources) ===
     if "web" in research_sources:
-        if progress_callback:
-            progress_callback("Web'de araştırma yapılıyor...")
+        if engine == "grok":
+            # Use Grok web_search instead of DuckDuckGo
+            if progress_callback:
+                progress_callback("🧠 Grok ile web'de araştırma yapılıyor...")
+            try:
+                from modules.grok_client import grok_search_web
+                for query in search_queries.get("general", [])[:3]:
+                    grok_results = grok_search_web(query, max_results=6)
+                    for r in grok_results:
+                        url = r.get("url", "")
+                        if url and url not in all_urls:
+                            all_urls.add(url)
+                            result.web_results.append(r)
+                if progress_callback:
+                    progress_callback("🧠 Grok ile teknik detaylar araştırılıyor...")
+                for query in search_queries.get("technical", [])[:2]:
+                    grok_results = grok_search_web(query, max_results=5)
+                    for r in grok_results:
+                        url = r.get("url", "")
+                        if url and url not in all_urls:
+                            all_urls.add(url)
+                            r["title"] = f"[TEKNİK] {r.get('title', '')}"
+                            result.web_results.append(r)
+            except Exception as e:
+                print(f"Grok web search error, falling back to DuckDuckGo: {e}")
+                engine = "standard"  # Fallback
+        if engine == "standard":
+            if progress_callback:
+                progress_callback("Web'de araştırma yapılıyor...")
 
-        for query in search_queries.get("general", [])[:3]:
-            results = web_search(query, max_results=6, timelimit="w")
-            for r in results:
-                if r["url"] not in all_urls:
-                    all_urls.add(r["url"])
-                    result.web_results.append(r)
+            for query in search_queries.get("general", [])[:3]:
+                results = web_search(query, max_results=6, timelimit="w")
+                for r in results:
+                    if r["url"] not in all_urls:
+                        all_urls.add(r["url"])
+                        result.web_results.append(r)
 
-        if progress_callback:
-            progress_callback("Teknik detaylar araştırılıyor...")
-        for query in search_queries.get("technical", [])[:2]:
-            results = web_search(query, max_results=5, timelimit="m")
-            for r in results:
-                if r["url"] not in all_urls:
-                    all_urls.add(r["url"])
-                    r["title"] = f"[TEKNİK] {r['title']}"
-                    result.web_results.append(r)
+            if progress_callback:
+                progress_callback("Teknik detaylar araştırılıyor...")
+            for query in search_queries.get("technical", [])[:2]:
+                results = web_search(query, max_results=5, timelimit="m")
+                for r in results:
+                    if r["url"] not in all_urls:
+                        all_urls.add(r["url"])
+                        r["title"] = f"[TEKNİK] {r['title']}"
+                        result.web_results.append(r)
 
     # === STEP 4: Reddit search (only if "reddit" in sources) ===
     if "reddit" in research_sources:
@@ -1133,22 +1229,42 @@ def research_topic(tweet_text: str, tweet_author: str = "",
 
     # === STEP 5: News search (only if "news" in sources) ===
     if "news" in research_sources:
-        if progress_callback:
-            progress_callback("Son haberler aranıyor...")
+        if engine == "grok":
+            if progress_callback:
+                progress_callback("🧠 Grok ile son haberler aranıyor...")
+            try:
+                from modules.grok_client import grok_search_web
+                for query in search_queries.get("news", [])[:2]:
+                    news_results = grok_search_web(f"{query} news latest", max_results=5)
+                    for n in news_results:
+                        url = n.get("url", "")
+                        if url and url not in all_urls:
+                            all_urls.add(url)
+                            result.web_results.append({
+                                "title": f"[HABER] {n.get('title', '')}",
+                                "url": url,
+                                "body": n.get("body", ""),
+                                "source": "",
+                            })
+            except Exception as e:
+                print(f"Grok news search error: {e}")
+        else:
+            if progress_callback:
+                progress_callback("Son haberler aranıyor...")
 
-        for query in search_queries.get("news", [])[:2]:
-            news = web_search_news(query, max_results=5, timelimit="d")
-            if not news:
-                news = web_search_news(query, max_results=5, timelimit="w")
-            for n in news:
-                if n["url"] not in all_urls:
-                    all_urls.add(n["url"])
-                    result.web_results.append({
-                        "title": f"[HABER] {n['title']}",
-                        "url": n["url"],
-                        "body": n["body"],
-                        "source": n.get("source", ""),
-                    })
+            for query in search_queries.get("news", [])[:2]:
+                news = web_search_news(query, max_results=5, timelimit="d")
+                if not news:
+                    news = web_search_news(query, max_results=5, timelimit="w")
+                for n in news:
+                    if n["url"] not in all_urls:
+                        all_urls.add(n["url"])
+                        result.web_results.append({
+                            "title": f"[HABER] {n['title']}",
+                            "url": n["url"],
+                            "body": n["body"],
+                            "source": n.get("source", ""),
+                        })
 
     # === STEP 6: DEEP FETCH (only if web or reddit or news selected) ===
     if any(s in research_sources for s in ["web", "reddit", "news"]):
@@ -1816,6 +1932,8 @@ def research_topic_from_text(
     ai_model: str = None,
     ai_provider: str = "minimax",
     use_agentic: bool = False,
+    engine: str = "standard",
+    use_grok_agentic: bool = False,
 ) -> TopicResearchResult:
     """
     Research a topic by searching X and optionally the web.
@@ -1950,6 +2068,36 @@ def research_topic_from_text(
         if progress_callback:
             progress_callback(f"X'te {len(result.x_tweets)} tweet bulundu")
 
+    # === STEP 2b-GROK: Grok agentic mode ===
+    if use_grok_agentic:
+        if progress_callback:
+            progress_callback("🧠 Grok otonom araştırma modunda — X ve web'de geziniyor...")
+        try:
+            from modules.grok_client import grok_agentic_research
+            grok_result = grok_agentic_research(
+                tweet_text=topic_input,
+                tweet_author="",
+                max_iterations=5,
+                progress_callback=progress_callback,
+            )
+            if grok_result:
+                result.agentic_summary = grok_result
+                if progress_callback:
+                    progress_callback("🧠 Grok araştırma tamamlandı, derleniyor...")
+                parts = []
+                if result.x_tweets:
+                    parts.append(f"## X'TE BULUNAN GÜNCEL TWEETLER ({len(result.x_tweets)} tweet)")
+                    for tw in result.x_tweets[:10]:
+                        parts.append(f"- @{tw['author']} ({tw['likes']} ❤️): {tw['text'][:200]}")
+                parts.append("\n## GROK OTONOM ARAŞTIRMA SONUÇLARI")
+                parts.append(grok_result)
+                result.summary = "\n".join(parts)
+                return result
+        except Exception as e:
+            print(f"Grok agentic research error in topic: {e}")
+            if progress_callback:
+                progress_callback(f"⚠️ Grok araştırma hatası, standart moda geçiliyor...")
+
     # === STEP 2b: AGENTIC MODE — AI browses web autonomously ===
     if use_agentic and ai_client:
         if progress_callback:
@@ -1988,41 +2136,76 @@ def research_topic_from_text(
 
     # === STEP 3: Web + News search (ONLY if search_mode == "x_and_web") ===
     if search_mode == "x_and_web":
-        if progress_callback:
-            progress_callback("Web'de güncel bilgiler aranıyor...")
-
         all_urls = set()
 
-        # General web search — last day first, then week, then month
-        for query in search_queries.get("general", [])[:4]:
+        if engine == "grok":
+            # Use Grok for web + news search
             if progress_callback:
-                progress_callback(f"Web'de aranıyor: {query[:50]}...")
-            results = web_search(query, max_results=8, timelimit="d")
-            if not results:
-                results = web_search(query, max_results=8, timelimit="w")
-            if not results:
-                results = web_search(query, max_results=8, timelimit="m")
-            for r in results:
-                if r["url"] not in all_urls:
-                    all_urls.add(r["url"])
-                    result.web_results.append(r)
+                progress_callback("🧠 Grok ile web'de araştırma yapılıyor...")
+            try:
+                from modules.grok_client import grok_search_web
+                for query in search_queries.get("general", [])[:4]:
+                    if progress_callback:
+                        progress_callback(f"🧠 Grok ile aranıyor: {query[:50]}...")
+                    grok_results = grok_search_web(query, max_results=8)
+                    for r in grok_results:
+                        url = r.get("url", "")
+                        if url and url not in all_urls:
+                            all_urls.add(url)
+                            result.web_results.append(r)
 
-        # News search — last day, fallback to week
-        if progress_callback:
-            progress_callback("Son haberler aranıyor...")
-        for query in search_queries.get("news", [])[:3]:
-            news = web_search_news(query, max_results=6, timelimit="d")
-            if not news:
-                news = web_search_news(query, max_results=6, timelimit="w")
-            for n in news:
-                if n["url"] not in all_urls:
-                    all_urls.add(n["url"])
-                    result.news_results.append({
-                        "title": n["title"],
-                        "url": n["url"],
-                        "body": n["body"],
-                        "source": n.get("source", ""),
-                    })
+                if progress_callback:
+                    progress_callback("🧠 Grok ile haberler aranıyor...")
+                for query in search_queries.get("news", [])[:3]:
+                    news_results = grok_search_web(f"{query} news latest", max_results=6)
+                    for n in news_results:
+                        url = n.get("url", "")
+                        if url and url not in all_urls:
+                            all_urls.add(url)
+                            result.news_results.append({
+                                "title": n.get("title", ""),
+                                "url": url,
+                                "body": n.get("body", ""),
+                                "source": "",
+                            })
+            except Exception as e:
+                print(f"Grok web search error in topic research: {e}")
+                engine = "standard"  # Fallback
+
+        if engine == "standard":
+            if progress_callback:
+                progress_callback("Web'de güncel bilgiler aranıyor...")
+
+            # General web search — last day first, then week, then month
+            for query in search_queries.get("general", [])[:4]:
+                if progress_callback:
+                    progress_callback(f"Web'de aranıyor: {query[:50]}...")
+                results = web_search(query, max_results=8, timelimit="d")
+                if not results:
+                    results = web_search(query, max_results=8, timelimit="w")
+                if not results:
+                    results = web_search(query, max_results=8, timelimit="m")
+                for r in results:
+                    if r["url"] not in all_urls:
+                        all_urls.add(r["url"])
+                        result.web_results.append(r)
+
+            # News search — last day, fallback to week
+            if progress_callback:
+                progress_callback("Son haberler aranıyor...")
+            for query in search_queries.get("news", [])[:3]:
+                news = web_search_news(query, max_results=6, timelimit="d")
+                if not news:
+                    news = web_search_news(query, max_results=6, timelimit="w")
+                for n in news:
+                    if n["url"] not in all_urls:
+                        all_urls.add(n["url"])
+                        result.news_results.append({
+                            "title": n["title"],
+                            "url": n["url"],
+                            "body": n["body"],
+                            "source": n.get("source", ""),
+                        })
 
         # Deep fetch top articles — read more for richer context
         if progress_callback:
@@ -2257,7 +2440,8 @@ def discover_topics(ai_client=None, ai_model: str = None,
                     ai_provider: str = "minimax",
                     scanner=None,
                     focus_area: str = "AI ve teknoloji",
-                    progress_callback=None) -> list[dict]:
+                    progress_callback=None,
+                    engine: str = "standard") -> list[dict]:
     """
     AI discovers interesting content topics by searching X and web.
 
@@ -2274,6 +2458,26 @@ def discover_topics(ai_client=None, ai_model: str = None,
     """
     if not ai_client:
         return []
+
+    # Grok shortcut: use Grok's native X search for topic discovery
+    if engine == "grok":
+        try:
+            from modules.grok_client import grok_discover_topics
+            if progress_callback:
+                progress_callback("🧠 Grok ile X'te trend konular keşfediliyor...")
+            topics = grok_discover_topics(
+                focus_area=focus_area,
+                progress_callback=progress_callback,
+            )
+            if topics:
+                return topics
+            # Fallback to standard if Grok returns empty
+            if progress_callback:
+                progress_callback("Grok sonuç bulamadı, standart modla devam ediliyor...")
+        except Exception as e:
+            print(f"Grok discover topics error: {e}")
+            if progress_callback:
+                progress_callback("⚠️ Grok hata verdi, standart modla devam ediliyor...")
 
     # Step 1: Search X for trending conversations
     x_tweets = []

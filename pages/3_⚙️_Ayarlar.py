@@ -334,6 +334,37 @@ with tab1:
         else:
             st.warning("OpenAI: Eksik")
 
+        st.markdown("---")
+
+        st.markdown("**xAI / Grok API**")
+        xai_key = get_secret("xai_api_key", "")
+
+        if xai_key:
+            st.success("xAI Grok: Yapılandırılmış ✓")
+        else:
+            st.info("xAI Grok: Yapılandırılmamış (opsiyonel)")
+
+        st.markdown("""
+        > [console.x.ai](https://console.x.ai) adresinden API key alın.
+        > Yeni hesaplara **$25 ücretsiz kredi** verilir.
+        > Grok ile X araması ve otonom araştırma yapabilirsiniz.
+        """)
+
+        if st.button("🧠 Grok Bağlantısını Test Et", use_container_width=True, key="test_grok"):
+            if xai_key:
+                with st.spinner("Grok API test ediliyor..."):
+                    try:
+                        from modules.grok_client import test_grok_connection
+                        result = test_grok_connection(xai_key)
+                        if result["success"]:
+                            st.success(f"Grok API bağlantısı başarılı! Yanıt: {result['message']}")
+                        else:
+                            st.error(f"Grok API hatası: {result['error']}")
+                    except Exception as e:
+                        st.error(f"Grok test hatası: {e}")
+            else:
+                st.error("xAI API key eksik! `secrets.toml`'a `xai_api_key` ekleyin.")
+
     st.markdown("---")
 
     st.markdown("### Telegram Bildirimleri")
@@ -414,6 +445,9 @@ twikit_totp_secret = ""  # 2FA açıksa TOTP secret (opsiyonel)
 minimax_api_key = "your_minimax_api_key"
 anthropic_api_key = "your_anthropic_api_key"
 openai_api_key = "your_openai_api_key"
+
+# xAI Grok API (opsiyonel — X araması ve otonom araştırma)
+xai_api_key = "your_xai_api_key"
 
 # Telegram Bildirimleri (opsiyonel)
 telegram_bot_token = "your_bot_token"

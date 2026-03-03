@@ -8,7 +8,8 @@ import re
 from urllib.parse import quote as url_quote
 from modules.ui_components import (inject_custom_css, check_password,
                                    render_generated_tweet, render_thread_preview,
-                                   get_secret, render_sidebar_nav)
+                                   get_secret, render_sidebar_nav,
+                                   render_research_engine_toggle, render_agentic_mode_toggle)
 from modules.content_generator import ContentGenerator, get_available_styles, get_style_info
 from modules.tweet_publisher import TweetPublisher
 from modules.deep_research import (
@@ -95,30 +96,28 @@ with mode_tab2:
         src_news = st.checkbox("📰 Haberler", value=False, key="src_news",
                                 help="Son haberleri ara")
 
+    # Research engine selection
+    st.markdown("##### 🔧 Araştırma Motoru")
+    research_engine = render_research_engine_toggle(key_suffix="quote")
+
     # Research mode selection
     st.markdown("##### 🧠 Araştırma Modu")
-    research_mode_cols = st.columns(2)
-    with research_mode_cols[0]:
-        use_agentic = st.checkbox(
-            "🤖 AI Otonom Araştırma",
-            value=False,
-            key="use_agentic",
-            help="AI modeli kendi başına internette gezinerek araştırma yapar. "
-                 "Model neyi arayacağına, hangi makaleleri okuyacağına kendisi karar verir. "
-                 "Daha yavaş ama çok daha derinlemesine ve GÜNCEL sonuç verir. "
-                 "Model eski bilgi yerine kendi araştırdığı güncel veriyi kullanır."
-        )
-    with research_mode_cols[1]:
-        deep_verify = st.checkbox(
-            "🔍 Doğrulama Modu",
-            value=False,
-            key="deep_verify",
-            help="Tweet yazıldıktan sonra iddiaları internette doğrular ve düzeltir. "
-                 "Otonom araştırmayla birlikte kullanılabilir."
-        )
+    agentic_mode = render_agentic_mode_toggle(key_suffix="quote")
+    use_agentic = (agentic_mode == "standard")
+    use_grok_agentic = (agentic_mode == "grok")
+
+    deep_verify = st.checkbox(
+        "🔍 Doğrulama Modu",
+        value=False,
+        key="deep_verify",
+        help="Tweet yazıldıktan sonra iddiaları internette doğrular ve düzeltir. "
+             "Otonom araştırmayla birlikte kullanılabilir."
+    )
 
     if use_agentic:
         st.caption("🤖 AI modeli kendi başına web araması yapacak, makale okuyacak ve bilgi toplayacak.")
+    elif use_grok_agentic:
+        st.caption("🧠 Grok modeli X'te ve web'de kendi başına gezinerek araştırma yapacak.")
 
     research_clicked = st.button(
         "🔬 Araştır ve Quote Tweet Yaz",
@@ -218,9 +217,10 @@ with mode_tab2:
             source_label = ", ".join(research_sources).upper()
 
             # === FULL RESEARCH PIPELINE ===
-            mode_label = "🤖 AI Otonom" if use_agentic else source_label
+            mode_label = "🧠 Grok Otonom" if use_grok_agentic else "🤖 AI Otonom" if use_agentic else source_label
+            engine_label = " + Grok" if research_engine == "grok" else ""
             progress_text = st.empty()
-            with st.spinner(f"Araştırma yapılıyor ({mode_label})..."):
+            with st.spinner(f"Araştırma yapılıyor ({mode_label}{engine_label})..."):
                 research = research_topic(
                     tweet_text=original_tweet_text,
                     tweet_author=original_author,
@@ -232,6 +232,8 @@ with mode_tab2:
                     ai_provider=_ai_provider,
                     research_sources=research_sources,
                     use_agentic=use_agentic,
+                    engine=research_engine,
+                    use_grok_agentic=use_grok_agentic,
                 )
                 progress_text.empty()
 
@@ -525,28 +527,26 @@ with mode_tab1:
                     key="topic_research_btn",
                 )
 
+            # Research engine selection
+            topic_engine = render_research_engine_toggle(key_suffix="topic")
+
             # Row 2: AI Research Modes
-            topic_mode_cols = st.columns(2)
-            with topic_mode_cols[0]:
-                topic_use_agentic = st.checkbox(
-                    "🤖 AI Otonom Araştırma",
-                    value=False,
-                    key="topic_use_agentic",
-                    help="AI modeli yazdığın konuyu internette KENDİSİ araştırır. "
-                         "Konu hakkında spesifik verileri, güncel karşılaştırmaları, "
-                         "benchmarkları bulur. X araştırmasına ek olarak çalışır."
-                )
-            with topic_mode_cols[1]:
-                topic_deep_verify = st.checkbox(
-                    "🔍 Doğrulama Modu",
-                    value=False,
-                    key="topic_deep_verify",
-                    help="Tweet yazıldıktan sonra içindeki iddiaları internette doğrular "
-                         "ve hatalı bilgileri düzeltir."
-                )
+            topic_agentic_mode = render_agentic_mode_toggle(key_suffix="topic")
+            topic_use_agentic = (topic_agentic_mode == "standard")
+            topic_use_grok_agentic = (topic_agentic_mode == "grok")
+
+            topic_deep_verify = st.checkbox(
+                "🔍 Doğrulama Modu",
+                value=False,
+                key="topic_deep_verify",
+                help="Tweet yazıldıktan sonra içindeki iddiaları internette doğrular "
+                     "ve hatalı bilgileri düzeltir."
+            )
 
             if topic_use_agentic:
                 st.caption("🤖 AI, yazdığın konudaki spesifik iddiaları/ürünleri/rakamları internette araştıracak.")
+            elif topic_use_grok_agentic:
+                st.caption("🧠 Grok, X'te ve web'de kendi başına gezinerek konu hakkında araştırma yapacak.")
 
             if topic_research_clicked:
                 # Build AI client for topic extraction
@@ -595,8 +595,9 @@ with mode_tab1:
                     )
 
                 progress_text = st.empty()
-                mode_label = "🤖 AI Otonom" if topic_use_agentic else ("X'te detaylı" if topic_search_mode == "x_only" else "X + Web")
-                with st.spinner(f"{mode_label} araştırılıyor..."):
+                mode_label = "🧠 Grok Otonom" if topic_use_grok_agentic else "🤖 AI Otonom" if topic_use_agentic else ("X'te detaylı" if topic_search_mode == "x_only" else "X + Web")
+                engine_label = " + Grok" if topic_engine == "grok" else ""
+                with st.spinner(f"{mode_label}{engine_label} araştırılıyor..."):
                     topic_research = research_topic_from_text(
                         topic_input=topic_text,
                         scanner=_scanner,
@@ -607,6 +608,8 @@ with mode_tab1:
                         ai_model=_ai_model,
                         ai_provider=_ai_provider,
                         use_agentic=topic_use_agentic,
+                        engine=topic_engine,
+                        use_grok_agentic=topic_use_grok_agentic,
                     )
                     progress_text.empty()
 

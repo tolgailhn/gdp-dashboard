@@ -5,7 +5,8 @@ X/Twitter'da AI gelişmelerini tarar ve listeler
 import streamlit as st
 import datetime
 from collections import defaultdict
-from modules.ui_components import inject_custom_css, check_password, render_tweet_card, get_secret, render_sidebar_nav
+from modules.ui_components import (inject_custom_css, check_password, render_tweet_card,
+                                   get_secret, render_sidebar_nav, render_research_engine_toggle)
 from modules.twitter_scanner import (
     TwitterScanner, DEFAULT_AI_ACCOUNTS, is_turkish_account,
     generate_content_summary, MIN_FOLLOWER_COUNT_DISCOVER, is_ai_relevant
@@ -85,6 +86,12 @@ with main_tab1:
             min_followers = st.number_input("Min. takipçi", min_value=0, value=500, key="min_followers",
                                             help="Hesabın minimum takipçi sayısı")
 
+        # Grok search engine toggle
+        st.markdown("---")
+        scan_engine = render_research_engine_toggle(key_suffix="scan")
+        if scan_engine == "grok":
+            st.caption("🧠 Özel arama sorguları Grok ile X'te aranacak. Hesap taraması standart yöntemle devam eder.")
+
     st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
 
     # --- Scan Button ---
@@ -141,13 +148,37 @@ with main_tab1:
                 if custom_query:
                     custom_queries.append(f"{custom_query} -is:retweet")
 
-                # Scan
+                # Scan (standard scanner for account-based search)
                 topics = scanner.scan_ai_topics(
                     time_range_hours=time_range,
                     max_results_per_query=max_results,
                     custom_accounts=custom_accounts,
-                    custom_queries=custom_queries,
+                    custom_queries=custom_queries if scan_engine != "grok" else [],
                 )
+
+                # Grok custom query search (if engine is grok and query exists)
+                if scan_engine == "grok" and custom_query:
+                    try:
+                        from modules.grok_client import grok_scan_topics
+                        from modules.twitter_scanner import AITopic
+                        st.caption("🧠 Grok ile özel arama yapılıyor...")
+                        grok_results = grok_scan_topics(custom_query)
+                        for gr in grok_results:
+                            # Convert to AITopic for consistency
+                            grok_topic = AITopic(
+                                id=f"grok_{hash(gr.get('text', '')[:50])}",
+                                text=gr.get("text", ""),
+                                author_name=gr.get("author_name", ""),
+                                author_username=gr.get("author_username", ""),
+                                like_count=gr.get("like_count", 0),
+                                retweet_count=gr.get("retweet_count", 0),
+                                reply_count=gr.get("reply_count", 0),
+                                url=gr.get("url", ""),
+                                category=gr.get("category", "Grok Arama"),
+                            )
+                            topics.append(grok_topic)
+                    except Exception as e:
+                        st.warning(f"Grok arama hatası: {e}")
 
                 # Show search errors if any
                 errors = getattr(scanner, 'search_errors', [])
@@ -401,9 +432,53 @@ with main_tab2:
         '(arxiv.org) (AI OR LLM OR "machine learning" OR transformer OR diffusion) -is:retweet lang:en min_faves:20',
     ]
 
+    # Grok discover engine toggle
+    discover_engine = render_research_engine_toggle(key_suffix="discover")
+
     discover_clicked = st.button("🌐 Keşfet", type="primary", use_container_width=True, key="discover_button")
 
     if discover_clicked:
+        # Grok shortcut: use Grok's native X search for AI trend discovery
+        if discover_engine == "grok":
+            try:
+                from modules.grok_client import grok_discover_ai_trends, has_grok_key
+                if has_grok_key():
+                    with st.spinner("🧠 Grok ile AI trendleri keşfediliyor..."):
+                        grok_topics = grok_discover_ai_trends()
+
+                    if grok_topics:
+                        st.success(f"🧠 Grok {len(grok_topics)} trend konu buldu!")
+                        st.session_state.grok_discover_results = grok_topics
+
+                        for i, topic_item in enumerate(grok_topics):
+                            title = topic_item.get("title", f"Konu {i+1}")
+                            desc = topic_item.get("description", "")
+                            angle = topic_item.get("angle", "")
+                            potential = topic_item.get("potential", "")
+
+                            with st.expander(f"**{i+1}. {title}**", expanded=(i < 5)):
+                                st.write(desc)
+                                if angle:
+                                    st.markdown(f"**Açı:** {angle}")
+                                if potential:
+                                    st.markdown(f"**Potansiyel:** {potential}")
+
+                                if st.button(f"✍️ Bu konuda yaz", key=f"grok_discover_write_{i}",
+                                             use_container_width=True):
+                                    st.session_state.selected_topic = {
+                                        "text": f"{title}: {desc}",
+                                        "author": "Grok Keşif",
+                                        "url": "",
+                                        "id": "",
+                                        "category": "Grok Keşif",
+                                    }
+                                    st.switch_page("pages/2_✍️_Yaz.py")
+                    else:
+                        st.warning("Grok trend bulamadı. Standart keşif deneyin.")
+                    st.stop()
+            except Exception as e:
+                st.warning(f"Grok keşif hatası: {e}. Standart modla devam ediliyor...")
+
         bearer_token = get_secret("twitter_bearer_token", "")
         twikit_username = get_secret("twikit_username", "")
         twikit_password = get_secret("twikit_password", "")

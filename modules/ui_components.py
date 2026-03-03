@@ -965,6 +965,88 @@ def inject_custom_css():
     """, unsafe_allow_html=True)
 
 
+def render_research_engine_toggle(key_suffix: str = "") -> str:
+    """Render research engine toggle (Standard vs Grok).
+    Returns "standard" or "grok"."""
+    from modules.grok_client import has_grok_key
+
+    if not has_grok_key():
+        return "standard"
+
+    engine = st.radio(
+        "Araştırma Motoru",
+        options=["standard", "grok"],
+        format_func=lambda x: "🔍 Standart (DuckDuckGo — ücretsiz)" if x == "standard"
+                              else "🧠 Grok AI (X + Web — premium)",
+        index=0,
+        key=f"research_engine_{key_suffix}",
+        horizontal=True,
+        help="Grok: X verilerine doğrudan erişim, gerçek zamanlı arama. Standart: DuckDuckGo ücretsiz arama."
+    )
+    return engine
+
+
+def render_agentic_mode_toggle(key_suffix: str = "") -> str:
+    """Render agentic research mode toggle (None, Standard, Grok).
+    Returns "none", "standard", or "grok". Mutual exclusive."""
+    from modules.grok_client import has_grok_key
+
+    _has_grok = has_grok_key()
+
+    col_ag1, col_ag2 = st.columns(2)
+
+    with col_ag1:
+        use_standard_agentic = st.checkbox(
+            "🤖 AI Otonom Araştırma",
+            value=False,
+            key=f"use_agentic_{key_suffix}",
+            help="AI modeli kendi başına DuckDuckGo'da gezinerek araştırma yapar.",
+        )
+
+    with col_ag2:
+        if _has_grok:
+            use_grok_agentic = st.checkbox(
+                "🧠 Grok Otonom Araştırma",
+                value=False,
+                key=f"use_grok_agentic_{key_suffix}",
+                help="Grok modeli X'te ve web'de kendi başına gezinerek araştırma yapar. "
+                     "X verilerine doğrudan erişim avantajı.",
+            )
+        else:
+            use_grok_agentic = False
+
+    # Mutual exclusive: if both selected, last one wins
+    if use_standard_agentic and use_grok_agentic:
+        # Grok was just selected — disable standard
+        st.session_state[f"use_agentic_{key_suffix}"] = False
+        return "grok"
+    elif use_grok_agentic:
+        return "grok"
+    elif use_standard_agentic:
+        return "standard"
+    return "none"
+
+
+def render_grok_cost_indicator():
+    """Render Grok usage cost indicator in sidebar."""
+    from modules.grok_client import has_grok_key, get_grok_cost, get_grok_call_count
+
+    if not has_grok_key():
+        return
+
+    cost = get_grok_cost()
+    calls = get_grok_call_count()
+
+    if calls > 0:
+        st.markdown(f"""
+        <div style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.2);
+                    border-radius:8px; padding:8px 12px; margin:4px 0;">
+            <div style="color:#a5b4fc; font-size:11px; font-weight:bold;">🧠 Grok Kullanım</div>
+            <div style="color:#f1f5f9; font-size:13px;">${cost:.3f} · {calls} çağrı</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+
 def render_sidebar_nav(current_page: str = ""):
     """Render sidebar nav (desktop) + bottom nav (mobile)."""
     # --- Desktop sidebar ---
@@ -1011,6 +1093,11 @@ def render_sidebar_nav(current_page: str = ""):
             st.success("AI API ✓", icon="🧠")
         else:
             st.warning("AI API eksik", icon="⚠️")
+
+        has_grok = bool(get_secret("xai_api_key", ""))
+        if has_grok:
+            st.success("Grok API ✓", icon="🧠")
+            render_grok_cost_indicator()
 
     # --- Mobile bottom nav ---
     mobile_nav_items = [

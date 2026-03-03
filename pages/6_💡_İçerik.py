@@ -8,7 +8,8 @@ from modules.ui_components import (inject_custom_css, check_password,
                                    get_secret, render_sidebar_nav)
 from modules.content_generator import ContentGenerator
 from modules.deep_research import discover_topics, research_topic_from_text
-from modules.style_manager import load_user_samples, add_draft
+from modules.style_manager import load_user_samples, load_custom_persona, add_draft
+from modules.tweet_analyzer import load_all_analyses, build_training_context
 from modules.tweet_publisher import TweetPublisher
 
 # Page config
@@ -297,10 +298,15 @@ with tab1:
             with st.spinner("İçerik üretiliyor..."):
                 try:
                     user_samples = load_user_samples()
+                    custom_persona = load_custom_persona()
+                    _analyses = load_all_analyses(session_state=st.session_state)
+                    _training_context = build_training_context(_analyses) if _analyses else ""
                     generator = ContentGenerator(
                         provider=ai_provider,
                         api_key=ai_api_key,
                         model=ai_model,
+                        custom_persona=custom_persona if custom_persona else None,
+                        training_context=_training_context if _training_context else None,
                     )
                     content = generator.generate_long_content(
                         topic=sel_title,
@@ -531,10 +537,15 @@ with tab2:
         with st.spinner("İçerik üretiliyor..."):
             try:
                 user_samples = load_user_samples()
+                custom_persona = load_custom_persona()
+                _analyses = load_all_analyses(session_state=st.session_state)
+                _training_context = build_training_context(_analyses) if _analyses else ""
                 generator = ContentGenerator(
                     provider=ai_provider,
                     api_key=ai_api_key,
                     model=ai_model,
+                    custom_persona=custom_persona if custom_persona else None,
+                    training_context=_training_context if _training_context else None,
                 )
                 content = generator.generate_long_content(
                     topic=topic,

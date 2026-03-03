@@ -1228,8 +1228,13 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
                     api_key = get_secret("openai_api_key", "")
                     model = st.session_state.get("ai_model_openai", "gpt-4o")
 
+                _rw_analyses = load_all_analyses(session_state=st.session_state)
+                _rw_training = build_training_context(_rw_analyses) if _rw_analyses else ""
+                _rw_persona = load_custom_persona()
                 generator = ContentGenerator(
-                    provider=ai_provider, api_key=api_key, model=model
+                    provider=ai_provider, api_key=api_key, model=model,
+                    custom_persona=_rw_persona if _rw_persona else None,
+                    training_context=_rw_training if _rw_training else None,
                 )
                 rewritten = generator.rewrite_tweet(
                     draft=tweet_text,

@@ -517,6 +517,426 @@ def extract_topic_from_text(full_text: str) -> dict:
 
 
 # ========================================================================
+# AGENTIC RESEARCH — Model browses the internet autonomously via tool use
+# ========================================================================
+
+# Tool definitions for function calling (OpenAI-compatible format)
+_RESEARCH_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "Search the web for current information. Use this to find facts, news, benchmarks, comparisons, prices, dates. Returns search result titles and snippets.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query in English. Keep it short (3-7 words). Be specific."
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_article",
+            "description": "Read the full content of a web page/article. Use this when a search result looks promising and you need the full details, data, or analysis from it.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "The URL to read"
+                    }
+                },
+                "required": ["url"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_news",
+            "description": "Search for recent news articles. Use this for breaking news, announcements, launches.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "News search query in English"
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    },
+]
+
+# Anthropic tool format
+_RESEARCH_TOOLS_ANTHROPIC = [
+    {
+        "name": "web_search",
+        "description": "Search the web for current information. Use this to find facts, news, benchmarks, comparisons, prices, dates. Returns search result titles and snippets.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query in English. Keep it short (3-7 words). Be specific."
+                }
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "read_article",
+        "description": "Read the full content of a web page/article. Use this when a search result looks promising and you need the full details.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "The URL to read"
+                }
+            },
+            "required": ["url"]
+        }
+    },
+    {
+        "name": "search_news",
+        "description": "Search for recent news articles. Use this for breaking news, announcements, launches.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "News search query in English"
+                }
+            },
+            "required": ["query"]
+        }
+    },
+]
+
+
+def _execute_tool(tool_name: str, args: dict) -> str:
+    """Execute a research tool and return results as text."""
+    try:
+        if tool_name == "web_search":
+            query = args.get("query", "")
+            results = web_search(query, max_results=6, timelimit="m")
+            if not results:
+                return "No results found for this query."
+            output = []
+            for i, r in enumerate(results, 1):
+                output.append(f"{i}. {r['title']}")
+                output.append(f"   URL: {r['url']}")
+                output.append(f"   {r['body'][:300]}")
+            return "\n".join(output)
+
+        elif tool_name == "read_article":
+            url = args.get("url", "")
+            article = fetch_article_content(url)
+            if not article or not article.get("content"):
+                return "Could not read article content from this URL."
+            return f"Title: {article['title']}\n\n{article['content'][:3000]}"
+
+        elif tool_name == "search_news":
+            query = args.get("query", "")
+            results = web_search_news(query, max_results=5, timelimit="w")
+            if not results:
+                results = web_search_news(query, max_results=5, timelimit="m")
+            if not results:
+                return "No recent news found for this query."
+            output = []
+            for i, r in enumerate(results, 1):
+                src = f" ({r.get('source', '')})" if r.get('source') else ""
+                output.append(f"{i}. {r['title']}{src}")
+                output.append(f"   URL: {r['url']}")
+                output.append(f"   {r['body'][:250]}")
+            return "\n".join(output)
+
+        else:
+            return f"Unknown tool: {tool_name}"
+
+    except Exception as e:
+        return f"Tool error: {e}"
+
+
+def agentic_research(tweet_text: str, tweet_author: str = "",
+                     ai_client=None, ai_model: str = None,
+                     provider: str = "minimax",
+                     max_iterations: int = 8,
+                     progress_callback=None) -> str:
+    """
+    Let the AI model browse the internet AUTONOMOUSLY using tool calling.
+
+    Instead of us deciding what to search, the MODEL decides:
+    1. What to search for
+    2. Which articles to read in full
+    3. When it has enough information
+    4. How to compile the findings
+
+    This is the key difference from the old pipeline:
+    - Old: Our code searches → feeds results to model → model writes
+    - New: Model searches itself → reads articles → searches more → writes
+
+    Returns: Structured research summary compiled by the AI after browsing.
+    """
+    if not ai_client:
+        return ""
+
+    current_year = str(datetime.datetime.now().year)
+
+    system_prompt = f"""Sen bir araştırma asistanısın. Bir tweet hakkında derinlemesine araştırma yapacaksın.
+
+AMAÇ: Tweet'in konusu hakkında GÜNCEL, DOĞRU ve DETAYLı bilgi topla.
+Bu bilgiler daha sonra bir quote tweet yazmak için kullanılacak.
+
+ARAÇLARIN:
+- web_search: Web'de ara (İngilizce sorgular kullan, kısa ve spesifik)
+- read_article: Bir makalenin tam içeriğini oku (önemli kaynaklarda kullan)
+- search_news: Son haberleri ara (duyurular, lansmanlar için)
+
+ARAŞTIRMA STRATEJİN:
+1. Önce tweet'in ana konusunu anla
+2. Konuyla ilgili GÜNCEL bilgi ara (yıl: {current_year})
+3. Spesifik veriler bul: benchmark sonuçları, fiyatlar, tarihler, karşılaştırmalar
+4. Tweet'teki iddiaları doğrula veya çürüt
+5. Rakip/alternatif ürün karşılaştırması yap
+6. En az 1-2 makaleyi tam oku (read_article ile)
+
+NE ARAYACAĞINI BİLEMİYORSAN:
+- Konu hakkında genel bir arama yap
+- Sonuçlara göre daha spesifik aramalar yap
+- Her zaman GÜNCEL karşılaştırma verisi bul
+
+TAMAMLADIĞINDA:
+Araştırmanı şu formatta özetle:
+## TEMEL BULGULAR
+(En önemli 3-5 bilgi)
+
+## RAKAMLAR VE VERİLER
+(Spesifik istatistikler, benchmarklar, fiyatlar)
+
+## GÜNCEL KARŞILAŞTIRMALAR
+(Rakip ürünlerle karşılaştırma)
+
+## BAĞLAM
+(Konunun sektördeki anlamı)"""
+
+    user_message = f"""Bu tweet hakkında araştırma yap:
+
+@{tweet_author}: "{tweet_text[:1200]}"
+
+Bu tweet'in konusu hakkında internette araştırma yap. GÜNCEL bilgiler bul.
+Özellikle:
+- Bu konuda son gelişmeler neler?
+- Spesifik rakamlar/benchmarklar var mı?
+- Rakip karşılaştırmaları nasıl?
+- Bu neden önemli?
+
+Araştırmanı bitirdiğinde yapılandırılmış bir özet yaz."""
+
+    if provider == "anthropic":
+        return _agentic_research_anthropic(
+            ai_client, ai_model, system_prompt, user_message,
+            max_iterations, progress_callback
+        )
+    else:
+        return _agentic_research_openai(
+            ai_client, ai_model, system_prompt, user_message,
+            max_iterations, progress_callback
+        )
+
+
+def _agentic_research_openai(ai_client, ai_model: str, system_prompt: str,
+                              user_message: str, max_iterations: int,
+                              progress_callback=None) -> str:
+    """Agentic research loop using OpenAI-compatible API (MiniMax, OpenAI, etc.)"""
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message},
+    ]
+
+    search_count = 0
+    article_count = 0
+
+    for iteration in range(max_iterations):
+        if progress_callback:
+            progress_callback(f"AI araştırıyor... (adım {iteration + 1}, {search_count} arama, {article_count} makale)")
+
+        try:
+            response = ai_client.chat.completions.create(
+                model=ai_model or "MiniMax-M2.5",
+                messages=messages,
+                tools=_RESEARCH_TOOLS,
+                tool_choice="auto",
+                max_tokens=2000,
+                temperature=0.2,
+            )
+        except Exception as e:
+            print(f"Agentic research API error: {e}")
+            break
+
+        choice = response.choices[0]
+        assistant_msg = choice.message
+
+        # Add assistant message to history
+        messages.append(assistant_msg)
+
+        # Check if model is done (no more tool calls)
+        if choice.finish_reason == "stop" or not assistant_msg.tool_calls:
+            # Model finished researching, return its summary
+            return assistant_msg.content or ""
+
+        # Execute tool calls
+        for tool_call in assistant_msg.tool_calls:
+            fn_name = tool_call.function.name
+            try:
+                fn_args = json.loads(tool_call.function.arguments)
+            except json.JSONDecodeError:
+                fn_args = {}
+
+            if fn_name == "web_search" or fn_name == "search_news":
+                search_count += 1
+            elif fn_name == "read_article":
+                article_count += 1
+
+            if progress_callback:
+                if fn_name == "web_search":
+                    progress_callback(f"🔍 Arıyor: {fn_args.get('query', '')[:50]}...")
+                elif fn_name == "read_article":
+                    progress_callback(f"📖 Makale okuyor: {fn_args.get('url', '')[:50]}...")
+                elif fn_name == "search_news":
+                    progress_callback(f"📰 Haber arıyor: {fn_args.get('query', '')[:50]}...")
+
+            result = _execute_tool(fn_name, fn_args)
+
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "content": result[:3000],  # Cap tool output to prevent token overflow
+            })
+
+    # If we hit max iterations, ask model to summarize what it has
+    messages.append({
+        "role": "user",
+        "content": "Araştırmayı bitir ve topladığın bilgileri yapılandırılmış formatta özetle."
+    })
+
+    try:
+        final = ai_client.chat.completions.create(
+            model=ai_model or "MiniMax-M2.5",
+            messages=messages,
+            max_tokens=2000,
+            temperature=0.1,
+        )
+        return final.choices[0].message.content or ""
+    except Exception as e:
+        print(f"Agentic research final summary error: {e}")
+        return ""
+
+
+def _agentic_research_anthropic(ai_client, ai_model: str, system_prompt: str,
+                                 user_message: str, max_iterations: int,
+                                 progress_callback=None) -> str:
+    """Agentic research loop using Anthropic API."""
+    import anthropic
+
+    messages = [
+        {"role": "user", "content": user_message},
+    ]
+
+    search_count = 0
+    article_count = 0
+
+    for iteration in range(max_iterations):
+        if progress_callback:
+            progress_callback(f"AI araştırıyor... (adım {iteration + 1}, {search_count} arama, {article_count} makale)")
+
+        try:
+            response = ai_client.messages.create(
+                model=ai_model or "claude-haiku-4-5-20251001",
+                system=system_prompt,
+                messages=messages,
+                tools=_RESEARCH_TOOLS_ANTHROPIC,
+                max_tokens=2000,
+                temperature=0.2,
+            )
+        except Exception as e:
+            print(f"Agentic research Anthropic API error: {e}")
+            break
+
+        # Check stop reason
+        if response.stop_reason == "end_turn":
+            # Model is done, extract text
+            for block in response.content:
+                if hasattr(block, 'text'):
+                    return block.text
+            return ""
+
+        # Process tool use blocks
+        assistant_content = response.content
+        messages.append({"role": "assistant", "content": assistant_content})
+
+        tool_results = []
+        for block in assistant_content:
+            if block.type == "tool_use":
+                fn_name = block.name
+                fn_args = block.input
+
+                if fn_name in ("web_search", "search_news"):
+                    search_count += 1
+                elif fn_name == "read_article":
+                    article_count += 1
+
+                if progress_callback:
+                    if fn_name == "web_search":
+                        progress_callback(f"🔍 Arıyor: {fn_args.get('query', '')[:50]}...")
+                    elif fn_name == "read_article":
+                        progress_callback(f"📖 Makale okuyor: {fn_args.get('url', '')[:50]}...")
+                    elif fn_name == "search_news":
+                        progress_callback(f"📰 Haber arıyor: {fn_args.get('query', '')[:50]}...")
+
+                result = _execute_tool(fn_name, fn_args)
+
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": result[:3000],
+                })
+
+        if tool_results:
+            messages.append({"role": "user", "content": tool_results})
+
+    # If we hit max iterations, ask for summary
+    messages.append({
+        "role": "user",
+        "content": [{"type": "text", "text": "Araştırmayı bitir ve topladığın bilgileri yapılandırılmış formatta özetle."}]
+    })
+
+    try:
+        final = ai_client.messages.create(
+            model=ai_model or "claude-haiku-4-5-20251001",
+            system=system_prompt,
+            messages=messages,
+            max_tokens=2000,
+            temperature=0.1,
+        )
+        for block in final.content:
+            if hasattr(block, 'text'):
+                return block.text
+        return ""
+    except Exception as e:
+        print(f"Agentic research Anthropic final error: {e}")
+        return ""
+
+
+# ========================================================================
 # MAIN RESEARCH PIPELINE
 # ========================================================================
 
@@ -525,7 +945,8 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                    progress_callback=None,
                    ai_client=None, ai_model: str = None,
                    ai_provider: str = "minimax",
-                   research_sources: list = None) -> ResearchResult:
+                   research_sources: list = None,
+                   use_agentic: bool = False) -> ResearchResult:
     """
     Full deep research pipeline with selectable sources:
 
@@ -535,6 +956,10 @@ def research_topic(tweet_text: str, tweet_author: str = "",
         - "news" : News articles
         - "x" : X/Twitter search for related tweets
         - None/empty : defaults to all sources
+
+    use_agentic: If True, AI model browses the internet autonomously
+        using tool calling (web_search, read_article). Much more thorough
+        but slower. The model decides what to search and when to stop.
 
     1. Fetch thread (if scanner available)
     2. AI-powered topic extraction (understands what the tweet is ACTUALLY about)
@@ -599,6 +1024,77 @@ def research_topic(tweet_text: str, tweet_author: str = "",
         search_queries = topic_info["search_queries"]
 
     all_urls = set()
+
+    # === AGENTIC MODE: Let AI browse the internet autonomously ===
+    if use_agentic and ai_client:
+        if progress_callback:
+            progress_callback("🤖 AI otonom araştırma modunda — model internette geziniyor...")
+
+        agentic_result = agentic_research(
+            tweet_text=result.full_thread_text or tweet_text,
+            tweet_author=tweet_author,
+            ai_client=ai_client,
+            ai_model=ai_model,
+            provider=ai_provider,
+            max_iterations=8,
+            progress_callback=progress_callback,
+        )
+
+        if agentic_result:
+            # Store the AI's autonomous research as the synthesized brief
+            result.synthesized_brief = agentic_result
+
+            if progress_callback:
+                progress_callback("🤖 AI araştırma tamamlandı, X araması yapılıyor...")
+
+            # Still do X search if requested (agentic can't access X API)
+            if "x" in research_sources and scanner:
+                # Run X search with existing logic (Step 7)
+                topic_info = extract_topic_from_text(result.full_thread_text)
+                try:
+                    parts = topic_info["products"][:2] + topic_info["companies"][:1]
+                    x_queries = []
+                    if parts:
+                        x_queries.append(f"({' OR '.join(parts)}) -is:retweet lang:en")
+                        if len(parts) > 1:
+                            x_queries.append(f"({parts[0]}) -is:retweet lang:en min_faves:10")
+                    else:
+                        general_q = (result.topic or tweet_text[:50])
+                        x_queries.append(f"({general_q}) -is:retweet")
+
+                    start = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=72)
+                    seen_ids = set()
+                    per_query_count = 15
+
+                    for idx, q in enumerate(x_queries[:3]):
+                        if len(result.related_tweets) >= 15:
+                            break
+                        if progress_callback:
+                            progress_callback(f"X araması {idx + 1}/{len(x_queries)}...")
+                        try:
+                            related = scanner._search_tweets(q, start, per_query_count)
+                            for t in related:
+                                if t.id != tweet_id and t.id not in seen_ids and len(t.text) > 50:
+                                    seen_ids.add(t.id)
+                                    result.related_tweets.append({
+                                        "text": t.text,
+                                        "author": t.author_username,
+                                        "likes": t.like_count,
+                                        "retweets": getattr(t, 'retweet_count', 0),
+                                        "followers": getattr(t, 'author_followers_count', 0),
+                                    })
+                        except Exception as e:
+                            print(f"X search error in agentic mode: {e}")
+
+                    result.related_tweets.sort(key=lambda x: x.get("likes", 0) + x.get("retweets", 0) * 2, reverse=True)
+                    result.related_tweets = result.related_tweets[:15]
+                except Exception as e:
+                    print(f"X search in agentic mode error: {e}")
+
+            # Compile a basic summary too (for UI display)
+            result.topic = ai_topic["topic"] if ai_topic else topic_info.get("topic", "")
+            result.summary = compile_research_summary(result)
+            return result
 
     # === STEP 3: Web search (only if "web" in sources) ===
     if "web" in research_sources:

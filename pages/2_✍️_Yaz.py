@@ -94,15 +94,30 @@ with mode_tab2:
         src_news = st.checkbox("📰 Haberler", value=False, key="src_news",
                                 help="Son haberleri ara")
 
-    # Deep verification option
-    deep_verify = st.checkbox(
-        "🔍 Derin Doğrulama Modu",
-        value=False,
-        key="deep_verify",
-        help="AI araştırma sonrası eksik bilgileri tespit eder ve ek arama yapar. "
-             "Tweet yazıldıktan sonra da iddiaları doğrular ve düzeltir. "
-             "Daha yavaş ama çok daha doğru sonuç verir."
-    )
+    # Research mode selection
+    st.markdown("##### 🧠 Araştırma Modu")
+    research_mode_cols = st.columns(2)
+    with research_mode_cols[0]:
+        use_agentic = st.checkbox(
+            "🤖 AI Otonom Araştırma",
+            value=False,
+            key="use_agentic",
+            help="AI modeli kendi başına internette gezinerek araştırma yapar. "
+                 "Model neyi arayacağına, hangi makaleleri okuyacağına kendisi karar verir. "
+                 "Daha yavaş ama çok daha derinlemesine ve GÜNCEL sonuç verir. "
+                 "Model eski bilgi yerine kendi araştırdığı güncel veriyi kullanır."
+        )
+    with research_mode_cols[1]:
+        deep_verify = st.checkbox(
+            "🔍 Doğrulama Modu",
+            value=False,
+            key="deep_verify",
+            help="Tweet yazıldıktan sonra iddiaları internette doğrular ve düzeltir. "
+                 "Otonom araştırmayla birlikte kullanılabilir."
+        )
+
+    if use_agentic:
+        st.caption("🤖 AI modeli kendi başına web araması yapacak, makale okuyacak ve bilgi toplayacak.")
 
     research_clicked = st.button(
         "🔬 Araştır ve Quote Tweet Yaz",
@@ -202,8 +217,9 @@ with mode_tab2:
             source_label = ", ".join(research_sources).upper()
 
             # === FULL RESEARCH PIPELINE ===
+            mode_label = "🤖 AI Otonom" if use_agentic else source_label
             progress_text = st.empty()
-            with st.spinner(f"Araştırma yapılıyor ({source_label})..."):
+            with st.spinner(f"Araştırma yapılıyor ({mode_label})..."):
                 research = research_topic(
                     tweet_text=original_tweet_text,
                     tweet_author=original_author,
@@ -214,6 +230,7 @@ with mode_tab2:
                     ai_model=_ai_model,
                     ai_provider=_ai_provider,
                     research_sources=research_sources,
+                    use_agentic=use_agentic,
                 )
                 progress_text.empty()
 
@@ -234,8 +251,18 @@ with mode_tab2:
                         """, unsafe_allow_html=True)
 
             # --- Show research results ---
-            with st.expander("📊 Araştırma Sonuçları", expanded=True):
-                st.markdown(f"**Tespit edilen konu:** `{research.topic}`")
+            # In agentic mode, show the AI's own research summary prominently
+            if use_agentic and research.synthesized_brief:
+                with st.expander("🤖 AI Otonom Araştırma Sonuçları", expanded=True):
+                    st.markdown(research.synthesized_brief)
+                    if research.related_tweets:
+                        st.markdown(f"\n**𝕏 İlgili Yorumlar ({len(research.related_tweets)}):**")
+                        for rt in research.related_tweets[:3]:
+                            st.markdown(f"- @{rt['author']} ({rt['likes']} ❤️): _{rt['text'][:140]}_")
+
+            with st.expander("📊 Araştırma Sonuçları" if not use_agentic else "📊 Ek Detaylar", expanded=not use_agentic):
+                if research.topic:
+                    st.markdown(f"**Tespit edilen konu:** `{research.topic}`")
 
                 # Deep articles (full content fetched)
                 if research.deep_articles:

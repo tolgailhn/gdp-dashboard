@@ -669,7 +669,7 @@ def _execute_tool(tool_name: str, args: dict) -> str:
 def agentic_research(tweet_text: str, tweet_author: str = "",
                      ai_client=None, ai_model: str = None,
                      provider: str = "minimax",
-                     max_iterations: int = 8,
+                     max_iterations: int = 5,
                      progress_callback=None) -> str:
     """
     Let the AI model browse the internet AUTONOMOUSLY using tool calling.
@@ -691,55 +691,57 @@ def agentic_research(tweet_text: str, tweet_author: str = "",
 
     current_year = str(datetime.datetime.now().year)
 
-    system_prompt = f"""Sen bir araştırma asistanısın. Bir tweet hakkında derinlemesine araştırma yapacaksın.
+    system_prompt = f"""Sen bir tweet araştırma asistanısın. Sana bir tweet verilecek.
+Görevin: Tweet'te bahsedilen SPESİFİK iddiaları, ürünleri, rakamları internette araştırıp doğrulamak.
 
-AMAÇ: Tweet'in konusu hakkında GÜNCEL, DOĞRU ve DETAYLı bilgi topla.
-Bu bilgiler daha sonra bir quote tweet yazmak için kullanılacak.
+⚠️ KRİTİK KURALLAR:
+1. SADECE tweet'te bahsedilen konuları araştır. Konu dışına ÇIKMA.
+2. Tweet'te "X benchmark'ta Y skoru aldı" diyorsa → tam olarak o benchmark'ı ara
+3. Tweet'te bir ürün geçiyorsa → o ürünün güncel ({current_year}) bilgilerini bul
+4. Tweet'te bir karşılaştırma yapılıyorsa → o spesifik karşılaştırmayı doğrula
+5. Tweet'te geçmeyen konuları araştırma, genel sektör analizi yapma
+6. Amacın tweet'i ANLAMAK ve İÇİNDEKİ bilgileri DOĞRULAMAK — başka bir şey DEĞİL
 
 ARAÇLARIN:
-- web_search: Web'de ara (İngilizce sorgular kullan, kısa ve spesifik)
-- read_article: Bir makalenin tam içeriğini oku (önemli kaynaklarda kullan)
-- search_news: Son haberleri ara (duyurular, lansmanlar için)
+- web_search: Web'de ara (İngilizce sorgular, kısa ve spesifik)
+- read_article: Bir makalenin tam içeriğini oku
+- search_news: Son haberleri ara
 
 ARAŞTIRMA STRATEJİN:
-1. Önce tweet'in ana konusunu anla
-2. Konuyla ilgili GÜNCEL bilgi ara (yıl: {current_year})
-3. Spesifik veriler bul: benchmark sonuçları, fiyatlar, tarihler, karşılaştırmalar
-4. Tweet'teki iddiaları doğrula veya çürüt
-5. Rakip/alternatif ürün karşılaştırması yap
-6. En az 1-2 makaleyi tam oku (read_article ile)
+1. Tweet'i dikkatlice oku — hangi ürünler, hangi iddialar, hangi rakamlar var?
+2. Her bir iddia/ürün/rakam için SPESİFİK arama yap
+   Örn: Tweet "Qwen 3.5 9B" diyorsa → "Qwen 3.5 9B benchmark results {current_year}" ara
+   Örn: Tweet "$0.4/M tokens" diyorsa → "Qwen 3.5 pricing per million tokens" ara
+3. Arama sonuçlarında en güvenilir 1-2 makaleyi tam oku (read_article)
+4. Tweet'teki bilgilerin DOĞRU olup olmadığını belirle
+5. Tweet'te EKSIK olan ama ilgili güncel veri varsa ekle (aynı konu dahilinde)
 
-NE ARAYACAĞINI BİLEMİYORSAN:
-- Konu hakkında genel bir arama yap
-- Sonuçlara göre daha spesifik aramalar yap
-- Her zaman GÜNCEL karşılaştırma verisi bul
+YAPMA:
+- Tweet'le ilgisiz genel konularda arama yapma
+- "AI sektörü nereye gidiyor" tarzı geniş araştırmalar yapma
+- Tweet'te olmayan rakip ürünleri araştırma (tweet'te karşılaştırma yoksa)
+- 3-4 aramadan fazla yapma (odaklan, dağılma)
 
-TAMAMLADIĞINDA:
-Araştırmanı şu formatta özetle:
-## TEMEL BULGULAR
-(En önemli 3-5 bilgi)
+TAMAMLADIĞINDA şu formatta özetle:
 
-## RAKAMLAR VE VERİLER
-(Spesifik istatistikler, benchmarklar, fiyatlar)
+## TWEET'TEKİ İDDIALAR VE DOĞRULAMA
+(Tweet ne diyor → gerçekte durum ne)
 
-## GÜNCEL KARŞILAŞTIRMALAR
-(Rakip ürünlerle karşılaştırma)
+## GÜNCEL VERİLER
+(Tweet'teki konuya ait spesifik rakamlar, benchmarklar — kaynaklı)
 
-## BAĞLAM
-(Konunun sektördeki anlamı)"""
+## EKSİK BAĞLAM
+(Tweet'te söylenmeyen ama aynı konuyla ilgili önemli 1-2 bilgi)"""
 
-    user_message = f"""Bu tweet hakkında araştırma yap:
+    user_message = f"""Bu tweet'i araştır:
 
 @{tweet_author}: "{tweet_text[:1200]}"
 
-Bu tweet'in konusu hakkında internette araştırma yap. GÜNCEL bilgiler bul.
-Özellikle:
-- Bu konuda son gelişmeler neler?
-- Spesifik rakamlar/benchmarklar var mı?
-- Rakip karşılaştırmaları nasıl?
-- Bu neden önemli?
+ADIM 1: Tweet'te tam olarak nelerden bahsediliyor? Hangi ürünler, iddialar, rakamlar var?
+ADIM 2: Bu spesifik iddiaları/rakamları internette ara ve doğrula.
+ADIM 3: Yalnızca tweet'in konusuna ait güncel verileri bul.
 
-Araştırmanı bitirdiğinde yapılandırılmış bir özet yaz."""
+⚠️ Tweet'in konusu dışında araştırma YAPMA. Sadece tweet'teki bilgileri doğrula ve zenginleştir."""
 
     if provider == "anthropic":
         return _agentic_research_anthropic(
@@ -1036,7 +1038,7 @@ def research_topic(tweet_text: str, tweet_author: str = "",
             ai_client=ai_client,
             ai_model=ai_model,
             provider=ai_provider,
-            max_iterations=8,
+            max_iterations=5,
             progress_callback=progress_callback,
         )
 

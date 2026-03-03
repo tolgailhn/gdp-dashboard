@@ -521,15 +521,39 @@ with tab3:
     st.markdown("### İzlenen AI Hesapları")
     st.markdown("Bu hesaplar tarama sırasında otomatik kontrol edilir.")
 
-    # Default accounts
-    st.markdown("**Varsayılan Hesaplar:**")
-    cols = st.columns(4)
-    for i, account in enumerate(DEFAULT_AI_ACCOUNTS[:20]):
-        with cols[i % 4]:
-            st.markdown(f"`@{account}`")
+    # Default accounts - kategori bazlı gösterim
+    import os
+    _accounts_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "ai_accounts.json")
+    _ai_data = {}
+    if os.path.exists(_accounts_path):
+        with open(_accounts_path, "r", encoding="utf-8") as _f:
+            _ai_data = json.load(_f)
 
-    if len(DEFAULT_AI_ACCOUNTS) > 20:
-        st.caption(f"...ve {len(DEFAULT_AI_ACCOUNTS) - 20} hesap daha")
+    if _ai_data.get("categories"):
+        st.markdown(f"**Varsayılan Hesaplar ({len(DEFAULT_AI_ACCOUNTS)}):**")
+        _cat_map = {c["id"]: c for c in _ai_data["categories"]}
+        _grouped = {}
+        for acc in _ai_data.get("accounts", []):
+            cat_id = acc.get("category", "diger")
+            _grouped.setdefault(cat_id, []).append(acc)
+
+        for cat in _ai_data["categories"]:
+            cat_accounts = _grouped.get(cat["id"], [])
+            if not cat_accounts:
+                continue
+            with st.expander(f"**{cat['name']}** ({len(cat_accounts)}) — {cat['description']}", expanded=False):
+                cols = st.columns(3)
+                for i, acc in enumerate(cat_accounts):
+                    with cols[i % 3]:
+                        st.markdown(f"`@{acc['username']}` — {acc['name']}")
+    else:
+        st.markdown("**Varsayılan Hesaplar:**")
+        cols = st.columns(4)
+        for i, account in enumerate(DEFAULT_AI_ACCOUNTS[:20]):
+            with cols[i % 4]:
+                st.markdown(f"`@{account}`")
+        if len(DEFAULT_AI_ACCOUNTS) > 20:
+            st.caption(f"...ve {len(DEFAULT_AI_ACCOUNTS) - 20} hesap daha")
 
     st.markdown("---")
 

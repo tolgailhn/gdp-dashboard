@@ -1,24 +1,78 @@
 {
+  "categories": [
+    {
+      "id": "xai_grok",
+      "name": "xAI / Grok Odaklı",
+      "description": "Hızlı beta + leak bilgileri"
+    },
+    {
+      "id": "beta_leak",
+      "name": "Beta & Leak Avcıları",
+      "description": "Yeni modelleri ve tool'ları ilk yakalayan hesaplar"
+    },
+    {
+      "id": "teknik_derinlik",
+      "name": "Teknik Derinlik + Yeni Model",
+      "description": "Karpathy tarzı teknik analiz ve benchmark"
+    },
+    {
+      "id": "resmi_buyuk",
+      "name": "Resmi Büyük Oyuncular",
+      "description": "Büyük AI şirketlerinin resmi hesapları"
+    },
+    {
+      "id": "niche_opensource",
+      "name": "Niche / Open-Source / Indie",
+      "description": "Arka planda kalan küçük modeller, indie tool'lar, açık kaynak"
+    },
+    {
+      "id": "bonus_lider",
+      "name": "Bonus Liderler",
+      "description": "Büyük isimler ama arada niche paper'lar da atıyorlar"
+    },
+    {
+      "id": "diger",
+      "name": "Diğer Önemli",
+      "description": "Mevcut listeden korunan önemli hesaplar"
+    }
+  ],
   "accounts": [
-    {"username": "OpenAI", "name": "OpenAI", "category": "Lab"},
-    {"username": "AnthropicAI", "name": "Anthropic", "category": "Lab"},
-    {"username": "GoogleDeepMind", "name": "Google DeepMind", "category": "Lab"},
-    {"username": "MetaAI", "name": "Meta AI", "category": "Lab"},
-    {"username": "MistralAI", "name": "Mistral AI", "category": "Lab"},
-    {"username": "huggingface", "name": "Hugging Face", "category": "Platform"},
-    {"username": "nvidia", "name": "NVIDIA", "category": "Hardware"},
-    {"username": "GoogleAI", "name": "Google AI", "category": "Lab"},
-    {"username": "stabilityai", "name": "Stability AI", "category": "Lab"},
-    {"username": "RunwayML", "name": "Runway", "category": "Lab"},
-    {"username": "sama", "name": "Sam Altman", "category": "Person"},
-    {"username": "kaborarpathy", "name": "Andrej Karpathy", "category": "Person"},
-    {"username": "ylaborecun", "name": "Yann LeCun", "category": "Person"},
-    {"username": "demisaborrhassabis", "name": "Demis Hassabis", "category": "Person"},
-    {"username": "daborarioamodei", "name": "Dario Amodei", "category": "Person"},
-    {"username": "Qwen_LM", "name": "Qwen", "category": "Lab"},
-    {"username": "hardmaru", "name": "hardmaru", "category": "Person"},
-    {"username": "swyx", "name": "swyx", "category": "Person"},
-    {"username": "bindureddy", "name": "Bindu Reddy", "category": "Person"},
-    {"username": "jimfan_ai", "name": "Jim Fan", "category": "Person"}
+    {"username": "XFreeze", "name": "XFreeze", "category": "xai_grok"},
+    {"username": "xai", "name": "xAI", "category": "xai_grok"},
+    {"username": "grok", "name": "Grok", "category": "xai_grok"},
+
+    {"username": "testingcatalog", "name": "Testing Catalog", "category": "beta_leak"},
+    {"username": "rowancheung", "name": "Rowan Cheung (The Rundown AI)", "category": "beta_leak"},
+    {"username": "MatthewBerman", "name": "Matthew Berman", "category": "beta_leak"},
+    {"username": "adrgrondin", "name": "Adrian Grondin (on-device/local AI)", "category": "beta_leak"},
+    {"username": "bentossell", "name": "Ben Tossell", "category": "beta_leak"},
+
+    {"username": "karpathy", "name": "Andrej Karpathy", "category": "teknik_derinlik"},
+    {"username": "TwoMinutePapers", "name": "Two Minute Papers", "category": "teknik_derinlik"},
+    {"username": "goodside", "name": "Riley Goodside", "category": "teknik_derinlik"},
+    {"username": "OfficialLoganK", "name": "Logan Kilpatrick", "category": "teknik_derinlik"},
+    {"username": "mattshumer_", "name": "Matt Shumer", "category": "teknik_derinlik"},
+
+    {"username": "OpenAI", "name": "OpenAI", "category": "resmi_buyuk"},
+    {"username": "AnthropicAI", "name": "Anthropic", "category": "resmi_buyuk"},
+    {"username": "GoogleDeepMind", "name": "Google DeepMind", "category": "resmi_buyuk"},
+    {"username": "NVIDIAAI", "name": "NVIDIA AI", "category": "resmi_buyuk"},
+    {"username": "huggingface", "name": "Hugging Face", "category": "resmi_buyuk"},
+    {"username": "perplexity_ai", "name": "Perplexity AI", "category": "resmi_buyuk"},
+
+    {"username": "Thom_Wolf", "name": "Thomas Wolf (HuggingFace)", "category": "niche_opensource"},
+    {"username": "jeremyphoward", "name": "Jeremy Howard (fast.ai)", "category": "niche_opensource"},
+    {"username": "_ai_highlight", "name": "AI Highlight", "category": "niche_opensource"},
+    {"username": "soumithchintala", "name": "Soumith Chintala (PyTorch)", "category": "niche_opensource"},
+
+    {"username": "sama", "name": "Sam Altman", "category": "bonus_lider"},
+    {"username": "ylecun", "name": "Yann LeCun", "category": "bonus_lider"},
+    {"username": "demishassabis", "name": "Demis Hassabis", "category": "bonus_lider"},
+
+    {"username": "MetaAI", "name": "Meta AI", "category": "diger"},
+    {"username": "MistralAI", "name": "Mistral AI", "category": "diger"},
+    {"username": "stabilityai", "name": "Stability AI", "category": "diger"},
+    {"username": "DarioAmodei", "name": "Dario Amodei", "category": "diger"},
+    {"username": "Alibaba_Qwen", "name": "Qwen (Alibaba)", "category": "diger"}
   ]
 }

@@ -69,15 +69,23 @@ class AITopic:
 
 
 # Default important AI accounts to monitor
+# Kategoriler: xAI/Grok, Beta/Leak Avcıları, Teknik Derinlik, Resmi Büyükler,
+#              Niche/Open-Source/Indie, Bonus Liderler, Diğer Önemli
 DEFAULT_AI_ACCOUNTS = [
-    "OpenAI", "AnthropicAI", "GoogleDeepMind", "xai", "MetaAI",
-    "MistralAI", "huggingface", "nvidia", "GoogleAI",
-    "stabilityai", "RunwayML",
-    "perplexity_ai", "sama", "elonmusk", "karpathy",
-    "ylecun", "demishassabis", "DarioAmodei",
-    "DrJimFan",
-    "hardmaru", "swyx", "bindureddy",
-    "Alibaba_Qwen",
+    # xAI / Grok Odaklı (hızlı beta + leak)
+    "XFreeze", "xai", "gaborrok",
+    # Ana AI Beta & Leak Avcıları
+    "testingcatalog", "rowancheung", "MatthewBerman", "adrgrondin", "bentossell",
+    # Teknik Derinlik + Yeni Model
+    "karpathy", "TwoMinutePapers", "goodside", "OfficialLoganK", "mattshumer_",
+    # Resmi Büyük Oyuncular
+    "OpenAI", "AnthropicAI", "GoogleDeepMind", "NVIDIAAI", "huggingface", "perplexity_ai",
+    # Arka Planda Kalan / Niche / Open-Source / Indie
+    "Thom_Wolf", "jeremyphoward", "_aiaborhighlight", "soumithchintala",
+    # Bonus Liderler
+    "sama", "ylecun", "demishassabis",
+    # Diğer Önemli (mevcut listeden kalan)
+    "MetaAI", "MistralAI", "stabilityai", "DarioAmodei", "Alibaba_Qwen",
 ]
 
 # AI-related search queries

@@ -812,4 +812,8 @@ KRİTİK: Yukarıdaki YAZIM TARZI DNA'sını kesinlikle uygula — küçük harf
 imza kelimeleri, kapanış tarzı, emoji kuralları. Bu kişi gibi YAZ — aynı kelimeler,
 aynı akış, aynı samimiyet. Yüksek engagement alan tweet'lerin yapısal özelliklerini
 (hook tarzı, paragraf yapısı, kapanış biçimi) yeni tweet'lere uygula.
+
+KAPANIŞ KURALI: Tweet'leri SORU ile bitirme. "Sizce?", "Siz ne düşünüyorsunuz?",
+"Denediniz mi?" gibi CTA soruları YASAK. Güçlü ifade, cesur tahmin veya doğal
+akışla bitir — tıpkı yukarıdaki örneklerdeki gibi.
 """

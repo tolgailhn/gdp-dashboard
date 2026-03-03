@@ -11,7 +11,11 @@ from modules.ui_components import (inject_custom_css, check_password,
                                    get_secret, render_sidebar_nav)
 from modules.content_generator import ContentGenerator, get_available_styles, get_style_info
 from modules.tweet_publisher import TweetPublisher
-from modules.deep_research import extract_tweet_id, research_topic, research_topic_from_text
+from modules.deep_research import (
+    extract_tweet_id, research_topic, research_topic_from_text,
+    ai_identify_knowledge_gaps, fill_knowledge_gaps, compile_gap_findings,
+    ai_fact_check_draft, verify_claims, compile_verification_context,
+)
 from modules.style_manager import (
     load_user_samples, load_custom_persona,
     add_to_post_history, add_draft, load_draft_tweets
@@ -89,6 +93,16 @@ with mode_tab2:
     with src_cols[3]:
         src_news = st.checkbox("📰 Haberler", value=False, key="src_news",
                                 help="Son haberleri ara")
+
+    # Deep verification option
+    deep_verify = st.checkbox(
+        "🔍 Derin Doğrulama Modu",
+        value=False,
+        key="deep_verify",
+        help="AI araştırma sonrası eksik bilgileri tespit eder ve ek arama yapar. "
+             "Tweet yazıldıktan sonra da iddiaları doğrular ve düzeltir. "
+             "Daha yavaş ama çok daha doğru sonuç verir."
+    )
 
     research_clicked = st.button(
         "🔬 Araştır ve Quote Tweet Yaz",
@@ -256,6 +270,46 @@ with mode_tab2:
             if research.synthesized_brief:
                 with st.expander("🧠 AI Araştırma Sentezi", expanded=False):
                     st.markdown(research.synthesized_brief)
+
+            # === DEEP VERIFICATION: Knowledge Gap Filling ===
+            if deep_verify and _ai_client:
+                progress_text2 = st.empty()
+                with st.spinner("🔍 Bilgi boşlukları tespit ediliyor..."):
+                    gap_queries = ai_identify_knowledge_gaps(
+                        original_tweet=original_tweet_text,
+                        current_research=research_summary,
+                        ai_client=_ai_client,
+                        ai_model=_ai_model,
+                        provider=_ai_provider,
+                    )
+
+                if gap_queries:
+                    with st.spinner(f"🔍 {len(gap_queries)} ek araştırma yapılıyor..."):
+                        gap_findings = fill_knowledge_gaps(
+                            gap_queries,
+                            progress_callback=lambda msg: progress_text2.caption(msg),
+                        )
+                        progress_text2.empty()
+
+                    gap_context = compile_gap_findings(gap_findings)
+                    if gap_context:
+                        # Append gap findings to the research summary
+                        research_summary = research_summary + "\n\n" + gap_context
+                        with st.expander(f"🔍 Ek Araştırma ({len(gap_queries)} boşluk dolduruldu)", expanded=False):
+                            for gf in gap_findings:
+                                q = gf.get("query", "")
+                                article = gf.get("article")
+                                if article:
+                                    st.markdown(f"- **{q}** → {article.get('title', 'Makale okundu')}")
+                                else:
+                                    results = gf.get("results", [])
+                                    if results:
+                                        st.markdown(f"- **{q}** → {results[0].get('title', '')[:80]}")
+                else:
+                    st.caption("✅ Araştırma yeterli, ek bilgi boşluğu yok.")
+
+            # Store deep_verify state for tweet generation
+            st.session_state.deep_verify_enabled = deep_verify
 
             # Set state for generation
             st.session_state.write_mode = "quote"
@@ -817,6 +871,75 @@ if generate_clicked or regenerate_clicked:
                     research_summary=research_summary,
                     length_preference=sel_len,
                 )
+
+                # === DEEP VERIFY: Fact-check draft and refine ===
+                do_verify = st.session_state.get("deep_verify_enabled", False)
+                if do_verify and research_summary and result:
+                    # Build AI client for verification
+                    _v_client = None
+                    _v_model = None
+                    _v_provider = "minimax"
+                    minimax_key = get_secret("minimax_api_key", "")
+                    anthropic_key = get_secret("anthropic_api_key", "")
+                    openai_key = get_secret("openai_api_key", "")
+                    if minimax_key:
+                        import openai as _oai
+                        _v_client = _oai.OpenAI(api_key=minimax_key, base_url="https://api.minimax.io/v1")
+                        _v_model = "MiniMax-M2.5"
+                    elif anthropic_key:
+                        import anthropic as _ant
+                        _v_client = _ant.Anthropic(api_key=anthropic_key)
+                        _v_model = "claude-haiku-4-5-20251001"
+                        _v_provider = "anthropic"
+                    elif openai_key:
+                        import openai as _oai
+                        _v_client = _oai.OpenAI(api_key=openai_key)
+                        _v_model = "gpt-4o-mini"
+                        _v_provider = "openai"
+
+                    if _v_client:
+                        with st.spinner("🔍 Taslak doğrulanıyor..."):
+                            check_result = ai_fact_check_draft(
+                                draft_tweet=result,
+                                original_tweet=topic_text,
+                                research_context=research_summary,
+                                ai_client=_v_client,
+                                ai_model=_v_model,
+                                provider=_v_provider,
+                            )
+
+                        if check_result and not check_result.get("is_clean", True):
+                            issues = check_result.get("issues", [])
+                            if issues:
+                                with st.spinner(f"🔍 {len(issues)} iddia doğrulanıyor..."):
+                                    verified = verify_claims(issues)
+
+                                verification_ctx = compile_verification_context(verified)
+
+                                if verification_ctx:
+                                    # Show what was found
+                                    with st.expander(f"🔍 Doğrulama: {len(issues)} sorun düzeltildi", expanded=False):
+                                        for v in verified:
+                                            st.markdown(f"- ❌ **\"{v.get('claim', '')}\"** → {v.get('problem', '')}")
+                                            if v.get("article"):
+                                                st.caption(f"  ✅ Doğru bilgi: {v['article'].get('title', '')[:80]}")
+
+                                    with st.spinner("✍️ Doğrulanmış bilgilerle yeniden yazılıyor..."):
+                                        refined = generator.refine_tweet_with_verification(
+                                            draft_tweet=result,
+                                            original_tweet=topic_text,
+                                            original_author=topic_source,
+                                            research_summary=research_summary,
+                                            verification_context=verification_ctx,
+                                            style=selected_style,
+                                            user_samples=user_samples if user_samples else None,
+                                            length_preference=sel_len,
+                                        )
+                                    if refined:
+                                        result = refined
+                        else:
+                            st.caption("✅ Taslak doğrulandı, sorun bulunamadı.")
+
                 st.session_state.generated_tweet = result
                 st.session_state.generated_thread = None
 

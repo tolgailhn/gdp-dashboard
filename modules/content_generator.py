@@ -593,6 +593,56 @@ Sadece tweet metnini yaz."""
         else:
             return self._generate_openai(system_prompt, user_prompt)
 
+    def refine_tweet_with_verification(self, draft_tweet: str,
+                                        original_tweet: str, original_author: str,
+                                        research_summary: str,
+                                        verification_context: str,
+                                        style: str = "quote_tweet",
+                                        user_samples: list = None,
+                                        length_preference: str = "orta") -> str:
+        """
+        Rewrite a draft tweet using fact-check verification results.
+        This is the REFINE step in the Generate→Verify→Refine cycle.
+        """
+        if not self.client:
+            raise ValueError("API client not initialized.")
+
+        system_prompt = self._build_research_system_prompt(user_samples, length_preference, style)
+        length_instructions = self._get_length_instructions(length_preference)
+
+        user_prompt = f"""## GÖREV: TASLAK TWEET'İ DOĞRULANMIŞ BİLGİLERLE DÜZELT
+
+ORİJİNAL TWEET (@{original_author}):
+"{original_tweet[:600]}"
+
+İLK TASLAĞIN:
+"{draft_tweet}"
+
+{verification_context}
+
+ARAŞTIRMA ÖZETİ:
+{research_summary[:2000]}
+
+---
+
+TALİMAT:
+Yukarıdaki taslak tweet'i doğrulama sonuçlarına göre DÜZELT.
+
+1. SORUNLU İDDİALARI DÜZELT: Doğrulama bölümünde işaretlenen yanlış/eski bilgileri güncel ve doğru bilgilerle değiştir
+2. DOĞRULANMIŞ VERİLERİ KULLAN: Doğrulama araştırmasında bulunan güncel rakamları, karşılaştırmaları kullan
+3. TARZINI KORU: Taslağın genel yapısını ve tonunu koru, sadece sorunlu kısımları düzelt
+4. ESKİ MODEL REFERANSLARINI GÜNCELLE: "GPT-4o seviyesinde" gibi eski karşılaştırmaları güncel modellerle değiştir
+
+{length_instructions}
+
+FORMAT: İlk satır hook, paragraflar arası boş satır, son satır güçlü görüş, 1-2 hashtag.
+Sadece düzeltilmiş tweet metnini yaz, başka bir şey yazma."""
+
+        if self.provider == "anthropic":
+            return self._generate_anthropic(system_prompt, user_prompt)
+        else:
+            return self._generate_openai(system_prompt, user_prompt)
+
     def generate_thread(self, topic_text: str, topic_source: str = "",
                         style: str = "analitik", num_tweets: int = 5,
                         additional_context: str = "",

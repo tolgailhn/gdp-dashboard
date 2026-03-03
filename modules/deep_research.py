@@ -1000,6 +1000,297 @@ def compile_research_summary(r: ResearchResult) -> str:
 
 
 # ========================================================================
+# AI KNOWLEDGE GAP DETECTION — Find what's missing before writing
+# ========================================================================
+
+def ai_identify_knowledge_gaps(original_tweet: str, current_research: str,
+                                ai_client=None, ai_model: str = None,
+                                provider: str = "minimax") -> list[str]:
+    """
+    After initial research, ask AI: "What specific info is still missing?"
+    Returns a list of targeted search queries to fill the gaps.
+
+    This prevents the AI from making up facts during tweet generation.
+    Example: If tweet is about Qwen 3.5 models, and research doesn't have
+    benchmark comparisons, AI will request "Qwen 3.5 9B benchmark vs Llama" etc.
+    """
+    if not ai_client:
+        return []
+
+    current_year = str(datetime.datetime.now().year)
+
+    prompt = f"""Bir tweet'e quote tweet yazacağız. Elimizde araştırma var ama bazı bilgiler eksik olabilir.
+
+ORİJİNAL TWEET:
+"{original_tweet[:800]}"
+
+ELİMİZDEKİ ARAŞTIRMA:
+{current_research[:3000]}
+
+GÖREV: Bu tweet hakkında bilgili ve doğru bir quote tweet yazmak için EKSİK olan bilgileri belirle.
+
+Özellikle şu eksiklikleri ara:
+1. Tweet'te bahsedilen ürün/model hakkında GÜNCEL benchmark/performans verileri var mı?
+2. Rakip ürünlerle karşılaştırma verileri var mı? (ör. "X modeli Y'den iyi" diyebilmek için)
+3. Fiyat/maliyet bilgisi var mı?
+4. Lansman/çıkış tarihi kesin mi?
+5. Tweet'teki iddiaları doğrulayacak veri var mı?
+
+Yanıtını SADECE JSON formatında ver:
+{{
+    "gaps": ["eksik bilgi 1 açıklaması", "eksik bilgi 2 açıklaması"],
+    "search_queries": ["arama sorgusu 1", "arama sorgusu 2", "arama sorgusu 3"]
+}}
+
+KURALLAR:
+- Sorgular İngilizce olsun
+- Her sorguya "{current_year}" ekle
+- Sorgular KISA (3-7 kelime) ve SPESİFİK olsun
+- Maks 4 sorgu üret, en önemlileri seç
+- Eğer araştırma yeterliyse boş liste döndür: {{"gaps": [], "search_queries": []}}"""
+
+    try:
+        if provider == "anthropic":
+            import anthropic
+            response = ai_client.messages.create(
+                model=ai_model or "claude-haiku-4-5-20251001",
+                max_tokens=500,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+            )
+            raw = response.content[0].text.strip()
+        else:
+            response = ai_client.chat.completions.create(
+                model=ai_model or "MiniMax-M2.5",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500,
+                temperature=0.1,
+            )
+            raw = response.choices[0].message.content.strip()
+
+        raw = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
+        json_match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if not json_match:
+            return []
+
+        data = json.loads(json_match.group())
+        return data.get("search_queries", [])[:4]
+
+    except Exception as e:
+        print(f"Knowledge gap detection error: {e}")
+        return []
+
+
+def fill_knowledge_gaps(gap_queries: list[str],
+                        progress_callback=None) -> list[dict]:
+    """
+    Run web searches for knowledge gap queries and fetch top articles.
+    Returns list of {query, results, articles} for each gap.
+    """
+    gap_findings = []
+
+    for i, query in enumerate(gap_queries):
+        if progress_callback:
+            progress_callback(f"Ek araştırma {i+1}/{len(gap_queries)}: {query[:50]}...")
+
+        # Search web
+        results = web_search(query, max_results=4, timelimit="m")
+        if not results:
+            results = web_search(query, max_results=4, timelimit=None)
+
+        # Fetch best article
+        article = None
+        urls = _pick_best_urls(results, max_urls=2)
+        for url in urls:
+            article = fetch_article_content(url)
+            if article and len(article.get("content", "")) > 200:
+                break
+
+        gap_findings.append({
+            "query": query,
+            "results": results[:3],
+            "article": article,
+        })
+
+    return gap_findings
+
+
+def compile_gap_findings(gap_findings: list[dict]) -> str:
+    """Compile knowledge gap findings into concise text for the research brief."""
+    if not gap_findings:
+        return ""
+
+    parts = ["## EK ARAŞTIRMA (Bilgi Boşlukları Dolduruldu):"]
+
+    for finding in gap_findings:
+        query = finding["query"]
+        article = finding.get("article")
+        results = finding.get("results", [])
+
+        if article and article.get("content"):
+            content = article["content"][:1500]
+            parts.append(f"\n### {query}")
+            parts.append(f"Kaynak: {article.get('title', 'N/A')}")
+            parts.append(content)
+        elif results:
+            parts.append(f"\n### {query}")
+            for r in results[:2]:
+                parts.append(f"- {r['title']}: {r['body'][:200]}")
+
+    return "\n".join(parts)
+
+
+# ========================================================================
+# AI FACT-CHECK — Verify claims in draft tweet before publishing
+# ========================================================================
+
+def ai_fact_check_draft(draft_tweet: str, original_tweet: str,
+                        research_context: str,
+                        ai_client=None, ai_model: str = None,
+                        provider: str = "minimax") -> dict | None:
+    """
+    Check a draft tweet for factual claims that might be wrong or unverifiable.
+    Returns claims that need verification with search queries.
+
+    Example: Draft says "GPT-4o seviyesinde" but GPT-4o might be outdated.
+    This function catches that and suggests "Qwen 3.5 9B vs current best models 2026".
+    """
+    if not ai_client:
+        return None
+
+    current_year = str(datetime.datetime.now().year)
+
+    prompt = f"""Aşağıda bir quote tweet taslağı var. Bu taslaktaki ŞÜPHELI veya DOĞRULANMASI GEREKEN iddiaları bul.
+
+TASLAK TWEET:
+"{draft_tweet}"
+
+ORİJİNAL TWEET (buna cevap olarak yazıldı):
+"{original_tweet[:500]}"
+
+ARAŞTIRMA ÖZETİ:
+{research_context[:2000]}
+
+GÖREV: Taslak tweet'teki şu tür sorunları tespit et:
+1. ESKİ/GÜNCEL OLMAYAN bilgi (ör. "GPT-4o seviyesinde" ama GPT-4o artık eski olabilir)
+2. KAYNAKSIZ İDDİA (araştırmada olmayan ama tweet'e eklenen bilgi)
+3. YANLIŞ KARŞILAŞTIRMA (yanlış model/ürün karşılaştırması)
+4. UYDURMA RAKAM (araştırmada olmayan istatistik)
+
+Yanıtını SADECE JSON formatında ver:
+{{
+    "issues": [
+        {{
+            "claim": "sorunlu ifade",
+            "problem": "ne yanlış/şüpheli",
+            "search_query": "doğrulama araması ({current_year} ekle)"
+        }}
+    ],
+    "is_clean": false
+}}
+
+Eğer taslak temizse: {{"issues": [], "is_clean": true}}
+
+KURALLAR:
+- Sadece GERÇEKTEN şüpheli iddiaları listele, her şeye sorun bulma
+- Sorgular İngilizce ve kısa (3-7 kelime) olsun
+- Maks 3 sorun listele"""
+
+    try:
+        if provider == "anthropic":
+            import anthropic
+            response = ai_client.messages.create(
+                model=ai_model or "claude-haiku-4-5-20251001",
+                max_tokens=600,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+            )
+            raw = response.content[0].text.strip()
+        else:
+            response = ai_client.chat.completions.create(
+                model=ai_model or "MiniMax-M2.5",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=600,
+                temperature=0.1,
+            )
+            raw = response.choices[0].message.content.strip()
+
+        raw = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
+        json_match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if not json_match:
+            return None
+
+        data = json.loads(json_match.group())
+        return data
+
+    except Exception as e:
+        print(f"Fact check error: {e}")
+        return None
+
+
+def verify_claims(issues: list[dict],
+                  progress_callback=None) -> list[dict]:
+    """
+    Run web searches to verify flagged claims.
+    Returns enriched issues with verification results.
+    """
+    verified = []
+
+    for i, issue in enumerate(issues[:3]):
+        query = issue.get("search_query", "")
+        if not query:
+            continue
+
+        if progress_callback:
+            progress_callback(f"Doğrulama {i+1}/{len(issues)}: {issue.get('claim', '')[:40]}...")
+
+        results = web_search(query, max_results=4, timelimit="m")
+        # Try to fetch best article for real data
+        article = None
+        urls = _pick_best_urls(results, max_urls=2)
+        for url in urls:
+            article = fetch_article_content(url)
+            if article and len(article.get("content", "")) > 200:
+                break
+
+        verified.append({
+            **issue,
+            "search_results": results[:3],
+            "article": article,
+        })
+
+    return verified
+
+
+def compile_verification_context(verified_issues: list[dict]) -> str:
+    """Compile fact-check results into context for tweet rewriting."""
+    if not verified_issues:
+        return ""
+
+    parts = ["## DOĞRULAMA SONUÇLARI (taslaktaki şüpheli iddialar kontrol edildi):"]
+
+    for issue in verified_issues:
+        claim = issue.get("claim", "")
+        problem = issue.get("problem", "")
+        article = issue.get("article")
+        results = issue.get("search_results", [])
+
+        parts.append(f"\n❌ SORUNLU İDDIA: \"{claim}\"")
+        parts.append(f"   SORUN: {problem}")
+
+        if article and article.get("content"):
+            parts.append(f"   DOĞRU BİLGİ ({article.get('title', '')[:80]}):")
+            parts.append(f"   {article['content'][:800]}")
+        elif results:
+            parts.append("   BULUNAN BİLGİLER:")
+            for r in results[:2]:
+                parts.append(f"   - {r['title']}: {r['body'][:200]}")
+
+    parts.append("\n⚠️ Yukarıdaki sorunlu iddiaları DÜZELT veya ÇIKAR. Doğrulama bilgilerini kullan.")
+    return "\n".join(parts)
+
+
+# ========================================================================
 # TOPIC-BASED RESEARCH (for normal tweet writing — no quote tweet needed)
 # ========================================================================
 

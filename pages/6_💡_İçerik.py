@@ -34,37 +34,34 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# --- Init AI ---
-def get_ai_setup():
-    """Get AI client and config from secrets."""
-    provider = get_secret("AI_PROVIDER", "minimax").lower()
-    if provider == "anthropic":
-        import anthropic
-        api_key = get_secret("ANTHROPIC_API_KEY")
-        if not api_key:
-            return None, None, None
-        client = anthropic.Anthropic(api_key=api_key)
-        model = get_secret("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
-        return client, model, "anthropic"
+# --- Init AI (same logic as Yaz page) ---
+def get_ai_client():
+    """Build AI client using the same key lookup as Yaz page."""
+    import openai as _openai
+    import anthropic as _anthropic
+
+    minimax_key = get_secret("minimax_api_key", "")
+    anthropic_key = get_secret("anthropic_api_key", "")
+    openai_key = get_secret("openai_api_key", "")
+
+    if minimax_key:
+        client = _openai.OpenAI(api_key=minimax_key, base_url="https://api.minimax.io/v1")
+        return client, "MiniMax-M2.5", "minimax", minimax_key
+    elif anthropic_key:
+        client = _anthropic.Anthropic(api_key=anthropic_key)
+        return client, "claude-haiku-4-5-20251001", "anthropic", anthropic_key
+    elif openai_key:
+        client = _openai.OpenAI(api_key=openai_key)
+        return client, "gpt-4o-mini", "openai", openai_key
     else:
-        import openai
-        api_key = get_secret("MINIMAX_API_KEY", get_secret("OPENAI_API_KEY"))
-        if not api_key:
-            return None, None, None
-        base_url = get_secret("MINIMAX_BASE_URL", get_secret("OPENAI_BASE_URL", ""))
-        kwargs = {"api_key": api_key}
-        if base_url:
-            kwargs["base_url"] = base_url
-        client = openai.OpenAI(**kwargs)
-        model = get_secret("MINIMAX_MODEL", get_secret("OPENAI_MODEL", "MiniMax-M2.5"))
-        return client, model, "minimax"
+        return None, None, None, None
 
 
 def get_scanner():
     """Try to initialize X scanner for topic discovery."""
     try:
         from modules.x_scanner import XScanner
-        cookies = get_secret("X_COOKIES", "")
+        cookies = get_secret("x_cookies", get_secret("X_COOKIES", ""))
         if not cookies:
             return None
         scanner = XScanner(cookies)
@@ -73,7 +70,7 @@ def get_scanner():
         return None
 
 
-ai_client, ai_model, ai_provider = get_ai_setup()
+ai_client, ai_model, ai_provider, ai_api_key = get_ai_client()
 
 if not ai_client:
     st.error("AI API anahtarı bulunamadı. Ayarlar sayfasından yapılandırın.")
@@ -267,12 +264,9 @@ with tab2:
             try:
                 user_samples = load_user_samples()
                 generator = ContentGenerator(
-                    api_key=get_secret("ANTHROPIC_API_KEY") if ai_provider == "anthropic"
-                            else get_secret("MINIMAX_API_KEY", get_secret("OPENAI_API_KEY")),
                     provider=ai_provider,
+                    api_key=ai_api_key,
                     model=ai_model,
-                    base_url=get_secret("MINIMAX_BASE_URL", get_secret("OPENAI_BASE_URL", ""))
-                            if ai_provider != "anthropic" else None,
                 )
                 content = generator.generate_long_content(
                     topic=topic,
@@ -333,7 +327,7 @@ with tab2:
             st.warning("Paylaşmadan önce içeriği gözden geçirdiğinizden emin olun!")
             if st.button("🐦 X'te Paylaş", key="publish_content"):
                 try:
-                    cookies = get_secret("X_COOKIES", "")
+                    cookies = get_secret("x_cookies", get_secret("X_COOKIES", ""))
                     if not cookies:
                         st.error("X çerezleri ayarlanmamış. Ayarlar sayfasından yapılandırın.")
                     else:

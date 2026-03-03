@@ -7,7 +7,7 @@ import datetime
 from modules.ui_components import (inject_custom_css, check_password,
                                    get_secret, render_sidebar_nav)
 from modules.content_generator import ContentGenerator
-from modules.deep_research import discover_topics, research_topic
+from modules.deep_research import discover_topics, research_topic_from_text
 from modules.style_manager import load_user_samples, add_draft
 from modules.tweet_publisher import TweetPublisher
 
@@ -232,7 +232,33 @@ with tab2:
         key="content_extra",
     )
 
-    do_research = st.checkbox("🔬 Önce konuyu araştır (X + Web)", value=True, key="content_research")
+    # --- Research settings ---
+    do_research = st.checkbox("🔬 Önce konuyu araştır", value=True, key="content_research")
+
+    if do_research:
+        research_mode_options = {
+            "x_and_web": "🌐 X + Web (Önerilen)",
+            "x_only": "🐦 Sadece X",
+            "x_deep": "🔬 Derin X (50-100 tweet)",
+        }
+        col_rm, col_ag = st.columns(2)
+        with col_rm:
+            research_mode = st.selectbox(
+                "Araştırma Modu",
+                options=list(research_mode_options.keys()),
+                format_func=lambda x: research_mode_options[x],
+                index=0,
+                key="research_mode",
+            )
+        with col_ag:
+            st.write("")
+            st.write("")
+            use_agentic = st.checkbox(
+                "🤖 AI Otonom Araştırma",
+                value=False,
+                key="use_agentic",
+                help="AI internette kendi başına gezinip bilgi toplar (daha yavaş ama daha kapsamlı)",
+            )
 
     generate_btn = st.button("✨ İçerik Üret", type="primary", use_container_width=True, key="gen_content_btn")
 
@@ -241,22 +267,46 @@ with tab2:
 
         # Step 1: Research if requested
         if do_research:
+            progress = st.empty()
             with st.spinner("Konu araştırılıyor..."):
                 try:
                     scanner = get_scanner()
-                    research_data = research_topic(
-                        tweet_text=topic,
+                    research_result = research_topic_from_text(
+                        topic_input=topic,
+                        scanner=scanner,
+                        time_hours=24,
+                        search_mode=research_mode,
+                        progress_callback=lambda msg: progress.info(msg),
                         ai_client=ai_client,
                         ai_model=ai_model,
                         ai_provider=ai_provider,
-                        scanner=scanner,
+                        use_agentic=use_agentic,
                     )
-                    if research_data:
-                        research_context = research_data if isinstance(research_data, str) else str(research_data)
-                        st.success("Araştırma tamamlandı!")
+                    progress.empty()
+                    if research_result and research_result.summary:
+                        research_context = research_result.summary
+
+                        # Show research stats
+                        stats_parts = []
+                        if research_result.x_tweets:
+                            stats_parts.append(f"🐦 {len(research_result.x_tweets)} tweet")
+                        if research_result.web_results:
+                            stats_parts.append(f"🌐 {len(research_result.web_results)} web sonucu")
+                        if research_result.news_results:
+                            stats_parts.append(f"📰 {len(research_result.news_results)} haber")
+                        if research_result.deep_articles:
+                            stats_parts.append(f"📄 {len(research_result.deep_articles)} makale")
+                        if getattr(research_result, 'agentic_summary', None):
+                            stats_parts.append("🤖 AI araştırma")
+
+                        st.success(f"Araştırma tamamlandı! ({' | '.join(stats_parts)})")
                         with st.expander("📄 Araştırma Verileri", expanded=False):
-                            st.text(research_context[:3000])
+                            st.text(research_context[:5000])
+                    else:
+                        progress.empty()
+                        st.info("Araştırma sonucu bulunamadı, direkt içerik üretiliyor.")
                 except Exception as e:
+                    progress.empty()
                     st.warning(f"Araştırma hatası (devam ediliyor): {e}")
 
         # Step 2: Generate content

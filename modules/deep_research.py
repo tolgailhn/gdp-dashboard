@@ -2223,3 +2223,166 @@ def _compile_topic_research_summary(r: TopicResearchResult) -> str:
                     parts.append(f"     {wr['body'][:200]}")
 
     return "\n".join(parts)
+
+
+# ========================================================================
+# TOPIC DISCOVERY — AI finds interesting content topics
+# ========================================================================
+
+def discover_topics(ai_client=None, ai_model: str = None,
+                    ai_provider: str = "minimax",
+                    scanner=None,
+                    focus_area: str = "AI ve teknoloji",
+                    progress_callback=None) -> list[dict]:
+    """
+    AI discovers interesting content topics by searching X and web.
+
+    Returns a list of topic suggestions:
+    [
+        {
+            "title": "Claude Code ile içerik üretimi",
+            "description": "Neden Claude diğer AI'lardan iyi...",
+            "angle": "Kişisel deneyim paylaşımı",
+            "potential": "Yüksek — herkes AI içerik üretimi arıyor",
+        },
+        ...
+    ]
+    """
+    if not ai_client:
+        return []
+
+    # Step 1: Search X for trending conversations
+    x_tweets = []
+    if scanner:
+        if progress_callback:
+            progress_callback("X'te trend konular araştırılıyor...")
+
+        import datetime as _dt
+        start = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=24)
+
+        trend_queries = [
+            f"({focus_area}) lang:tr min_faves:50 -is:retweet",
+            f"({focus_area}) lang:tr min_faves:20 -is:retweet",
+            "AI lang:tr min_faves:30 -is:retweet",
+            "(yapay zeka OR ChatGPT OR Claude OR GPT) lang:tr min_faves:20 -is:retweet",
+        ]
+
+        seen_ids = set()
+        for q in trend_queries:
+            try:
+                results = scanner._search_tweets(q, start, 15)
+                for t in results:
+                    if t.id not in seen_ids and len(t.text) > 60:
+                        seen_ids.add(t.id)
+                        x_tweets.append({
+                            "text": t.text[:300],
+                            "author": t.author_username,
+                            "likes": t.like_count,
+                            "retweets": getattr(t, 'retweet_count', 0),
+                        })
+            except Exception as e:
+                print(f"Topic discovery X search error: {e}")
+
+        x_tweets.sort(key=lambda x: x.get("likes", 0) + x.get("retweets", 0) * 2, reverse=True)
+        x_tweets = x_tweets[:20]
+
+    # Step 2: Search web for recent news/trends
+    web_results = []
+    if progress_callback:
+        progress_callback("Web'de güncel konular araştırılıyor...")
+
+    current_year = str(datetime.datetime.now().year)
+    web_queries = [
+        f"AI news {current_year}",
+        f"artificial intelligence trends {current_year}",
+        f"yapay zeka güncel gelişmeler {current_year}",
+    ]
+
+    for q in web_queries[:2]:
+        try:
+            results = web_search_news(q, max_results=5, timelimit="d")
+            if not results:
+                results = web_search_news(q, max_results=5, timelimit="w")
+            for r in results:
+                web_results.append({
+                    "title": r.get("title", ""),
+                    "body": r.get("body", "")[:200],
+                    "source": r.get("source", ""),
+                })
+        except Exception:
+            pass
+
+    # Step 3: AI analyzes and suggests topics
+    if progress_callback:
+        progress_callback("AI konu önerileri oluşturuyor...")
+
+    x_context = ""
+    if x_tweets:
+        x_items = []
+        for tw in x_tweets[:15]:
+            x_items.append(f"- @{tw['author']} ({tw['likes']} beğeni): {tw['text'][:200]}")
+        x_context = "\n".join(x_items)
+
+    web_context = ""
+    if web_results:
+        web_items = []
+        for wr in web_results[:10]:
+            src = f" ({wr['source']})" if wr.get('source') else ""
+            web_items.append(f"- {wr['title']}{src}: {wr['body'][:150]}")
+        web_context = "\n".join(web_items)
+
+    prompt = f"""Sen bir Türk teknoloji/AI içerik üreticisisin. X'te (Twitter) Türkçe içerik üretiyorsun.
+
+Aşağıda X'te şu an konuşulan konular ve güncel haberler var. Bunlara bakarak bana 5-7 içerik konusu öner.
+
+## X'TE GÜNCEL KONUŞMALAR:
+{x_context or "(X verisi yok)"}
+
+## GÜNCEL HABERLER:
+{web_context or "(Haber verisi yok)"}
+
+## ODAK ALANI: {focus_area}
+
+Her konu için şunu ver:
+1. title: Kısa başlık (Türkçe)
+2. description: 1-2 cümle açıklama — ne hakkında yazılacak
+3. angle: Hangi açıdan yazılmalı (deneyim paylaşımı, karşılaştırma, analiz, tutorial, vs.)
+4. potential: Neden bu konu iyi? (engagement potansiyeli)
+
+JSON formatında cevap ver:
+[
+  {{"title": "...", "description": "...", "angle": "...", "potential": "..."}},
+  ...
+]
+
+SADECE JSON ver, başka bir şey yazma."""
+
+    try:
+        if ai_provider == "anthropic":
+            response = ai_client.messages.create(
+                model=ai_model or "claude-haiku-4-5-20251001",
+                max_tokens=2000,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7,
+            )
+            text = response.content[0].text
+        else:
+            response = ai_client.chat.completions.create(
+                model=ai_model or "MiniMax-M2.5",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=2000,
+                temperature=0.7,
+            )
+            text = response.choices[0].message.content
+
+        # Parse JSON
+        text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
+        json_match = re.search(r'\[.*\]', text, re.DOTALL)
+        if json_match:
+            topics = json.loads(json_match.group())
+            return topics
+        return []
+
+    except Exception as e:
+        print(f"Topic discovery AI error: {e}")
+        return []

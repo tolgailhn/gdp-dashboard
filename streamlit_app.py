@@ -50,23 +50,25 @@ render_sidebar_nav(current_page="home")
 has_twitter = bool(get_secret("twitter_bearer_token", ""))
 has_ai = bool(get_secret("minimax_api_key", "") or get_secret("anthropic_api_key", "") or get_secret("openai_api_key", ""))
 
-# --- Main Dashboard ---
-st.markdown("""
-<div class="main-header">
-    <h1>🤖 X AI Otomasyon</h1>
-    <p style="color:#8899a6; font-size:14px; margin-top:2px;">
-        Tara &middot; Yaz &middot; Paylaş
-    </p>
-</div>
-""", unsafe_allow_html=True)
-
-# Quick stats - 2x2 on mobile, 4x1 on desktop
+# --- Data ---
 post_history = load_post_history()
 drafts = load_draft_tweets()
 today_posts = len([p for p in post_history
                    if p.get("posted_at", "").startswith(datetime.datetime.now().strftime("%Y-%m-%d"))])
-api_status = "Aktif" if (has_twitter and has_ai) else "Eksik"
 
+# --- Hero Section ---
+api_dot = "🟢" if (has_twitter and has_ai) else "🟡"
+api_label = "Aktif" if (has_twitter and has_ai) else "Kurulum Gerekli"
+
+st.markdown(f"""
+<div class="hero-section">
+    <span class="hero-logo">🤖</span>
+    <div class="hero-title">X AI Otomasyon</div>
+    <div class="hero-subtitle">Tara &middot; Yaz &middot; Paylaş</div>
+</div>
+""", unsafe_allow_html=True)
+
+# --- Quick Stats ---
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     render_stat_box(str(len(post_history)), "Paylaşılan")
@@ -75,11 +77,16 @@ with col2:
 with col3:
     render_stat_box(str(today_posts), "Bugün")
 with col4:
-    render_stat_box(api_status, "API")
+    render_stat_box(f"{api_dot}", api_label)
 
-st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
+# --- Section: Quick Actions ---
+st.markdown("""
+<div class="section-header">
+    <h3>Hızlı İşlemler</h3>
+</div>
+""", unsafe_allow_html=True)
 
-# Quick actions - grid layout
+# Row 1: Primary actions
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -87,7 +94,7 @@ with col1:
     <div class="action-card">
         <div class="action-icon">🔍</div>
         <div class="action-title">AI Gündem Tara</div>
-        <div class="action-desc">X'te AI gelişmelerini bul</div>
+        <div class="action-desc">X'te AI gelişmelerini keşfet</div>
     </div>
     """, unsafe_allow_html=True)
     if st.button("Tara", key="scan_btn", use_container_width=True, type="primary"):
@@ -115,6 +122,7 @@ with col3:
     if st.button("İçerik", key="content_btn", use_container_width=True, type="primary"):
         st.switch_page("pages/6_💡_İçerik.py")
 
+# Row 2: Secondary actions
 col4, col5, col6 = st.columns(3)
 
 with col4:
@@ -133,7 +141,7 @@ with col5:
     <div class="action-card">
         <div class="action-icon">👥</div>
         <div class="action-title">Takipçi Keşfet</div>
-        <div class="action-desc">Onaylı takipçileri bul</div>
+        <div class="action-desc">Nişindeki hesapları bul</div>
     </div>
     """, unsafe_allow_html=True)
     if st.button("Takipçi", key="followers_btn", use_container_width=True):
@@ -150,31 +158,50 @@ with col6:
     if st.button("Ayarlar", key="settings_btn", use_container_width=True):
         st.switch_page("pages/3_⚙️_Ayarlar.py")
 
-st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
-
-# Recent activity
-st.markdown("### Son Aktiviteler")
+# --- Section: Recent Activity ---
+st.markdown(f"""
+<div class="section-header">
+    <h3>Son Aktiviteler</h3>
+    <span class="section-badge">{len(post_history)} toplam</span>
+</div>
+""", unsafe_allow_html=True)
 
 if post_history:
     for entry in post_history[:5]:
-        text_preview = entry.get("text", "")[:120]
-        if len(entry.get("text", "")) > 120:
+        text_preview = entry.get("text", "")[:140]
+        if len(entry.get("text", "")) > 140:
             text_preview += "..."
         url = entry.get("url", "")
-        url_html = f'<a href="{url}" target="_blank" style="color:#1DA1F2; font-size:12px; text-decoration:none;">Gör &rarr;</a>' if url else ""
+        url_html = f'<a href="{url}" target="_blank" class="activity-link">Görüntüle →</a>' if url else ""
+
+        posted_at = entry.get('posted_at', '')
+        style = entry.get('style', '')
+        meta_parts = []
+        if posted_at:
+            meta_parts.append(posted_at[:16])
+        if style:
+            meta_parts.append(style)
+
         st.markdown(f"""
-        <div class="tweet-card" style="padding:14px 16px; margin:4px 0;">
-            <div style="color:#f0f0f0; font-size:14px; line-height:1.5;">{text_preview}</div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-                <span style="color:#8899a6; font-size:12px;">
-                    {entry.get('posted_at', 'N/A')} &middot; {entry.get('style', '')}
-                </span>
-                {url_html}
+        <div class="activity-item">
+            <div class="activity-dot"></div>
+            <div class="activity-content">
+                <div class="activity-text">{text_preview}</div>
+                <div class="activity-meta">
+                    <span class="activity-time">{' · '.join(meta_parts)}</span>
+                    {url_html}
+                </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 else:
-    st.info("Henüz paylaşım yapılmamış. **Tara** sayfasından başlayın!")
+    st.markdown("""
+    <div class="empty-state">
+        <div class="empty-icon">📝</div>
+        <p>Henüz paylaşım yapılmamış.<br>
+        <strong>Tara</strong> sayfasından başlayarak ilk tweet'ini oluştur!</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # How to use guide
 with st.expander("📖 Nasıl Kullanılır?"):
@@ -202,5 +229,9 @@ with st.expander("📖 Nasıl Kullanılır?"):
 
 # Setup check
 if not has_twitter or not has_ai:
-    st.markdown("---")
-    st.warning("**Kurulum:** API anahtarlarınızı ⚙️ Ayarlar sayfasından yapılandırın.")
+    st.markdown(f"""
+    <div class="setup-warning">
+        <span class="setup-warning-icon">⚠️</span>
+        <span class="setup-warning-text">API anahtarlarınızı ⚙️ Ayarlar sayfasından yapılandırın.</span>
+    </div>
+    """, unsafe_allow_html=True)

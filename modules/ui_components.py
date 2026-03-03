@@ -24,17 +24,43 @@ def setup_page_config(title: str = "X AI Otomasyon", icon: str = "🤖"):
 
 
 def inject_custom_css():
-    """Inject mobile-first modern CSS"""
+    """Inject premium mobile-first CSS design system"""
     st.markdown("""
     <style>
     /* ========================================
-       MOBILE-FIRST MODERN DESIGN SYSTEM
+       PREMIUM DESIGN SYSTEM v3.0
        ======================================== */
+
+    /* --- CSS Variables --- */
+    :root {
+        --bg-primary: #0a0e1a;
+        --bg-card: rgba(15, 20, 35, 0.7);
+        --bg-card-hover: rgba(20, 28, 50, 0.8);
+        --border-subtle: rgba(255, 255, 255, 0.06);
+        --border-glow: rgba(99, 102, 241, 0.3);
+        --accent-blue: #6366f1;
+        --accent-cyan: #22d3ee;
+        --accent-purple: #a855f7;
+        --accent-twitter: #1DA1F2;
+        --text-primary: #f1f5f9;
+        --text-secondary: #94a3b8;
+        --text-muted: #64748b;
+        --gradient-main: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7);
+        --gradient-card: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.05));
+        --gradient-accent: linear-gradient(135deg, #6366f1, #22d3ee);
+        --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.25);
+        --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.15);
+        --radius-sm: 10px;
+        --radius-md: 14px;
+        --radius-lg: 20px;
+        --radius-xl: 24px;
+    }
 
     /* --- Base & Reset --- */
     .stApp {
         max-width: 100%;
         overflow-x: hidden;
+        background: var(--bg-primary) !important;
     }
     .block-container {
         padding: 0.75rem 1rem 5rem 1rem !important;
@@ -45,260 +71,556 @@ def inject_custom_css():
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header[data-testid="stHeader"] {
-        background: rgba(14, 17, 23, 0.85);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        background: rgba(10, 14, 26, 0.9) !important;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--border-subtle);
     }
 
     /* --- Typography --- */
-    h1, h2, h3 { letter-spacing: -0.02em; }
+    h1, h2, h3 {
+        letter-spacing: -0.03em;
+        font-weight: 700;
+    }
+    h1 { color: var(--text-primary) !important; }
+    h2 { color: var(--text-primary) !important; }
+    h3 { color: var(--text-primary) !important; font-size: 18px !important; }
 
-    /* --- Glass Card Base --- */
+    /* ==========================================
+       PREMIUM CARDS
+       ========================================== */
+
     .glass-card {
-        background: rgba(26, 26, 46, 0.6);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 16px;
-        padding: 16px;
+        background: var(--bg-card);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 20px;
         margin: 8px 0;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    .glass-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.4), transparent);
     }
     .glass-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-glow);
+        border-color: var(--border-glow);
     }
 
     /* --- Tweet Cards --- */
     .tweet-card {
-        background: rgba(26, 26, 46, 0.55);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 16px;
-        padding: 16px;
-        margin: 8px 0;
-        color: #e0e0e0;
-        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        background: var(--bg-card);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 18px;
+        margin: 10px 0;
+        color: var(--text-primary);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    .tweet-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0;
+        width: 3px; height: 100%;
+        background: var(--gradient-main);
+        opacity: 0;
+        transition: opacity 0.3s ease;
     }
     .tweet-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 32px rgba(29, 161, 242, 0.08);
-        border-color: rgba(29, 161, 242, 0.2);
+        box-shadow: 0 8px 32px rgba(99, 102, 241, 0.12);
+        border-color: rgba(99, 102, 241, 0.2);
+    }
+    .tweet-card:hover::before {
+        opacity: 1;
     }
     .tweet-author {
         font-weight: 700;
-        color: #1DA1F2;
+        color: var(--accent-twitter);
         font-size: 15px;
     }
     .tweet-username {
-        color: #8899a6;
+        color: var(--text-secondary);
         font-size: 13px;
     }
     .tweet-text {
         margin: 10px 0;
-        line-height: 1.55;
+        line-height: 1.6;
         font-size: 15px;
-        color: #f0f0f0;
+        color: var(--text-primary);
         word-break: break-word;
     }
     .tweet-metrics {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
-        color: #8899a6;
+        gap: 14px;
+        color: var(--text-secondary);
         font-size: 13px;
-        margin-top: 10px;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-subtle);
     }
     .tweet-time {
-        color: #8899a6;
+        color: var(--text-muted);
         font-size: 12px;
     }
     .tweet-category {
         display: inline-block;
-        background: linear-gradient(135deg, #1DA1F2, #0d8bd9);
+        background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
         color: white;
-        padding: 3px 10px;
+        padding: 3px 12px;
         border-radius: 20px;
         font-size: 11px;
         font-weight: 600;
+        letter-spacing: 0.02em;
     }
 
     /* Relevance badges */
     .relevance-badge {
         display: inline-block;
-        padding: 2px 8px;
+        padding: 3px 10px;
         border-radius: 20px;
         font-size: 11px;
         font-weight: 600;
     }
-    .relevance-high { background: rgba(0, 200, 83, 0.2); color: #00e676; border: 1px solid rgba(0, 200, 83, 0.3); }
-    .relevance-medium { background: rgba(255, 152, 0, 0.2); color: #ffb74d; border: 1px solid rgba(255, 152, 0, 0.3); }
-    .relevance-low { background: rgba(117, 117, 117, 0.2); color: #bdbdbd; border: 1px solid rgba(117, 117, 117, 0.3); }
+    .relevance-high {
+        background: rgba(34, 197, 94, 0.15);
+        color: #4ade80;
+        border: 1px solid rgba(34, 197, 94, 0.25);
+    }
+    .relevance-medium {
+        background: rgba(251, 191, 36, 0.15);
+        color: #fbbf24;
+        border: 1px solid rgba(251, 191, 36, 0.25);
+    }
+    .relevance-low {
+        background: rgba(148, 163, 184, 0.15);
+        color: #94a3b8;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+    }
 
     /* --- Generated Tweet Preview --- */
     .generated-tweet {
-        background: linear-gradient(135deg, rgba(15, 25, 35, 0.8) 0%, rgba(26, 40, 54, 0.8) 100%);
-        border: 1px solid rgba(29, 161, 242, 0.3);
-        border-left: 3px solid #1DA1F2;
-        border-radius: 16px;
-        padding: 20px;
-        margin: 12px 0;
+        background: linear-gradient(135deg, rgba(10, 20, 40, 0.9), rgba(20, 30, 55, 0.9));
+        border: 1px solid rgba(99, 102, 241, 0.25);
+        border-left: 3px solid var(--accent-blue);
+        border-radius: var(--radius-lg);
+        padding: 22px;
+        margin: 14px 0;
         color: #ffffff;
         font-size: 15px;
-        line-height: 1.65;
+        line-height: 1.7;
         white-space: pre-wrap;
         word-break: break-word;
+        position: relative;
+        overflow: hidden;
+    }
+    .generated-tweet::before {
+        content: '';
+        position: absolute;
+        top: 0; right: 0;
+        width: 120px; height: 120px;
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
     }
 
     /* --- Style Cards --- */
     .style-card {
-        background: rgba(26, 26, 46, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 12px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-md);
         padding: 14px;
         margin: 6px 0;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: all 0.25s ease;
     }
     .style-card:hover {
-        border-color: rgba(29, 161, 242, 0.4);
-        background: rgba(22, 33, 62, 0.6);
+        border-color: rgba(99, 102, 241, 0.4);
+        background: rgba(99, 102, 241, 0.06);
     }
     .style-card.active {
-        border-color: #1DA1F2;
-        background: rgba(29, 161, 242, 0.1);
+        border-color: var(--accent-blue);
+        background: rgba(99, 102, 241, 0.1);
+        box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
     }
 
-    /* --- Stat Boxes --- */
+    /* ==========================================
+       STAT BOXES - Premium gradient style
+       ========================================== */
     .stat-box {
-        background: rgba(26, 26, 46, 0.55);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 16px;
-        padding: 16px 12px;
+        background: var(--bg-card);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 18px 14px;
         text-align: center;
-        transition: transform 0.2s ease, border-color 0.2s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    .stat-box::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 2px;
+        background: var(--gradient-accent);
+        opacity: 0.6;
     }
     .stat-box:hover {
-        transform: translateY(-1px);
-        border-color: rgba(29, 161, 242, 0.2);
+        transform: translateY(-2px);
+        border-color: var(--border-glow);
+        box-shadow: var(--shadow-glow);
     }
     .stat-number {
-        font-size: 26px;
-        font-weight: 700;
-        color: #1DA1F2;
+        font-size: 28px;
+        font-weight: 800;
+        background: var(--gradient-accent);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
         line-height: 1.2;
     }
     .stat-label {
         font-size: 12px;
-        color: #8899a6;
+        color: var(--text-secondary);
         margin-top: 4px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
 
-    /* --- Action Cards (Home Page) --- */
+    /* ==========================================
+       ACTION CARDS - Premium home page
+       ========================================== */
     .action-card {
-        background: rgba(26, 26, 46, 0.55);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 16px;
-        padding: 20px 16px;
+        background: var(--bg-card);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 24px 16px 16px;
         text-align: center;
-        transition: all 0.2s ease;
-        min-height: 120px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        min-height: 130px;
         display: flex;
         flex-direction: column;
         justify-content: center;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+    }
+    .action-card::before {
+        content: '';
+        position: absolute;
+        top: -50%; left: -50%;
+        width: 200%; height: 200%;
+        background: radial-gradient(circle at center, rgba(99, 102, 241, 0.06) 0%, transparent 50%);
+        opacity: 0;
+        transition: opacity 0.4s ease;
     }
     .action-card:hover {
-        transform: translateY(-2px);
-        border-color: rgba(29, 161, 242, 0.25);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        transform: translateY(-4px);
+        border-color: rgba(99, 102, 241, 0.3);
+        box-shadow: 0 12px 40px rgba(99, 102, 241, 0.15);
     }
-    .action-icon { font-size: 32px; margin-bottom: 8px; }
-    .action-title { color: #f0f0f0; font-weight: 700; font-size: 15px; }
-    .action-desc { color: #8899a6; font-size: 12px; margin-top: 4px; }
+    .action-card:hover::before { opacity: 1; }
+    .action-icon {
+        font-size: 36px;
+        margin-bottom: 10px;
+        filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+    }
+    .action-title {
+        color: var(--text-primary);
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: -0.01em;
+    }
+    .action-desc {
+        color: var(--text-secondary);
+        font-size: 12px;
+        margin-top: 4px;
+        line-height: 1.4;
+    }
 
-    /* --- Header --- */
+    /* ==========================================
+       HEADER - Premium gradient
+       ========================================== */
     .main-header {
         text-align: center;
-        padding: 8px 0 16px 0;
+        padding: 12px 0 20px 0;
+        position: relative;
     }
     .main-header h1 {
-        color: #ffffff;
-        font-size: 24px;
-        font-weight: 700;
-        margin-bottom: 2px;
+        color: var(--text-primary) !important;
+        font-size: 26px;
+        font-weight: 800;
+        margin-bottom: 4px;
+        letter-spacing: -0.03em;
+    }
+    .main-header p {
+        color: var(--text-secondary);
+        font-size: 14px;
     }
 
-    /* --- Buttons --- */
+    /* --- Page Header with icon accent --- */
+    .page-header {
+        text-align: center;
+        padding: 16px 0 24px 0;
+    }
+    .page-header .page-icon {
+        font-size: 48px;
+        display: block;
+        margin-bottom: 8px;
+        filter: drop-shadow(0 4px 12px rgba(99, 102, 241, 0.3));
+    }
+    .page-header h1 {
+        font-size: 24px;
+        font-weight: 800;
+        background: var(--gradient-main);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 0 !important;
+    }
+    .page-header p {
+        color: var(--text-secondary);
+        font-size: 13px;
+        margin-top: 4px;
+    }
+
+    /* ==========================================
+       HERO SECTION - Home page
+       ========================================== */
+    .hero-section {
+        position: relative;
+        text-align: center;
+        padding: 28px 16px 24px;
+        margin: -8px -8px 20px -8px;
+        border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(168, 85, 247, 0.08) 50%, rgba(34, 211, 238, 0.06) 100%);
+        border-bottom: 1px solid rgba(99, 102, 241, 0.15);
+        overflow: hidden;
+    }
+    .hero-section::before {
+        content: '';
+        position: absolute;
+        top: -40%; right: -20%;
+        width: 300px; height: 300px;
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
+        animation: pulse-glow 4s ease-in-out infinite;
+    }
+    .hero-section::after {
+        content: '';
+        position: absolute;
+        bottom: -30%; left: -10%;
+        width: 250px; height: 250px;
+        background: radial-gradient(circle, rgba(168, 85, 247, 0.08) 0%, transparent 70%);
+        animation: pulse-glow 4s ease-in-out infinite 2s;
+    }
+    @keyframes pulse-glow {
+        0%, 100% { transform: scale(1); opacity: 0.5; }
+        50% { transform: scale(1.1); opacity: 1; }
+    }
+    .hero-logo {
+        font-size: 52px;
+        display: block;
+        margin-bottom: 8px;
+        filter: drop-shadow(0 4px 16px rgba(99, 102, 241, 0.4));
+        position: relative;
+        z-index: 1;
+    }
+    .hero-title {
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+        background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .hero-subtitle {
+        color: var(--text-secondary);
+        font-size: 14px;
+        margin-top: 6px;
+        position: relative;
+        z-index: 1;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        font-weight: 500;
+    }
+
+    /* ==========================================
+       ACTIVITY TIMELINE
+       ========================================== */
+    .activity-item {
+        background: var(--bg-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-md);
+        padding: 14px 16px;
+        margin: 6px 0;
+        transition: all 0.25s ease;
+        position: relative;
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+    }
+    .activity-item:hover {
+        border-color: rgba(99, 102, 241, 0.2);
+        background: var(--bg-card-hover);
+    }
+    .activity-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--gradient-accent);
+        margin-top: 6px;
+        flex-shrink: 0;
+        box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+    }
+    .activity-content {
+        flex: 1;
+        min-width: 0;
+    }
+    .activity-text {
+        color: var(--text-primary);
+        font-size: 14px;
+        line-height: 1.5;
+        word-break: break-word;
+    }
+    .activity-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 6px;
+    }
+    .activity-time {
+        color: var(--text-muted);
+        font-size: 12px;
+    }
+    .activity-link {
+        color: var(--accent-blue) !important;
+        font-size: 12px;
+        text-decoration: none !important;
+        font-weight: 600;
+        transition: color 0.2s ease;
+    }
+    .activity-link:hover { color: var(--accent-cyan) !important; }
+
+    /* ==========================================
+       SECTION HEADERS
+       ========================================== */
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 20px 0 12px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+    .section-header h3 {
+        margin: 0 !important;
+        padding: 0;
+        font-size: 16px !important;
+        font-weight: 700;
+        color: var(--text-primary) !important;
+    }
+    .section-badge {
+        background: rgba(99, 102, 241, 0.12);
+        color: var(--accent-blue);
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    /* ==========================================
+       BUTTONS - Premium style
+       ========================================== */
     .stButton > button {
-        border-radius: 12px !important;
+        border-radius: var(--radius-sm) !important;
         padding: 0.5rem 1.5rem;
         font-weight: 600;
         font-size: 14px;
         min-height: 44px;
-        transition: all 0.2s ease;
-        border: 1px solid transparent;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid var(--border-subtle) !important;
+        letter-spacing: -0.01em;
     }
     .stButton > button:hover {
         transform: translateY(-1px);
-        box-shadow: 0 4px 16px rgba(29, 161, 242, 0.2);
+        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.2);
     }
     .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #1DA1F2, #0d8bd9) !important;
-        border: none;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+        border: none !important;
+        color: white !important;
     }
     .stButton > button[kind="primary"]:hover {
-        background: linear-gradient(135deg, #3db5f5, #1DA1F2) !important;
+        background: linear-gradient(135deg, #7c7ff7, #9d6ffc) !important;
+        box-shadow: 0 4px 24px rgba(99, 102, 241, 0.35) !important;
     }
 
     /* --- Divider --- */
     .custom-divider {
-        border-top: 1px solid rgba(255, 255, 255, 0.06);
-        margin: 16px 0;
+        border-top: 1px solid var(--border-subtle);
+        margin: 18px 0;
     }
 
     /* --- Thread Tweet --- */
     .thread-tweet {
-        background: rgba(15, 25, 35, 0.6);
-        border-left: 3px solid #1DA1F2;
-        padding: 12px 16px;
+        background: rgba(10, 20, 40, 0.6);
+        border-left: 3px solid var(--accent-blue);
+        padding: 14px 16px;
         margin: 6px 0;
-        border-radius: 0 12px 12px 0;
-        color: #f0f0f0;
+        border-radius: 0 var(--radius-md) var(--radius-md) 0;
+        color: var(--text-primary);
         font-size: 14px;
-        line-height: 1.55;
+        line-height: 1.6;
     }
     .thread-number {
-        color: #1DA1F2;
+        color: var(--accent-blue);
         font-weight: 700;
         font-size: 12px;
         margin-bottom: 4px;
     }
 
-    /* --- Inputs --- */
+    /* ==========================================
+       INPUTS - Modern glass style
+       ========================================== */
     .stTextArea textarea,
     .stTextInput input {
-        background-color: rgba(26, 26, 46, 0.6) !important;
-        color: #f0f0f0 !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-radius: 12px !important;
+        background-color: rgba(15, 20, 35, 0.8) !important;
+        color: var(--text-primary) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: var(--radius-sm) !important;
         font-size: 16px !important;
         padding: 12px !important;
-        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        transition: all 0.3s ease;
     }
     .stTextArea textarea:focus,
     .stTextInput input:focus {
-        border-color: rgba(29, 161, 242, 0.5) !important;
-        box-shadow: 0 0 0 3px rgba(29, 161, 242, 0.1) !important;
+        border-color: rgba(99, 102, 241, 0.5) !important;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 0 20px rgba(99, 102, 241, 0.05) !important;
     }
 
     /* Selectbox */
     .stSelectbox > div > div {
-        border-radius: 12px !important;
+        border-radius: var(--radius-sm) !important;
         min-height: 44px;
     }
 
@@ -309,47 +631,53 @@ def inject_custom_css():
         align-items: center;
     }
 
-    /* --- Tabs --- */
+    /* ==========================================
+       TABS - Premium pill style
+       ========================================== */
     .stTabs [data-baseweb="tab-list"] {
         gap: 0;
-        background: rgba(26, 26, 46, 0.4);
-        border-radius: 12px;
+        background: rgba(15, 20, 35, 0.6);
+        border-radius: var(--radius-md);
         padding: 4px;
+        border: 1px solid var(--border-subtle);
     }
     .stTabs [data-baseweb="tab"] {
-        border-radius: 10px;
+        border-radius: var(--radius-sm);
         padding: 10px 16px;
         font-size: 14px;
         font-weight: 600;
-        color: #8899a6;
+        color: var(--text-secondary);
         min-height: 44px;
+        transition: all 0.25s ease;
     }
     .stTabs [aria-selected="true"] {
-        background: rgba(29, 161, 242, 0.15) !important;
-        color: #1DA1F2 !important;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.1)) !important;
+        color: #a5b4fc !important;
+        box-shadow: 0 0 12px rgba(99, 102, 241, 0.1);
     }
-    .stTabs [data-baseweb="tab-border"] {
-        display: none;
-    }
-    .stTabs [data-baseweb="tab-highlight"] {
-        display: none;
-    }
+    .stTabs [data-baseweb="tab-border"] { display: none; }
+    .stTabs [data-baseweb="tab-highlight"] { display: none; }
 
-    /* --- Expander --- */
+    /* ==========================================
+       EXPANDER
+       ========================================== */
     .streamlit-expanderHeader {
         font-size: 15px;
         font-weight: 600;
-        border-radius: 12px;
+        border-radius: var(--radius-md);
     }
 
-    /* --- Sidebar --- */
+    /* ==========================================
+       SIDEBAR - Premium dark
+       ========================================== */
     section[data-testid="stSidebar"] {
-        background: rgba(14, 17, 23, 0.95);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
+        background: rgba(8, 12, 24, 0.97) !important;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-right: 1px solid var(--border-subtle);
     }
     section[data-testid="stSidebar"] .stButton > button {
-        border-radius: 10px !important;
+        border-radius: var(--radius-sm) !important;
         font-size: 14px;
         text-align: left;
     }
@@ -359,17 +687,22 @@ def inject_custom_css():
         display: block;
         padding: 10px 14px;
         margin: 3px 0;
-        border-radius: 10px;
-        color: #f0f0f0 !important;
+        border-radius: var(--radius-sm);
+        color: var(--text-primary) !important;
         text-decoration: none !important;
-        transition: background 0.2s ease;
+        transition: all 0.2s ease;
         font-size: 14px;
     }
-    .nav-link:hover { background: rgba(29, 161, 242, 0.1); }
-    .nav-link.active { background: #1DA1F2; color: white !important; }
+    .nav-link:hover {
+        background: rgba(99, 102, 241, 0.1);
+    }
+    .nav-link.active {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: white !important;
+    }
 
     /* ==========================================
-       MOBILE BOTTOM NAV
+       MOBILE BOTTOM NAV - Premium glass
        ========================================== */
     .mobile-bottom-nav {
         display: none;
@@ -378,10 +711,10 @@ def inject_custom_css():
         left: 0;
         right: 0;
         z-index: 9999;
-        background: rgba(14, 17, 23, 0.92);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(8, 12, 24, 0.95);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border-top: 1px solid rgba(99, 102, 241, 0.15);
         padding: 6px 0 max(6px, env(safe-area-inset-bottom));
     }
     .mobile-bottom-nav .nav-items {
@@ -396,22 +729,81 @@ def inject_custom_css():
         flex-direction: column;
         align-items: center;
         text-decoration: none;
-        color: #8899a6;
+        color: var(--text-muted);
         font-size: 10px;
         font-weight: 500;
         padding: 4px 8px;
-        border-radius: 10px;
-        transition: all 0.2s ease;
+        border-radius: var(--radius-sm);
+        transition: all 0.25s ease;
         min-width: 48px;
         min-height: 48px;
         justify-content: center;
     }
     .mobile-bottom-nav a .nav-icon { font-size: 20px; margin-bottom: 2px; }
     .mobile-bottom-nav a.active {
-        color: #1DA1F2;
-        background: rgba(29, 161, 242, 0.12);
+        color: #a5b4fc;
+        background: rgba(99, 102, 241, 0.15);
     }
-    .mobile-bottom-nav a:hover { color: #1DA1F2; }
+    .mobile-bottom-nav a:hover { color: #a5b4fc; }
+
+    /* ==========================================
+       EMPTY STATE
+       ========================================== */
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--text-secondary);
+    }
+    .empty-state .empty-icon {
+        font-size: 48px;
+        margin-bottom: 12px;
+        opacity: 0.5;
+    }
+    .empty-state p {
+        font-size: 14px;
+        line-height: 1.6;
+    }
+
+    /* ==========================================
+       INFO BANNER
+       ========================================== */
+    .info-banner {
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.06));
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: var(--radius-md);
+        padding: 14px 16px;
+        margin: 10px 0;
+    }
+    .info-banner-title {
+        color: #a5b4fc;
+        font-weight: 700;
+        font-size: 15px;
+    }
+    .info-banner-desc {
+        color: var(--text-secondary);
+        font-size: 13px;
+        margin-top: 4px;
+    }
+
+    /* ==========================================
+       SETUP WARNING
+       ========================================== */
+    .setup-warning {
+        background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(245, 158, 11, 0.04));
+        border: 1px solid rgba(251, 191, 36, 0.2);
+        border-radius: var(--radius-md);
+        padding: 16px;
+        margin-top: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .setup-warning-icon { font-size: 24px; }
+    .setup-warning-text {
+        color: #fbbf24;
+        font-size: 14px;
+        font-weight: 600;
+    }
 
     /* ==========================================
        RESPONSIVE BREAKPOINTS
@@ -422,8 +814,10 @@ def inject_custom_css():
         .block-container {
             padding: 1rem 2rem 2rem 2rem !important;
         }
+        .hero-title { font-size: 32px; }
+        .hero-section { padding: 36px 20px 28px; }
+        .stat-number { font-size: 30px; }
         .main-header h1 { font-size: 28px; }
-        .stat-number { font-size: 28px; }
     }
 
     /* Desktop */
@@ -431,6 +825,7 @@ def inject_custom_css():
         .block-container {
             padding: 1rem 3rem 2rem 3rem !important;
         }
+        .hero-title { font-size: 36px; }
         .main-header h1 { font-size: 32px; }
     }
 
@@ -440,14 +835,9 @@ def inject_custom_css():
         .mobile-bottom-nav { display: block; }
 
         /* Hide sidebar completely on mobile */
-        section[data-testid="stSidebar"] {
-            display: none !important;
-        }
-        /* Remove sidebar toggle button */
+        section[data-testid="stSidebar"] { display: none !important; }
         button[data-testid="stSidebarCollapsedControl"],
-        button[kind="header"] {
-            display: none !important;
-        }
+        button[kind="header"] { display: none !important; }
 
         /* Content padding with bottom nav space */
         .block-container {
@@ -455,37 +845,35 @@ def inject_custom_css():
         }
 
         /* Full width buttons */
-        .stButton > button {
-            width: 100%;
-            margin-bottom: 4px;
-        }
+        .stButton > button { width: 100%; margin-bottom: 4px; }
 
         /* Smaller header on mobile */
         .main-header { padding: 4px 0 12px 0; }
         .main-header h1 { font-size: 22px; }
 
-        /* Stack columns better */
-        [data-testid="column"] {
-            padding: 0 2px !important;
+        /* Hero compact */
+        .hero-section {
+            padding: 20px 12px 18px;
+            margin: -4px -4px 14px -4px;
         }
+        .hero-logo { font-size: 42px; }
+        .hero-title { font-size: 24px; }
+        .hero-subtitle { font-size: 11px; letter-spacing: 0.12em; }
+
+        /* Stack columns better */
+        [data-testid="column"] { padding: 0 2px !important; }
 
         /* Tab text */
-        .stTabs [data-baseweb="tab"] {
-            font-size: 12px;
-            padding: 8px 10px;
-        }
+        .stTabs [data-baseweb="tab"] { font-size: 12px; padding: 8px 10px; }
 
         /* Stat boxes compact */
-        .stat-box { padding: 12px 8px; }
+        .stat-box { padding: 14px 8px; }
         .stat-number { font-size: 22px; }
-        .stat-label { font-size: 11px; }
+        .stat-label { font-size: 10px; }
 
         /* Action cards compact */
-        .action-card {
-            padding: 14px 10px;
-            min-height: 90px;
-        }
-        .action-icon { font-size: 26px; margin-bottom: 4px; }
+        .action-card { padding: 16px 10px 12px; min-height: 100px; }
+        .action-icon { font-size: 28px; margin-bottom: 6px; }
         .action-title { font-size: 13px; }
         .action-desc { font-size: 11px; }
 
@@ -495,27 +883,83 @@ def inject_custom_css():
 
         /* Generated tweet */
         .generated-tweet { padding: 16px; font-size: 14px; }
+
+        /* Activity compact */
+        .activity-item { padding: 12px; }
     }
 
     /* Small phones */
     @media (max-width: 380px) {
         .block-container { padding: 0.5rem 0.5rem 80px 0.5rem !important; }
-        .main-header h1 { font-size: 20px; }
+        .hero-title { font-size: 20px; }
         .stTabs [data-baseweb="tab"] { font-size: 11px; padding: 8px 6px; }
     }
 
-    /* --- Scrollbar --- */
+    /* ==========================================
+       SCROLLBAR
+       ========================================== */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.1);
+        background: rgba(99, 102, 241, 0.2);
         border-radius: 3px;
     }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(99, 102, 241, 0.35);
+    }
 
     /* --- Alerts/Info boxes --- */
-    .stAlert {
-        border-radius: 12px !important;
+    .stAlert { border-radius: var(--radius-md) !important; }
+
+    /* ==========================================
+       METRICS - Override default
+       ========================================== */
+    [data-testid="stMetricValue"] {
+        color: var(--text-primary) !important;
+    }
+    [data-testid="stMetricLabel"] {
+        color: var(--text-secondary) !important;
+    }
+
+    /* ==========================================
+       LOGIN PAGE
+       ========================================== */
+    .login-container {
+        max-width: 360px;
+        margin: 60px auto 0;
+        padding: 32px 24px;
+        background: var(--bg-card);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-xl);
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    .login-container::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: var(--gradient-main);
+    }
+    .login-logo {
+        font-size: 56px;
+        display: block;
+        margin-bottom: 12px;
+        filter: drop-shadow(0 4px 16px rgba(99, 102, 241, 0.4));
+    }
+    .login-title {
+        font-size: 22px;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+    .login-subtitle {
+        color: var(--text-secondary);
+        font-size: 13px;
+        margin-bottom: 24px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -525,7 +969,13 @@ def render_sidebar_nav(current_page: str = ""):
     """Render sidebar nav (desktop) + bottom nav (mobile)."""
     # --- Desktop sidebar ---
     with st.sidebar:
-        st.markdown("### 🤖 X AI Otomasyon")
+        st.markdown("""
+        <div style="text-align: center; padding: 8px 0 12px;">
+            <span style="font-size: 28px;">🤖</span>
+            <div style="font-size: 16px; font-weight: 800; color: #f1f5f9; margin-top: 4px;
+                        letter-spacing: -0.02em;">X AI Otomasyon</div>
+        </div>
+        """, unsafe_allow_html=True)
         st.markdown("---")
 
         pages = [
@@ -613,34 +1063,34 @@ def render_tweet_card(topic, show_select: bool = True, key_prefix: str = ""):
     summary_html = ""
     if content_summary:
         summary_html = f"""
-        <div style="background:#0d2137; border-left:3px solid #1DA1F2; padding:6px 10px;
-                    margin:8px 0; border-radius:0 6px 6px 0;">
-            <span style="color:#1DA1F2; font-size:11px; font-weight:600;">📋 İçerik:</span>
-            <span style="color:#b0c4de; font-size:12px; margin-left:4px;">{content_summary}</span>
+        <div style="background:rgba(99, 102, 241, 0.06); border-left:3px solid #6366f1; padding:6px 10px;
+                    margin:8px 0; border-radius:0 8px 8px 0;">
+            <span style="color:#a5b4fc; font-size:11px; font-weight:600;">📋 İçerik:</span>
+            <span style="color:#94a3b8; font-size:12px; margin-left:4px;">{content_summary}</span>
         </div>"""
 
     # Follower count display
     followers = getattr(topic, 'author_followers_count', 0) or 0
     followers_html = ""
     if followers > 0:
-        followers_html = f'<span style="color:#8899a6; font-size:11px; margin-left:6px;">· 👥 {_format_number(followers)}</span>'
+        followers_html = f'<span style="color:#64748b; font-size:11px; margin-left:6px;">· 👥 {_format_number(followers)}</span>'
 
     # Total engagement
     total_eng = topic.like_count + topic.retweet_count + topic.reply_count
-    total_eng_html = f'<span style="color:#e8a838; font-size:12px; font-weight:600;">📊 {_format_number(total_eng)} etkileşim</span>'
+    total_eng_html = f'<span style="color:#fbbf24; font-size:12px; font-weight:600;">📊 {_format_number(total_eng)}</span>'
 
     # Time and date
     time_and_date = getattr(topic, 'time_and_date', '') or topic.time_ago
 
     st.markdown(f"""
     <div class="tweet-card">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
             <div>
                 <span class="tweet-author">{topic.author_name}</span>
                 <span class="tweet-username">@{topic.author_username}</span>
                 {followers_html}
             </div>
-            <div>
+            <div style="display:flex; gap:6px; align-items:center;">
                 <span class="tweet-category">{topic.category}</span>
                 <span class="relevance-badge {rel_class}">{rel_text}</span>
             </div>
@@ -651,7 +1101,7 @@ def render_tweet_card(topic, show_select: bool = True, key_prefix: str = ""):
             <span>❤️ {topic.like_count:,}</span>
             <span>🔁 {topic.retweet_count:,}</span>
             <span>💬 {topic.reply_count:,}</span>
-            <span style="margin-left:4px;">{total_eng_html}</span>
+            {total_eng_html}
             <span class="tweet-time">{time_and_date}</span>
         </div>
     </div>
@@ -665,7 +1115,7 @@ def render_generated_tweet(text: str):
     <div class="generated-tweet">
         {text}
     </div>
-    <div style="text-align:right; color:#8899a6; font-size:13px;">
+    <div style="text-align:right; color:#64748b; font-size:13px; margin-top:4px;">
         {char_count} karakter
     </div>
     """, unsafe_allow_html=True)
@@ -693,28 +1143,34 @@ def render_stat_box(number: str, label: str):
 
 
 def check_password() -> bool:
-    """Simple password protection for the app"""
+    """Premium password protection for the app"""
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
 
     if st.session_state.authenticated:
         return True
 
+    # Premium login page
     st.markdown("""
-    <div class="main-header">
-        <h1>🤖 X AI Otomasyon</h1>
-        <p style="color:#8899a6;">Twitter/X AI İçerik Otomasyon Paneli</p>
+    <div class="login-container">
+        <span class="login-logo">🤖</span>
+        <div class="login-title">X AI Otomasyon</div>
+        <div class="login-subtitle">Twitter/X AI İçerik Otomasyon Paneli</div>
     </div>
     """, unsafe_allow_html=True)
 
-    password = st.text_input("Şifre", type="password", key="login_password")
+    # Center the login form
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        password = st.text_input("Şifre", type="password", key="login_password",
+                                 label_visibility="collapsed", placeholder="Şifrenizi girin...")
 
-    if st.button("Giriş Yap", type="primary", use_container_width=True):
-        correct_password = get_secret("app_password", "admin123")
-        if password == correct_password:
-            st.session_state.authenticated = True
-            st.rerun()
-        else:
-            st.error("Yanlış şifre!")
+        if st.button("Giriş Yap", type="primary", use_container_width=True):
+            correct_password = get_secret("app_password", "admin123")
+            if password == correct_password:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("Yanlış şifre!")
 
     return False

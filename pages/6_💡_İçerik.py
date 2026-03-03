@@ -130,11 +130,11 @@ with tab1:
     if "discovered_topics" in st.session_state and st.session_state["discovered_topics"]:
         st.markdown("### 📋 Önerilen Konular")
 
-        for i, topic in enumerate(st.session_state["discovered_topics"]):
-            title = topic.get("title", f"Konu {i+1}")
-            desc = topic.get("description", "")
-            angle = topic.get("angle", "")
-            potential = topic.get("potential", "")
+        for i, topic_item in enumerate(st.session_state["discovered_topics"]):
+            title = topic_item.get("title", f"Konu {i+1}")
+            desc = topic_item.get("description", "")
+            angle = topic_item.get("angle", "")
+            potential = topic_item.get("potential", "")
 
             with st.expander(f"**{i+1}. {title}**", expanded=(i < 3)):
                 st.write(desc)
@@ -143,11 +143,228 @@ with tab1:
                 if potential:
                     st.markdown(f"**Potansiyel:** {potential}")
 
-                if st.button(f"Bu konuyu yaz →", key=f"pick_topic_{i}"):
-                    st.session_state["content_topic"] = title
-                    st.session_state["content_desc"] = desc
-                    st.session_state["content_angle"] = angle
+                if st.button(f"Bu konuyu seç", key=f"pick_topic_{i}"):
+                    st.session_state["selected_topic_idx"] = i
                     st.rerun()
+
+    # --- Selected topic: show generation options ---
+    if "selected_topic_idx" in st.session_state and "discovered_topics" in st.session_state:
+        sel_idx = st.session_state["selected_topic_idx"]
+        sel_topic = st.session_state["discovered_topics"][sel_idx]
+        sel_title = sel_topic.get("title", "")
+        sel_desc = sel_topic.get("description", "")
+        sel_angle = sel_topic.get("angle", "")
+
+        st.markdown("---")
+        st.markdown(f"""
+        <div style="background:#1a2940; border:1px solid #1DA1F2; border-radius:12px;
+                    padding:16px; margin-bottom:16px;">
+            <div style="color:#1DA1F2; font-weight:bold; font-size:16px;">
+                ✍️ Seçilen Konu: {sel_title}
+            </div>
+            <div style="color:#8899a6; font-size:13px; margin-top:4px;">{sel_desc}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Style & length selection
+        d_col_style, d_col_len = st.columns(2)
+        with d_col_style:
+            d_style_options = {
+                "deneyim": "🗣️ Kişisel Deneyim",
+                "egitici": "📚 Eğitici / Tutorial",
+                "karsilastirma": "⚖️ Karşılaştırma",
+                "analiz": "📊 Analiz",
+                "hikaye": "📖 Hikaye Anlatımı",
+            }
+            d_default_style_idx = 0
+            if sel_angle:
+                al = sel_angle.lower()
+                if "deneyim" in al or "kişisel" in al:
+                    d_default_style_idx = 0
+                elif "eğitici" in al or "tutorial" in al or "nasıl" in al:
+                    d_default_style_idx = 1
+                elif "karşılaştır" in al:
+                    d_default_style_idx = 2
+                elif "analiz" in al:
+                    d_default_style_idx = 3
+                elif "hikaye" in al:
+                    d_default_style_idx = 4
+            d_style = st.selectbox(
+                "İçerik Tarzı",
+                options=list(d_style_options.keys()),
+                format_func=lambda x: d_style_options[x],
+                index=d_default_style_idx,
+                key="discover_style",
+            )
+        with d_col_len:
+            d_length_options = {
+                "kisa": "📏 Kısa (300-500 karakter)",
+                "orta": "📐 Orta (500-1000 karakter)",
+                "uzun": "📏 Uzun (1000-2000 karakter)",
+            }
+            d_length = st.selectbox(
+                "Uzunluk",
+                options=list(d_length_options.keys()),
+                format_func=lambda x: d_length_options[x],
+                index=1,
+                key="discover_length",
+            )
+
+        d_extra = st.text_area(
+            "Ek Talimatlar (opsiyonel)",
+            value=sel_desc,
+            height=60,
+            key="discover_extra",
+        )
+
+        # Research mode
+        d_col_rm, d_col_ag = st.columns(2)
+        with d_col_rm:
+            d_research_mode_options = {
+                "x_and_web": "🌐 X + Web (Önerilen)",
+                "x_only": "🐦 Sadece X",
+                "x_deep": "🔬 Derin X (50-100 tweet)",
+            }
+            d_research_mode = st.selectbox(
+                "Araştırma Modu",
+                options=list(d_research_mode_options.keys()),
+                format_func=lambda x: d_research_mode_options[x],
+                index=0,
+                key="discover_research_mode",
+            )
+        with d_col_ag:
+            st.write("")
+            st.write("")
+            d_use_agentic = st.checkbox(
+                "🤖 AI Otonom Araştırma",
+                value=False,
+                key="discover_agentic",
+                help="AI internette kendi başına gezinip bilgi toplar",
+            )
+
+        col_gen, col_cancel = st.columns([3, 1])
+        with col_gen:
+            d_generate_btn = st.button("✨ Araştır & İçerik Üret", type="primary",
+                                       use_container_width=True, key="discover_gen_btn")
+        with col_cancel:
+            if st.button("✕ İptal", key="cancel_topic", use_container_width=True):
+                st.session_state.pop("selected_topic_idx", None)
+                st.rerun()
+
+        if d_generate_btn:
+            d_research_context = ""
+            # Step 1: Research
+            d_progress = st.empty()
+            with st.spinner("Konu araştırılıyor..."):
+                try:
+                    scanner = get_scanner()
+                    d_research_result = research_topic_from_text(
+                        topic_input=sel_title,
+                        scanner=scanner,
+                        time_hours=24,
+                        search_mode=d_research_mode,
+                        progress_callback=lambda msg: d_progress.info(msg),
+                        ai_client=ai_client,
+                        ai_model=ai_model,
+                        ai_provider=ai_provider,
+                        use_agentic=d_use_agentic,
+                    )
+                    d_progress.empty()
+                    if d_research_result and d_research_result.summary:
+                        d_research_context = d_research_result.summary
+                        stats_parts = []
+                        if d_research_result.x_tweets:
+                            stats_parts.append(f"🐦 {len(d_research_result.x_tweets)} tweet")
+                        if d_research_result.web_results:
+                            stats_parts.append(f"🌐 {len(d_research_result.web_results)} web sonucu")
+                        if d_research_result.news_results:
+                            stats_parts.append(f"📰 {len(d_research_result.news_results)} haber")
+                        if d_research_result.deep_articles:
+                            stats_parts.append(f"📄 {len(d_research_result.deep_articles)} makale")
+                        if getattr(d_research_result, 'agentic_summary', None):
+                            stats_parts.append("🤖 AI araştırma")
+                        st.success(f"Araştırma tamamlandı! ({' | '.join(stats_parts)})")
+                        with st.expander("📄 Araştırma Verileri", expanded=False):
+                            st.text(d_research_context[:5000])
+                    else:
+                        d_progress.empty()
+                except Exception as e:
+                    d_progress.empty()
+                    st.warning(f"Araştırma hatası (devam ediliyor): {e}")
+
+            # Step 2: Generate
+            with st.spinner("İçerik üretiliyor..."):
+                try:
+                    user_samples = load_user_samples()
+                    generator = ContentGenerator(
+                        provider=ai_provider,
+                        api_key=ai_api_key,
+                        model=ai_model,
+                    )
+                    content = generator.generate_long_content(
+                        topic=sel_title,
+                        research_context=d_research_context,
+                        style=d_style,
+                        length=d_length,
+                        additional_instructions=d_extra,
+                        user_samples=user_samples if user_samples else None,
+                    )
+                    st.session_state["discover_generated_content"] = content
+                    st.session_state["discover_generated_topic"] = sel_title
+                except Exception as e:
+                    st.error(f"İçerik üretim hatası: {e}")
+
+        # Display generated content from discovery flow
+        if "discover_generated_content" in st.session_state and st.session_state["discover_generated_content"]:
+            d_content = st.session_state["discover_generated_content"]
+
+            st.markdown("---")
+            st.markdown("### 📝 Üretilen İçerik")
+
+            st.markdown(f"""
+            <div style="background:#192734; border:1px solid #38444d; border-radius:16px;
+                        padding:20px; margin:12px 0; font-size:15px; line-height:1.7;
+                        color:#e1e8ed; white-space:pre-wrap;">{d_content}</div>
+            """, unsafe_allow_html=True)
+
+            char_count = len(d_content)
+            st.caption(f"📊 {char_count} karakter")
+            if char_count > 280:
+                st.info(f"Bu içerik {char_count} karakter — X'te uzun post olarak paylaşılabilir.")
+
+            d_col_a, d_col_b, d_col_c = st.columns(3)
+            with d_col_a:
+                if st.button("📋 Kopyala", key="d_copy_content"):
+                    st.code(d_content, language=None)
+                    st.success("Yukarıdan kopyalayabilirsiniz!")
+            with d_col_b:
+                if st.button("💾 Taslağa Kaydet", key="d_save_draft"):
+                    try:
+                        add_draft(d_content, label=st.session_state.get("discover_generated_topic", "İçerik"))
+                        st.success("Taslak kaydedildi!")
+                    except Exception as e:
+                        st.error(f"Taslak kaydetme hatası: {e}")
+            with d_col_c:
+                if st.button("🔄 Yeniden Üret", key="d_regen_content"):
+                    st.session_state.pop("discover_generated_content", None)
+                    st.rerun()
+
+            with st.expander("📤 Direkt Paylaş"):
+                st.warning("Paylaşmadan önce içeriği gözden geçirdiğinizden emin olun!")
+                if st.button("🐦 X'te Paylaş", key="d_publish_content"):
+                    try:
+                        cookies = get_secret("x_cookies", get_secret("X_COOKIES", ""))
+                        if not cookies:
+                            st.error("X çerezleri ayarlanmamış.")
+                        else:
+                            publisher = TweetPublisher(cookies)
+                            result = publisher.publish_tweet(d_content)
+                            if result:
+                                st.success("İçerik başarıyla paylaşıldı!")
+                            else:
+                                st.error("Paylaşım başarısız oldu.")
+                    except Exception as e:
+                        st.error(f"Paylaşım hatası: {e}")
 
 
 # ============================================================

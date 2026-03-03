@@ -1993,23 +1993,27 @@ def research_topic_from_text(
 
         all_urls = set()
 
-        # General web search — last day first, then week
-        for query in search_queries.get("general", [])[:3]:
-            results = web_search(query, max_results=6, timelimit="d")
+        # General web search — last day first, then week, then month
+        for query in search_queries.get("general", [])[:4]:
+            if progress_callback:
+                progress_callback(f"Web'de aranıyor: {query[:50]}...")
+            results = web_search(query, max_results=8, timelimit="d")
             if not results:
-                results = web_search(query, max_results=6, timelimit="w")
+                results = web_search(query, max_results=8, timelimit="w")
+            if not results:
+                results = web_search(query, max_results=8, timelimit="m")
             for r in results:
                 if r["url"] not in all_urls:
                     all_urls.add(r["url"])
                     result.web_results.append(r)
 
-        # News search — last day
+        # News search — last day, fallback to week
         if progress_callback:
             progress_callback("Son haberler aranıyor...")
-        for query in search_queries.get("news", [])[:2]:
-            news = web_search_news(query, max_results=5, timelimit="d")
+        for query in search_queries.get("news", [])[:3]:
+            news = web_search_news(query, max_results=6, timelimit="d")
             if not news:
-                news = web_search_news(query, max_results=5, timelimit="w")
+                news = web_search_news(query, max_results=6, timelimit="w")
             for n in news:
                 if n["url"] not in all_urls:
                     all_urls.add(n["url"])
@@ -2020,7 +2024,7 @@ def research_topic_from_text(
                         "source": n.get("source", ""),
                     })
 
-        # Deep fetch top articles
+        # Deep fetch top articles — read more for richer context
         if progress_callback:
             progress_callback("Makaleler okunuyor...")
 
@@ -2029,8 +2033,10 @@ def research_topic_from_text(
 
         fetched = 0
         for url in urls_to_fetch:
-            if fetched >= 3:
+            if fetched >= 5:
                 break
+            if progress_callback:
+                progress_callback(f"Makale okunuyor ({fetched + 1})...")
             article = fetch_article_content(url)
             if article and article["content"] and len(article["content"]) > 200:
                 result.deep_articles.append(article)
@@ -2107,52 +2113,70 @@ def _ai_extract_topic_for_research(
     prompt = f"""Kullanıcı şu konuda tweet yazmak istiyor:
 "{topic_input}"
 
-Bu konuyu analiz et ve X/Twitter + web arama sorguları üret.
+Bu konuyu KAPSAMLI analiz et ve X/Twitter + web arama sorguları üret.
 
 SADECE şu JSON formatında yanıt ver:
 {{
     "topic": "konunun 5-10 kelimelik İngilizce özeti",
-    "keywords_tr": ["türkçe", "anahtar", "kelimeler", "max 5"],
-    "keywords_en": ["english", "keywords", "max 5"],
+    "keywords_tr": ["türkçe", "anahtar", "kelimeler", "max 6"],
+    "keywords_en": ["english", "keywords", "max 6"],
     "x_queries_tr": [
         "X'te Türkçe arama sorgusu 1 -is:retweet lang:tr",
         "X'te Türkçe arama sorgusu 2 -is:retweet lang:tr",
-        "X'te Türkçe arama sorgusu 3 -is:retweet lang:tr"
+        "X'te Türkçe arama sorgusu 3 -is:retweet lang:tr",
+        "X'te Türkçe arama sorgusu 4 -is:retweet lang:tr"
     ],
     "x_queries_en": [
-        "X English search query 1 -is:retweet lang:en",
-        "X English search query 2 -is:retweet lang:en",
-        "X English search query 3 -is:retweet lang:en",
-        "X English search query 4 -is:retweet lang:en"
+        "X English search query 1 (genel) -is:retweet lang:en",
+        "X English search query 2 (teknik detay) -is:retweet lang:en",
+        "X English search query 3 (kullanıcı deneyimi) -is:retweet lang:en",
+        "X English search query 4 (karşılaştırma/alternifler) -is:retweet lang:en",
+        "X English search query 5 (eleştiri/sorunlar) -is:retweet lang:en",
+        "X English search query 6 (özellikler/nasıl çalışır) -is:retweet lang:en"
     ],
-    "general_queries": ["web araması 1 {current_year}", "web araması 2 {current_year}"],
-    "news_queries": ["haber araması 1 {current_year}", "haber araması 2"]
+    "general_queries": [
+        "kapsamlı web araması 1 {current_year}",
+        "ürünün/konunun teknik detayları {current_year}",
+        "nasıl çalışıyor / features {current_year}",
+        "kullanıcı deneyimleri review {current_year}"
+    ],
+    "news_queries": [
+        "son haberler announcement {current_year}",
+        "güncel gelişmeler release {current_year}"
+    ]
 }}
 
 ÖNEMLİ KURALLAR:
+- KAPSAMLI ARAŞTIRMA: Konunun sadece bir yönüne (örn: benchmark) odaklanma! Her sorgu FARKLI bir açıdan araştırsın:
+  * Genel bilgi ve tanıtım (ne olduğu, ne zaman çıktığı, beta/release durumu)
+  * Teknik özellikler ve nasıl çalıştığı (mimari, altyapı, farklılıklar)
+  * Kullanıcı deneyimleri ve yorumları (hands-on, ilk izlenimler)
+  * Karşılaştırma ve alternatifler (rakipler, benchmark ama sadece benchmark DEĞİL)
+  * Eleştiriler, sorunlar, limitasyonlar
+  * Gelecek planları, yol haritası, beklentiler
 - x_queries: X/Twitter'da arama yapılacak. KISA ve SPESİFİK sorgular yaz
-- X sorgularında FARKLI anahtar kelime kombinasyonları kullan — her sorgu farklı bir açıdan arasın
-- Konuyu en az 4-5 farklı İngilizce X sorgusuyla ara (en önemlisi bu!)
-- Konuyu en az 2-3 farklı Türkçe X sorgusuyla ara
-- keywords_tr ve keywords_en: konunun en önemli 3-5 anahtar kelimesi
+- Konuyu en az 5-6 farklı İngilizce X sorgusuyla ara — HER BİRİ farklı açıdan!
+- Konuyu en az 3-4 farklı Türkçe X sorgusuyla ara
+- general_queries: Web'de farklı açılardan arama yap (en az 3-4 sorgu)
+- news_queries: Haber/duyuru araması (release, announcement, beta vs.)
 - Her web sorguya {current_year} ekle
-- Konuyu detaylı analiz et, sadece ana kelimeleri değil bağlam kelimelerini de kullan"""
+- Ürün/teknoloji konusuysa: sürüm bilgisi, release tarihi, beta/GA durumu da araştır"""
 
     try:
         if provider == "anthropic":
             response = ai_client.messages.create(
                 model=ai_model or "claude-haiku-4-5-20251001",
-                max_tokens=700,
+                max_tokens=1200,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
+                temperature=0.2,
             )
             raw = response.content[0].text.strip()
         else:
             response = ai_client.chat.completions.create(
                 model=ai_model or "MiniMax-M2.5",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=700,
-                temperature=0.1,
+                max_tokens=1200,
+                temperature=0.2,
             )
             raw = response.choices[0].message.content.strip()
 
@@ -2165,13 +2189,13 @@ SADECE şu JSON formatında yanıt ver:
 
         return {
             "topic": data.get("topic", ""),
-            "keywords_tr": data.get("keywords_tr", [])[:5],
-            "keywords_en": data.get("keywords_en", [])[:5],
-            "x_queries_tr": data.get("x_queries_tr", [])[:4],
-            "x_queries_en": data.get("x_queries_en", [])[:5],
+            "keywords_tr": data.get("keywords_tr", [])[:6],
+            "keywords_en": data.get("keywords_en", [])[:6],
+            "x_queries_tr": data.get("x_queries_tr", [])[:5],
+            "x_queries_en": data.get("x_queries_en", [])[:7],
             "search_queries": {
-                "general": data.get("general_queries", [])[:3],
-                "news": data.get("news_queries", [])[:2],
+                "general": data.get("general_queries", [])[:4],
+                "news": data.get("news_queries", [])[:3],
                 "technical": [],
                 "reddit": [],
             },
@@ -2190,11 +2214,11 @@ def _compile_topic_research_summary(r: TopicResearchResult) -> str:
 
     # X tweets — ALWAYS the primary source
     if r.x_tweets:
-        show_count = 10 if r.search_mode == "x_deep" else 15
+        show_count = 15 if r.search_mode == "x_deep" else 20
         parts.append(f"\n## X'TE SON PAYLAŞIMLAR ({len(r.x_tweets)} tweet, en iyi {show_count} gösteriliyor):")
         parts.append("(Bu tweetler konuyla ilgili EN GÜNCEL bilgiler — BİRİNCİL KAYNAĞIN BUNLAR!)\n")
         for i, tw in enumerate(r.x_tweets[:show_count], 1):
-            parts.append(f"  {i}. @{tw['author']} ({tw['likes']}L {tw['retweets']}RT): {tw['text'][:250]}")
+            parts.append(f"  {i}. @{tw['author']} ({tw['likes']}L {tw['retweets']}RT): {tw['text'][:300]}")
 
     # Web content only if search_mode was x_and_web
     if r.search_mode == "x_and_web":

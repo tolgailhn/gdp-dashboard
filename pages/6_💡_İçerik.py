@@ -245,7 +245,7 @@ with tab2:
                 try:
                     scanner = get_scanner()
                     research_data = research_topic(
-                        topic=topic,
+                        tweet_text=topic,
                         ai_client=ai_client,
                         ai_model=ai_model,
                         ai_provider=ai_provider,

@@ -492,10 +492,11 @@ with mode_tab1:
             <div style="background:#16213e; border:1px solid #2a2a4a; border-radius:8px;
                         padding:12px; margin:8px 0;">
                 <div style="color:#e0e0e0; font-size:13px; font-weight:bold;">🔍 Konu Araştır</div>
-                <div style="color:#8899a6; font-size:11px;">Konuyu X'te ve/veya web'de araştırarak güncel bilgilerle tweet üret</div>
+                <div style="color:#8899a6; font-size:11px;">Konuyu X'te, web'de araştır ve AI ile doğrula</div>
             </div>
             """, unsafe_allow_html=True)
 
+            # Row 1: Time + Source + Button
             rcol1, rcol2, rcol3 = st.columns([1, 1, 2])
             with rcol1:
                 topic_research_time = st.selectbox(
@@ -522,6 +523,29 @@ with mode_tab1:
                     use_container_width=True,
                     key="topic_research_btn",
                 )
+
+            # Row 2: AI Research Modes
+            topic_mode_cols = st.columns(2)
+            with topic_mode_cols[0]:
+                topic_use_agentic = st.checkbox(
+                    "🤖 AI Otonom Araştırma",
+                    value=False,
+                    key="topic_use_agentic",
+                    help="AI modeli yazdığın konuyu internette KENDİSİ araştırır. "
+                         "Konu hakkında spesifik verileri, güncel karşılaştırmaları, "
+                         "benchmarkları bulur. X araştırmasına ek olarak çalışır."
+                )
+            with topic_mode_cols[1]:
+                topic_deep_verify = st.checkbox(
+                    "🔍 Doğrulama Modu",
+                    value=False,
+                    key="topic_deep_verify",
+                    help="Tweet yazıldıktan sonra içindeki iddiaları internette doğrular "
+                         "ve hatalı bilgileri düzeltir."
+                )
+
+            if topic_use_agentic:
+                st.caption("🤖 AI, yazdığın konudaki spesifik iddiaları/ürünleri/rakamları internette araştıracak.")
 
             if topic_research_clicked:
                 # Build AI client for topic extraction
@@ -570,8 +594,8 @@ with mode_tab1:
                     )
 
                 progress_text = st.empty()
-                spinner_label = "X'te detaylı araştırılıyor..." if topic_search_mode == "x_only" else "X + Web araştırılıyor..."
-                with st.spinner(spinner_label):
+                mode_label = "🤖 AI Otonom" if topic_use_agentic else ("X'te detaylı" if topic_search_mode == "x_only" else "X + Web")
+                with st.spinner(f"{mode_label} araştırılıyor..."):
                     topic_research = research_topic_from_text(
                         topic_input=topic_text,
                         scanner=_scanner,
@@ -581,6 +605,7 @@ with mode_tab1:
                         ai_client=_ai_client,
                         ai_model=_ai_model,
                         ai_provider=_ai_provider,
+                        use_agentic=topic_use_agentic,
                     )
                     progress_text.empty()
 
@@ -590,9 +615,16 @@ with mode_tab1:
             # Show previous/current research results
             if "topic_research_data" in st.session_state and st.session_state.topic_research_data:
                 tr = st.session_state.topic_research_data
-                mode_label = "Sadece X" if tr.search_mode == "x_only" else "X + Web"
+                has_agentic = bool(getattr(tr, 'agentic_summary', ''))
 
-                with st.expander(f"📊 Araştırma Sonuçları — {tr.topic} [{mode_label}]", expanded=True):
+                # --- AI Autonomous Research Results (prominent) ---
+                if has_agentic:
+                    with st.expander(f"🤖 AI Otonom Araştırma — {tr.topic}", expanded=True):
+                        st.markdown(tr.agentic_summary)
+
+                # --- X Tweets + Web Results ---
+                mode_label = "🤖 AI Otonom + X" if has_agentic else ("Sadece X" if tr.search_mode == "x_only" else "X + Web")
+                with st.expander(f"📊 Araştırma Detayları — {tr.topic} [{mode_label}]", expanded=not has_agentic):
                     # X tweets found
                     if tr.x_tweets:
                         st.markdown(f"**𝕏 X'te Bulunan Tweetler ({len(tr.x_tweets)}):**")
@@ -610,8 +642,8 @@ with mode_tab1:
                     else:
                         st.info("X'te bu konuyla ilgili güncel tweet bulunamadı.")
 
-                    # Web results only if search mode was x_and_web
-                    if tr.search_mode == "x_and_web":
+                    # Web results only if search mode was x_and_web (and not agentic — agentic already searched web)
+                    if tr.search_mode == "x_and_web" and not has_agentic:
                         if tr.deep_articles:
                             st.markdown(f"**📖 Okunan Makaleler ({len(tr.deep_articles)}):**")
                             for article in tr.deep_articles:
@@ -632,7 +664,7 @@ with mode_tab1:
                                 for w in remaining_web[:3]:
                                     st.markdown(f"- {w['title']}")
 
-                    if not tr.x_tweets and not tr.deep_articles and not tr.news_results:
+                    if not tr.x_tweets and not has_agentic and not tr.deep_articles and not tr.news_results:
                         st.warning("Bu konu için yeterli bilgi bulunamadı. Konuyu daha spesifik yazmayı deneyin.")
 
                 st.success("Araştırma tamamlandı! Aşağıdaki 'Tweet Üret' butonuna basarak araştırma sonuçlarıyla tweet yazabilirsiniz.")
@@ -999,6 +1031,73 @@ if generate_clicked or regenerate_clicked:
                     max_length=max_length,
                     user_samples=user_samples if user_samples else None,
                 )
+
+                # === DEEP VERIFY for normal tweets ===
+                do_topic_verify = st.session_state.get("topic_deep_verify", False)
+                if do_topic_verify and topic_research_ctx and result:
+                    _v_client = None
+                    _v_model = None
+                    _v_provider = "minimax"
+                    minimax_key = get_secret("minimax_api_key", "")
+                    anthropic_key = get_secret("anthropic_api_key", "")
+                    openai_key = get_secret("openai_api_key", "")
+                    if minimax_key:
+                        import openai as _oai
+                        _v_client = _oai.OpenAI(api_key=minimax_key, base_url="https://api.minimax.io/v1")
+                        _v_model = "MiniMax-M2.5"
+                    elif anthropic_key:
+                        import anthropic as _ant
+                        _v_client = _ant.Anthropic(api_key=anthropic_key)
+                        _v_model = "claude-haiku-4-5-20251001"
+                        _v_provider = "anthropic"
+                    elif openai_key:
+                        import openai as _oai
+                        _v_client = _oai.OpenAI(api_key=openai_key)
+                        _v_model = "gpt-4o-mini"
+                        _v_provider = "openai"
+
+                    if _v_client:
+                        with st.spinner("🔍 Tweet doğrulanıyor..."):
+                            check_result = ai_fact_check_draft(
+                                draft_tweet=result,
+                                original_tweet=topic_text,
+                                research_context=topic_research_ctx,
+                                ai_client=_v_client,
+                                ai_model=_v_model,
+                                provider=_v_provider,
+                            )
+
+                        if check_result and not check_result.get("is_clean", True):
+                            issues = check_result.get("issues", [])
+                            if issues:
+                                with st.spinner(f"🔍 {len(issues)} iddia doğrulanıyor..."):
+                                    verified = verify_claims(issues)
+
+                                verification_ctx = compile_verification_context(verified)
+
+                                if verification_ctx:
+                                    with st.expander(f"🔍 Doğrulama: {len(issues)} sorun düzeltildi", expanded=False):
+                                        for v in verified:
+                                            st.markdown(f"- ❌ **\"{v.get('claim', '')}\"** → {v.get('problem', '')}")
+                                            if v.get("article"):
+                                                st.caption(f"  ✅ Doğru bilgi: {v['article'].get('title', '')[:80]}")
+
+                                    with st.spinner("✍️ Doğrulanmış bilgilerle yeniden yazılıyor..."):
+                                        refined = generator.refine_tweet_with_verification(
+                                            draft_tweet=result,
+                                            original_tweet=topic_text,
+                                            original_author="",
+                                            research_summary=topic_research_ctx,
+                                            verification_context=verification_ctx,
+                                            style=selected_style,
+                                            user_samples=user_samples if user_samples else None,
+                                            length_preference=sel_len,
+                                        )
+                                    if refined:
+                                        result = refined
+                        else:
+                            st.caption("✅ Tweet doğrulandı, sorun bulunamadı.")
+
                 st.session_state.generated_tweet = result
                 st.session_state.generated_thread = None
 

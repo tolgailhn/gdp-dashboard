@@ -1803,6 +1803,7 @@ class TopicResearchResult:
     deep_articles: list = field(default_factory=list)
     news_results: list = field(default_factory=list)
     summary: str = ""
+    agentic_summary: str = ""  # AI autonomous research results
 
 
 def research_topic_from_text(
@@ -1814,6 +1815,7 @@ def research_topic_from_text(
     ai_client=None,
     ai_model: str = None,
     ai_provider: str = "minimax",
+    use_agentic: bool = False,
 ) -> TopicResearchResult:
     """
     Research a topic by searching X and optionally the web.
@@ -1827,11 +1829,13 @@ def research_topic_from_text(
         ai_client: AI client for topic extraction
         ai_model: AI model name
         ai_provider: AI provider name
+        use_agentic: If True, AI browses internet autonomously via tool calling
 
     Steps:
     1. AI extracts keywords & generates diverse search queries
     2. Deep search X with multiple query variations (TR + EN)
     3. (Optional) Search web + news if search_mode == "x_and_web"
+    3b. (Optional) Agentic: AI searches web autonomously
     4. Compile into context for tweet generation
     """
     result = TopicResearchResult(topic_input=topic_input, search_mode=search_mode)
@@ -1945,6 +1949,42 @@ def research_topic_from_text(
 
         if progress_callback:
             progress_callback(f"X'te {len(result.x_tweets)} tweet bulundu")
+
+    # === STEP 2b: AGENTIC MODE — AI browses web autonomously ===
+    if use_agentic and ai_client:
+        if progress_callback:
+            progress_callback("🤖 AI otonom araştırma modunda — konu hakkında internette geziniyor...")
+
+        agentic_result = agentic_research(
+            tweet_text=topic_input,
+            tweet_author="",
+            ai_client=ai_client,
+            ai_model=ai_model,
+            provider=ai_provider,
+            max_iterations=5,
+            progress_callback=progress_callback,
+        )
+
+        if agentic_result:
+            # Store the AI's autonomous research
+            result.agentic_summary = agentic_result
+
+            # Compile full summary: X tweets + agentic research
+            if progress_callback:
+                progress_callback("🤖 AI araştırma tamamlandı, derleniyor...")
+
+            # Build summary that includes both X findings and agentic research
+            parts = []
+            if result.x_tweets:
+                parts.append(f"## X'TE BULUNAN GÜNCEL TWEETLER ({len(result.x_tweets)} tweet)")
+                for tw in result.x_tweets[:10]:
+                    parts.append(f"- @{tw['author']} ({tw['likes']} ❤️): {tw['text'][:200]}")
+
+            parts.append("\n## AI OTONOM ARAŞTIRMA SONUÇLARI")
+            parts.append(agentic_result)
+
+            result.summary = "\n".join(parts)
+            return result
 
     # === STEP 3: Web + News search (ONLY if search_mode == "x_and_web") ===
     if search_mode == "x_and_web":

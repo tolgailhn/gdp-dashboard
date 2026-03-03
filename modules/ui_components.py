@@ -24,38 +24,70 @@ def setup_page_config(title: str = "X AI Otomasyon", icon: str = "🤖"):
 
 
 def inject_custom_css():
-    """Inject mobile-friendly custom CSS"""
+    """Inject mobile-first modern CSS"""
     st.markdown("""
     <style>
-    /* Mobile-friendly base styles */
+    /* ========================================
+       MOBILE-FIRST MODERN DESIGN SYSTEM
+       ======================================== */
+
+    /* --- Base & Reset --- */
     .stApp {
         max-width: 100%;
+        overflow-x: hidden;
+    }
+    .block-container {
+        padding: 0.75rem 1rem 5rem 1rem !important;
+        max-width: 100% !important;
     }
 
-    /* Better mobile sidebar */
-    @media (max-width: 768px) {
-        .css-1d391kg { padding: 1rem 0.5rem; }
-        .stButton > button { width: 100%; margin-bottom: 0.5rem; }
-        section[data-testid="stSidebar"] { width: 280px !important; }
-        .block-container { padding: 1rem 0.5rem !important; }
+    /* --- Hide Streamlit chrome --- */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header[data-testid="stHeader"] {
+        background: rgba(14, 17, 23, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
     }
 
-    /* Tweet card styles */
-    .tweet-card {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border: 1px solid #2a2a4a;
+    /* --- Typography --- */
+    h1, h2, h3 { letter-spacing: -0.02em; }
+
+    /* --- Glass Card Base --- */
+    .glass-card {
+        background: rgba(26, 26, 46, 0.6);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
         border-radius: 16px;
-        padding: 20px;
-        margin: 12px 0;
+        padding: 16px;
+        margin: 8px 0;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .glass-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    }
+
+    /* --- Tweet Cards --- */
+    .tweet-card {
+        background: rgba(26, 26, 46, 0.55);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 16px;
+        padding: 16px;
+        margin: 8px 0;
         color: #e0e0e0;
-        transition: transform 0.2s, box-shadow 0.2s;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     }
     .tweet-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        box-shadow: 0 8px 32px rgba(29, 161, 242, 0.08);
+        border-color: rgba(29, 161, 242, 0.2);
     }
     .tweet-author {
-        font-weight: bold;
+        font-weight: 700;
         color: #1DA1F2;
         font-size: 15px;
     }
@@ -64,14 +96,16 @@ def inject_custom_css():
         font-size: 13px;
     }
     .tweet-text {
-        margin: 12px 0;
-        line-height: 1.5;
+        margin: 10px 0;
+        line-height: 1.55;
         font-size: 15px;
         color: #f0f0f0;
+        word-break: break-word;
     }
     .tweet-metrics {
         display: flex;
-        gap: 20px;
+        flex-wrap: wrap;
+        gap: 12px;
         color: #8899a6;
         font-size: 13px;
         margin-top: 10px;
@@ -82,69 +116,80 @@ def inject_custom_css():
     }
     .tweet-category {
         display: inline-block;
-        background: #1DA1F2;
+        background: linear-gradient(135deg, #1DA1F2, #0d8bd9);
         color: white;
         padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 12px;
+        border-radius: 20px;
+        font-size: 11px;
         font-weight: 600;
     }
 
-    /* Relevance score badge */
+    /* Relevance badges */
     .relevance-badge {
         display: inline-block;
         padding: 2px 8px;
-        border-radius: 10px;
+        border-radius: 20px;
         font-size: 11px;
-        font-weight: bold;
+        font-weight: 600;
     }
-    .relevance-high { background: #00c853; color: white; }
-    .relevance-medium { background: #ff9800; color: white; }
-    .relevance-low { background: #757575; color: white; }
+    .relevance-high { background: rgba(0, 200, 83, 0.2); color: #00e676; border: 1px solid rgba(0, 200, 83, 0.3); }
+    .relevance-medium { background: rgba(255, 152, 0, 0.2); color: #ffb74d; border: 1px solid rgba(255, 152, 0, 0.3); }
+    .relevance-low { background: rgba(117, 117, 117, 0.2); color: #bdbdbd; border: 1px solid rgba(117, 117, 117, 0.3); }
 
-    /* Generated tweet preview */
+    /* --- Generated Tweet Preview --- */
     .generated-tweet {
-        background: linear-gradient(135deg, #0f1923 0%, #1a2836 100%);
-        border: 2px solid #1DA1F2;
+        background: linear-gradient(135deg, rgba(15, 25, 35, 0.8) 0%, rgba(26, 40, 54, 0.8) 100%);
+        border: 1px solid rgba(29, 161, 242, 0.3);
+        border-left: 3px solid #1DA1F2;
         border-radius: 16px;
-        padding: 24px;
-        margin: 16px 0;
+        padding: 20px;
+        margin: 12px 0;
         color: #ffffff;
-        font-size: 16px;
-        line-height: 1.6;
+        font-size: 15px;
+        line-height: 1.65;
         white-space: pre-wrap;
+        word-break: break-word;
     }
 
-    /* Style selector cards */
+    /* --- Style Cards --- */
     .style-card {
-        background: #1a1a2e;
-        border: 1px solid #2a2a4a;
+        background: rgba(26, 26, 46, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.06);
         border-radius: 12px;
-        padding: 15px;
-        margin: 8px 0;
+        padding: 14px;
+        margin: 6px 0;
         cursor: pointer;
-        transition: border-color 0.2s;
+        transition: all 0.2s ease;
     }
     .style-card:hover {
-        border-color: #1DA1F2;
+        border-color: rgba(29, 161, 242, 0.4);
+        background: rgba(22, 33, 62, 0.6);
     }
     .style-card.active {
         border-color: #1DA1F2;
-        background: #16213e;
+        background: rgba(29, 161, 242, 0.1);
     }
 
-    /* Stats boxes */
+    /* --- Stat Boxes --- */
     .stat-box {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border: 1px solid #2a2a4a;
-        border-radius: 12px;
-        padding: 16px;
+        background: rgba(26, 26, 46, 0.55);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 16px;
+        padding: 16px 12px;
         text-align: center;
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .stat-box:hover {
+        transform: translateY(-1px);
+        border-color: rgba(29, 161, 242, 0.2);
     }
     .stat-number {
-        font-size: 28px;
-        font-weight: bold;
+        font-size: 26px;
+        font-weight: 700;
         color: #1DA1F2;
+        line-height: 1.2;
     }
     .stat-label {
         font-size: 12px;
@@ -152,90 +197,333 @@ def inject_custom_css():
         margin-top: 4px;
     }
 
-    /* Header styling */
+    /* --- Action Cards (Home Page) --- */
+    .action-card {
+        background: rgba(26, 26, 46, 0.55);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 16px;
+        padding: 20px 16px;
+        text-align: center;
+        transition: all 0.2s ease;
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .action-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(29, 161, 242, 0.25);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    }
+    .action-icon { font-size: 32px; margin-bottom: 8px; }
+    .action-title { color: #f0f0f0; font-weight: 700; font-size: 15px; }
+    .action-desc { color: #8899a6; font-size: 12px; margin-top: 4px; }
+
+    /* --- Header --- */
     .main-header {
         text-align: center;
-        padding: 10px 0 20px 0;
+        padding: 8px 0 16px 0;
     }
     .main-header h1 {
         color: #ffffff;
-        font-size: 28px;
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 2px;
     }
 
-    /* Button styling */
+    /* --- Buttons --- */
     .stButton > button {
-        border-radius: 25px;
-        padding: 0.5rem 2rem;
+        border-radius: 12px !important;
+        padding: 0.5rem 1.5rem;
         font-weight: 600;
-        transition: all 0.3s;
+        font-size: 14px;
+        min-height: 44px;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
     }
     .stButton > button:hover {
         transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(29, 161, 242, 0.2);
+    }
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #1DA1F2, #0d8bd9) !important;
+        border: none;
+    }
+    .stButton > button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #3db5f5, #1DA1F2) !important;
     }
 
-    /* Divider */
+    /* --- Divider --- */
     .custom-divider {
-        border-top: 1px solid #2a2a4a;
-        margin: 20px 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        margin: 16px 0;
     }
 
-    /* Thread tweet */
+    /* --- Thread Tweet --- */
     .thread-tweet {
-        background: #0f1923;
+        background: rgba(15, 25, 35, 0.6);
         border-left: 3px solid #1DA1F2;
         padding: 12px 16px;
-        margin: 8px 0;
-        border-radius: 0 8px 8px 0;
+        margin: 6px 0;
+        border-radius: 0 12px 12px 0;
         color: #f0f0f0;
         font-size: 14px;
-        line-height: 1.5;
+        line-height: 1.55;
     }
     .thread-number {
         color: #1DA1F2;
-        font-weight: bold;
-        font-size: 13px;
+        font-weight: 700;
+        font-size: 12px;
         margin-bottom: 4px;
     }
 
-    /* Dark mode for inputs */
-    .stTextArea textarea {
-        background-color: #1a1a2e !important;
-        color: #f0f0f0 !important;
-        border-color: #2a2a4a !important;
-    }
+    /* --- Inputs --- */
+    .stTextArea textarea,
     .stTextInput input {
-        background-color: #1a1a2e !important;
+        background-color: rgba(26, 26, 46, 0.6) !important;
         color: #f0f0f0 !important;
-        border-color: #2a2a4a !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 12px !important;
+        font-size: 16px !important;
+        padding: 12px !important;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .stTextArea textarea:focus,
+    .stTextInput input:focus {
+        border-color: rgba(29, 161, 242, 0.5) !important;
+        box-shadow: 0 0 0 3px rgba(29, 161, 242, 0.1) !important;
     }
 
-    /* Hide Streamlit branding but keep navigation */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
+    /* Selectbox */
+    .stSelectbox > div > div {
+        border-radius: 12px !important;
+        min-height: 44px;
+    }
 
-    /* Sidebar navigation links */
+    /* Checkbox */
+    .stCheckbox label {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+
+    /* --- Tabs --- */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0;
+        background: rgba(26, 26, 46, 0.4);
+        border-radius: 12px;
+        padding: 4px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 10px;
+        padding: 10px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #8899a6;
+        min-height: 44px;
+    }
+    .stTabs [aria-selected="true"] {
+        background: rgba(29, 161, 242, 0.15) !important;
+        color: #1DA1F2 !important;
+    }
+    .stTabs [data-baseweb="tab-border"] {
+        display: none;
+    }
+    .stTabs [data-baseweb="tab-highlight"] {
+        display: none;
+    }
+
+    /* --- Expander --- */
+    .streamlit-expanderHeader {
+        font-size: 15px;
+        font-weight: 600;
+        border-radius: 12px;
+    }
+
+    /* --- Sidebar --- */
+    section[data-testid="stSidebar"] {
+        background: rgba(14, 17, 23, 0.95);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+    }
+    section[data-testid="stSidebar"] .stButton > button {
+        border-radius: 10px !important;
+        font-size: 14px;
+        text-align: left;
+    }
+
+    /* --- Nav Links --- */
     .nav-link {
         display: block;
-        padding: 8px 12px;
-        margin: 4px 0;
-        border-radius: 8px;
+        padding: 10px 14px;
+        margin: 3px 0;
+        border-radius: 10px;
         color: #f0f0f0 !important;
         text-decoration: none !important;
-        transition: background 0.2s;
+        transition: background 0.2s ease;
+        font-size: 14px;
     }
-    .nav-link:hover {
-        background: #16213e;
+    .nav-link:hover { background: rgba(29, 161, 242, 0.1); }
+    .nav-link.active { background: #1DA1F2; color: white !important; }
+
+    /* ==========================================
+       MOBILE BOTTOM NAV
+       ========================================== */
+    .mobile-bottom-nav {
+        display: none;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 9999;
+        background: rgba(14, 17, 23, 0.92);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 6px 0 max(6px, env(safe-area-inset-bottom));
     }
-    .nav-link.active {
-        background: #1DA1F2;
-        color: white !important;
+    .mobile-bottom-nav .nav-items {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    .mobile-bottom-nav a {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-decoration: none;
+        color: #8899a6;
+        font-size: 10px;
+        font-weight: 500;
+        padding: 4px 8px;
+        border-radius: 10px;
+        transition: all 0.2s ease;
+        min-width: 48px;
+        min-height: 48px;
+        justify-content: center;
+    }
+    .mobile-bottom-nav a .nav-icon { font-size: 20px; margin-bottom: 2px; }
+    .mobile-bottom-nav a.active {
+        color: #1DA1F2;
+        background: rgba(29, 161, 242, 0.12);
+    }
+    .mobile-bottom-nav a:hover { color: #1DA1F2; }
+
+    /* ==========================================
+       RESPONSIVE BREAKPOINTS
+       ========================================== */
+
+    /* Tablet and up */
+    @media (min-width: 640px) {
+        .block-container {
+            padding: 1rem 2rem 2rem 2rem !important;
+        }
+        .main-header h1 { font-size: 28px; }
+        .stat-number { font-size: 28px; }
+    }
+
+    /* Desktop */
+    @media (min-width: 1024px) {
+        .block-container {
+            padding: 1rem 3rem 2rem 3rem !important;
+        }
+        .main-header h1 { font-size: 32px; }
+    }
+
+    /* Mobile only */
+    @media (max-width: 639px) {
+        /* Show bottom nav */
+        .mobile-bottom-nav { display: block; }
+
+        /* Hide sidebar completely on mobile */
+        section[data-testid="stSidebar"] {
+            display: none !important;
+        }
+        /* Remove sidebar toggle button */
+        button[data-testid="stSidebarCollapsedControl"],
+        button[kind="header"] {
+            display: none !important;
+        }
+
+        /* Content padding with bottom nav space */
+        .block-container {
+            padding: 0.5rem 0.75rem 80px 0.75rem !important;
+        }
+
+        /* Full width buttons */
+        .stButton > button {
+            width: 100%;
+            margin-bottom: 4px;
+        }
+
+        /* Smaller header on mobile */
+        .main-header { padding: 4px 0 12px 0; }
+        .main-header h1 { font-size: 22px; }
+
+        /* Stack columns better */
+        [data-testid="column"] {
+            padding: 0 2px !important;
+        }
+
+        /* Tab text */
+        .stTabs [data-baseweb="tab"] {
+            font-size: 12px;
+            padding: 8px 10px;
+        }
+
+        /* Stat boxes compact */
+        .stat-box { padding: 12px 8px; }
+        .stat-number { font-size: 22px; }
+        .stat-label { font-size: 11px; }
+
+        /* Action cards compact */
+        .action-card {
+            padding: 14px 10px;
+            min-height: 90px;
+        }
+        .action-icon { font-size: 26px; margin-bottom: 4px; }
+        .action-title { font-size: 13px; }
+        .action-desc { font-size: 11px; }
+
+        /* Tweet card compact */
+        .tweet-card { padding: 14px; margin: 6px 0; }
+        .tweet-metrics { gap: 10px; font-size: 12px; }
+
+        /* Generated tweet */
+        .generated-tweet { padding: 16px; font-size: 14px; }
+    }
+
+    /* Small phones */
+    @media (max-width: 380px) {
+        .block-container { padding: 0.5rem 0.5rem 80px 0.5rem !important; }
+        .main-header h1 { font-size: 20px; }
+        .stTabs [data-baseweb="tab"] { font-size: 11px; padding: 8px 6px; }
+    }
+
+    /* --- Scrollbar --- */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+    /* --- Alerts/Info boxes --- */
+    .stAlert {
+        border-radius: 12px !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
 
 def render_sidebar_nav(current_page: str = ""):
-    """Render sidebar navigation with clickable page links."""
+    """Render sidebar nav (desktop) + bottom nav (mobile)."""
+    # --- Desktop sidebar ---
     with st.sidebar:
         st.markdown("### 🤖 X AI Otomasyon")
         st.markdown("---")
@@ -244,50 +532,7 @@ def render_sidebar_nav(current_page: str = ""):
             ("🏠 Ana Sayfa", "streamlit_app.py", "home"),
             ("🔍 Tara", "pages/1_🔍_Tara.py", "tara"),
             ("✍️ Yaz", "pages/2_✍️_Yaz.py", "yaz"),
-            ("📊 Analiz", "pages/4_📊_Analiz.py", "analiz"),
-            ("👥 Takipçiler", "pages/5_👥_Takipçiler.py", "takipci"),
-            ("⚙️ Ayarlar", "pages/3_⚙️_Ayarlar.py", "ayarlar"),
-        ]
-
-        for label, page_path, page_id in pages:
-            if page_id == current_page:
-                st.page_link(page_path, label=f"**{label}**", icon=None)
-            else:
-                st.page_link(page_path, label=label, icon=None)
-
-        st.markdown("---")
-
-        # API status indicators
-        has_twitter = bool(get_secret("twitter_bearer_token", ""))
-        has_ai = bool(get_secret("minimax_api_key", "") or
-                      get_secret("anthropic_api_key", "") or
-                      get_secret("openai_api_key", ""))
-
-        if has_twitter:
-            st.success("Twitter API ✓", icon="🐦")
-        else:
-            st.warning("Twitter API eksik", icon="⚠️")
-
-        if has_ai:
-            st.success("AI API ✓", icon="🧠")
-        else:
-            st.warning("AI API eksik", icon="⚠️")
-
-        st.markdown("---")
-        import datetime
-        st.caption(f"v1.0 | {datetime.datetime.now().strftime('%d.%m.%Y')}")
-
-
-def render_sidebar_nav(current_page: str = ""):
-    """Render consistent sidebar navigation across all pages"""
-    with st.sidebar:
-        st.markdown("### 🤖 X AI Otomasyon")
-        st.markdown("---")
-
-        pages = [
-            ("🏠 Ana Sayfa", "streamlit_app.py", "home"),
-            ("🔍 Tara", "pages/1_🔍_Tara.py", "tara"),
-            ("✍️ Yaz", "pages/2_✍️_Yaz.py", "yaz"),
+            ("💡 İçerik", "pages/6_💡_İçerik.py", "icerik"),
             ("📊 Analiz", "pages/4_📊_Analiz.py", "analiz"),
             ("👥 Takipçiler", "pages/5_👥_Takipçiler.py", "takipci"),
             ("⚙️ Ayarlar", "pages/3_⚙️_Ayarlar.py", "ayarlar"),
@@ -316,6 +561,29 @@ def render_sidebar_nav(current_page: str = ""):
             st.success("AI API ✓", icon="🧠")
         else:
             st.warning("AI API eksik", icon="⚠️")
+
+    # --- Mobile bottom nav ---
+    mobile_nav_items = [
+        ("🏠", "Ana", "streamlit_app.py", "home"),
+        ("🔍", "Tara", "pages/1_🔍_Tara.py", "tara"),
+        ("✍️", "Yaz", "pages/2_✍️_Yaz.py", "yaz"),
+        ("💡", "İçerik", "pages/6_💡_İçerik.py", "icerik"),
+        ("📊", "Analiz", "pages/4_📊_Analiz.py", "analiz"),
+        ("⚙️", "Ayar", "pages/3_⚙️_Ayarlar.py", "ayarlar"),
+    ]
+
+    nav_links = ""
+    for icon, label, path, key in mobile_nav_items:
+        active = "active" if key == current_page else ""
+        nav_links += f'<a href="/{path}" class="{active}" target="_self"><span class="nav-icon">{icon}</span>{label}</a>\n'
+
+    st.markdown(f"""
+    <div class="mobile-bottom-nav">
+        <div class="nav-items">
+            {nav_links}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def _format_number(n: int) -> str:

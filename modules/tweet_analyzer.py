@@ -795,7 +795,7 @@ def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
 
     return f"""{header}
 
-Aşağıdaki veriler gerçek Twitter hesaplarının TÜM tweet'lerinden elde edilmiştir.
+Aşağıdaki veriler gerçek Twitter hesaplarının tweet'lerinden elde edilmiştir.
 
 ### NASIL KULLANACAKSIN:
 1. YAZIM TARZI DNA: İmza kelimeleri, kalıpları ve kuralları BİREBİR uygula.
@@ -806,14 +806,19 @@ Aşağıdaki veriler gerçek Twitter hesaplarının TÜM tweet'lerinden elde edi
    yapılarını referans al.
 4. BİREBİR KOPYALAMA: Tweet'leri kopyalama ama aynı RUHU, TONU ve YAKLAŞIMI koru.
 
+### ÖNCELİK SIRASI (çakışmalarda buna uy):
+- 1. Kullanıcının kendi tweet örnekleri (en yüksek öncelik)
+- 2. İlk eklenen hesabın tarz DNA'sı
+- 3. Diğer hesap analizleri (sadece ek ilham için)
+- Çakışma varsa HER ZAMAN daha samimi ve doğal olan tarza uy
+
 {body}
 
-KRİTİK: Yukarıdaki YAZIM TARZI DNA'sını kesinlikle uygula — küçük harf başlangıç,
-imza kelimeleri, kapanış tarzı, emoji kuralları. Bu kişi gibi YAZ — aynı kelimeler,
-aynı akış, aynı samimiyet. Yüksek engagement alan tweet'lerin yapısal özelliklerini
-(hook tarzı, paragraf yapısı, kapanış biçimi) yeni tweet'lere uygula.
-
-KAPANIŞ KURALI: Tweet'leri SORU ile bitirme. "Sizce?", "Siz ne düşünüyorsunuz?",
-"Denediniz mi?" gibi CTA soruları YASAK. Güçlü ifade, cesur tahmin veya doğal
-akışla bitir — tıpkı yukarıdaki örneklerdeki gibi.
+KRİTİK KURALLAR:
+1. Yukarıdaki YAZIM TARZI DNA'sını uygula — küçük harf, imza kelimeleri, kapanış tarzı.
+2. Bu kişi gibi YAZ — aynı kelimeler, aynı akış, aynı samimiyet.
+3. SORU ile bitirme. "Sizce?", "Siz ne düşünüyorsunuz?" gibi CTA soruları YASAK.
+4. ASLA "@hesapadi diyor ki", "yorumlarda", "X'te kullanıcılar" gibi kaynak referansı verme.
+5. Bilgiyi KENDİ DENEYİMİN ve BİLGİN gibi yaz — sanki sen araştırdın, sen test ettin.
+6. Robotik ve yapay ifadeler YASAK — doğal, samimi, insan gibi yaz.
 """

@@ -891,6 +891,8 @@ KURALLAR:
 - Klişe açılışlar YASAK (Heyecan verici gelişme!, Yapay zeka dünyasında... vs.)
 - Kendi bakış açını ve yorumunu ekle
 - Teknik detayları doğru ver
+- ASLA kaynak belirtme — "@şuhesap diyor ki", "X'te şöyle yazıyorlar", "yorumlarda" gibi ifadeler YASAK
+- Bilgiyi KENDİ DENEYİMİN gibi yaz — "test ettim", "bence", "gördüğüm kadarıyla"
 
 FORMAT:
 - Paragraflar arasında boş satır bırak
@@ -1012,17 +1014,20 @@ Yazım tarzın samimi, gerçek ve filtresiz. Robot gibi değil, insan gibi yazar
 3. Her paragraftan sonra boş satır bırak (okunabilirlik)
 4. Metin duvarı YAZMA — kısa paragraflar, bol boşluk
 5. Doğal ve samimi ol — "corporate speak" YAPMA
-6. Araştırma sonuçlarındaki GÜNCEL bilgileri kullan
+6. Araştırma sonuçlarındaki GÜNCEL bilgileri kullan AMA kaynağı BELİRTME
 7. Spesifik ol — genel laflar değil, somut detaylar
 8. Sadece içerik metnini yaz — başlık, meta, açıklama YAZMA
-9. Tırnak işareti ile sarma"""
+9. Tırnak işareti ile sarma
+10. ASLA "@şuhesap şöyle diyor", "yorumlarda şöyle yazıyorlar", "X'te kullanıcılar" gibi ifadeler KULLANMA
+11. ASLA araştırma kaynaklarına referans verme — bilgiyi KENDİ sözlerinle, kendi deneyiminmiş gibi yaz
+12. Bilgiyi özümse ve KENDİ perspektifinden anlat — "test ettim", "gördüğüm kadarıyla", "bence" gibi"""
 
         # Build user prompt
         research_block = ""
         if research_context:
             research_block = f"""
 
-## ARAŞTIRMA SONUÇLARI (bu bilgileri kullanarak yaz, uydurma):
+## ARKA PLAN BİLGİSİ (bilgi kaynağın bu — ama kaynak belirtme, kendi bilginmiş gibi yaz):
 {research_context[:4000]}"""
 
         additional_block = ""
@@ -1035,9 +1040,12 @@ KONU: {topic}
 {research_block}
 {additional_block}
 
-Yukarıdaki araştırma sonuçlarını kullanarak, {style} tarzında, samimi ve bilgilendirici bir içerik yaz.
-Paragraflari kısa tut, metin duvarı olmasın. Her paragraftan sonra boş satır bırak.
-Sadece içerik metnini yaz."""
+KRİTİK: Yukarıdaki bilgileri KENDİ DENEYİMİN ve BİLGİN gibi yaz. ASLA:
+- "@şuhesap böyle diyor" / "X'te insanlar şöyle yazıyor" / "yorumlarda" YAZMA
+- Kaynak, referans, tweet veya hesap ismi BELIRTME
+- "Araştırmalarıma göre" gibi ifadeler KULLANMA
+Bilgiyi özümseyip KENDİ AĞZINDAN, {style} tarzında, samimi ve doğal yaz.
+Paragraflari kısa tut, metin duvarı olmasın. Sadece içerik metnini yaz."""
 
         if self.provider == "anthropic":
             return self._generate_anthropic(system_prompt, user_prompt)

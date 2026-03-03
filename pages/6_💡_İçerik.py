@@ -4,6 +4,7 @@ AI ile konu keşfet, uzun içerik üret, thread oluştur
 """
 import streamlit as st
 import datetime
+from urllib.parse import quote as url_quote
 from modules.ui_components import (inject_custom_css, check_password,
                                    get_secret, render_sidebar_nav)
 from modules.content_generator import ContentGenerator
@@ -339,39 +340,26 @@ with tab1:
             if char_count > 280:
                 st.info(f"Bu içerik {char_count} karakter — X'te uzun post olarak paylaşılabilir.")
 
-            d_col_a, d_col_b, d_col_c = st.columns(3)
+            d_col_a, d_col_b, d_col_c, d_col_d = st.columns(4)
             with d_col_a:
-                if st.button("📋 Kopyala", key="d_copy_content"):
+                d_intent_url = f"https://x.com/intent/tweet?text={url_quote(d_content)}"
+                st.link_button("📱 X'te Aç", d_intent_url, use_container_width=True)
+                st.caption("Görsel ekleyebilirsin")
+            with d_col_b:
+                if st.button("📋 Kopyala", key="d_copy_content", use_container_width=True):
                     st.code(d_content, language=None)
                     st.success("Yukarıdan kopyalayabilirsiniz!")
-            with d_col_b:
-                if st.button("💾 Taslağa Kaydet", key="d_save_draft"):
+            with d_col_c:
+                if st.button("💾 Taslağa Kaydet", key="d_save_draft", use_container_width=True):
                     try:
                         add_draft(d_content, label=st.session_state.get("discover_generated_topic", "İçerik"))
                         st.success("Taslak kaydedildi!")
                     except Exception as e:
                         st.error(f"Taslak kaydetme hatası: {e}")
-            with d_col_c:
-                if st.button("🔄 Yeniden Üret", key="d_regen_content"):
+            with d_col_d:
+                if st.button("🔄 Yeniden Üret", key="d_regen_content", use_container_width=True):
                     st.session_state.pop("discover_generated_content", None)
                     st.rerun()
-
-            with st.expander("📤 Direkt Paylaş"):
-                st.warning("Paylaşmadan önce içeriği gözden geçirdiğinizden emin olun!")
-                if st.button("🐦 X'te Paylaş", key="d_publish_content"):
-                    try:
-                        cookies = get_secret("x_cookies", get_secret("X_COOKIES", ""))
-                        if not cookies:
-                            st.error("X çerezleri ayarlanmamış.")
-                        else:
-                            publisher = TweetPublisher(cookies)
-                            result = publisher.publish_tweet(d_content)
-                            if result:
-                                st.success("İçerik başarıyla paylaşıldı!")
-                            else:
-                                st.error("Paylaşım başarısız oldu.")
-                    except Exception as e:
-                        st.error(f"Paylaşım hatası: {e}")
 
 
 # ============================================================
@@ -580,41 +568,27 @@ with tab2:
             st.info(f"Bu içerik {char_count} karakter — X'te uzun post olarak paylaşılabilir (X Premium).")
 
         # Actions
-        col_a, col_b, col_c = st.columns(3)
+        col_a, col_b, col_c, col_d = st.columns(4)
         with col_a:
-            if st.button("📋 Kopyala", key="copy_content"):
+            intent_url = f"https://x.com/intent/tweet?text={url_quote(content)}"
+            st.link_button("📱 X'te Aç", intent_url, use_container_width=True)
+            st.caption("Görsel ekleyebilirsin")
+
+        with col_b:
+            if st.button("📋 Kopyala", key="copy_content", use_container_width=True):
                 st.code(content, language=None)
                 st.success("Yukarıdan kopyalayabilirsiniz!")
 
-        with col_b:
-            if st.button("💾 Taslağa Kaydet", key="save_draft"):
+        with col_c:
+            if st.button("💾 Taslağa Kaydet", key="save_draft", use_container_width=True):
                 try:
                     add_draft(content, label=st.session_state.get("generated_content_topic", "İçerik"))
                     st.success("Taslak kaydedildi!")
                 except Exception as e:
                     st.error(f"Taslak kaydetme hatası: {e}")
 
-        with col_c:
-            if st.button("🔄 Yeniden Üret", key="regen_content"):
+        with col_d:
+            if st.button("🔄 Yeniden Üret", key="regen_content", use_container_width=True):
                 # Clear and re-trigger
                 st.session_state.pop("generated_content", None)
                 st.rerun()
-
-        # Direct publish option
-        st.markdown("---")
-        with st.expander("📤 Direkt Paylaş"):
-            st.warning("Paylaşmadan önce içeriği gözden geçirdiğinizden emin olun!")
-            if st.button("🐦 X'te Paylaş", key="publish_content"):
-                try:
-                    cookies = get_secret("x_cookies", get_secret("X_COOKIES", ""))
-                    if not cookies:
-                        st.error("X çerezleri ayarlanmamış. Ayarlar sayfasından yapılandırın.")
-                    else:
-                        publisher = TweetPublisher(cookies)
-                        result = publisher.publish_tweet(content)
-                        if result:
-                            st.success("İçerik başarıyla paylaşıldı!")
-                        else:
-                            st.error("Paylaşım başarısız oldu.")
-                except Exception as e:
-                    st.error(f"Paylaşım hatası: {e}")

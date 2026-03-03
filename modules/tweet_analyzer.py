@@ -118,13 +118,8 @@ def _extract_style_dna(original_tweets: list[dict]) -> dict:
         "ya", "bak", "böyle", "öyle", "güzel", "mesela", "aslında", "abi",
         "gerçekten", "neyse", "valla", "sonuçta", "kısacası", "ulan", "tamam",
         "hadi", "lan", "höcaam", "cidden", "harbiden", "arkadaşım", "kardeşim",
-        # sakevoid / agresif tarz
-        "aga", "beyler", "agalar", "herif", "millet", "resmen", "net",
-        "bence", "düşünün", "kaybedecek", "kazanır", "sahaya", "başla",
-        "treni", "oyun", "sistem", "kurdu", "para", "bedava",
-        # parsluci / haber tarzı
-        "üstelik", "henüz", "artık", "açık", "kaynak", "çıktı", "geldi",
-        "duyurdu", "sağlıyor", "yapıyor", "kullanabiliyor",
+        "bence", "resmen", "net", "açık", "bedava", "millet", "aga", "beyler",
+        "üstelik", "henüz", "çıktı", "geldi", "tarafı", "sessiz", "sedasız",
     ]
     signature_words = {}
     for w in casual_markers:
@@ -137,13 +132,9 @@ def _extract_style_dna(original_tweets: list[dict]) -> dict:
         "olm", "ok.", "güzel kardeşim", "o yüzden", "aslında", "biliyor musun",
         "diyor ki", "bayanlar baylar", "bak şimdi", "şu an", "bu adam",
         "az önce", "anladın mı", "test ettim", "sevgiler", "algoritma tanrıları",
-        # sakevoid kalıpları
-        "sahaya in", "oyun alanı", "para basma", "treni kaç", "sistem kur",
-        "bu kadar basit", "benim gördüğüm", "erken adapte", "haberin yok",
-        "kendine gel aga", "analiz felci", "tek kişilik ordu", "açık kaynak",
-        # parsluci kalıpları
-        "reklam değildir", "güzel gelişme", "paylaşayım dedim", "denemek lazım",
-        "ben denemedim", "bakalım nasıl", "umarım", "bedava", "açık kaynaklı",
+        "bi baktım", "sessiz sedasız", "bence", "gördüğüm kadarıyla",
+        "asıl mesele", "artık", "cidden", "harbiden", "açık kaynak",
+        "bu gidişle", "benim gördüğüm", "güzel gelişme", "denemek lazım",
     ]
     signature_phrases = {}
     for phrase in phrase_candidates:
@@ -790,35 +781,40 @@ def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
     if not context_parts:
         return ""
 
-    header = "## EĞİTİM VERİSİ — YAZIM TARZI + ETKİLEŞİM ANALİZİ:"
+    header = "## EĞİTİM VERİSİ — YAZIM TARZI DNA'SI:"
     body = chr(10).join(context_parts)
 
     return f"""{header}
 
-Aşağıdaki veriler gerçek Twitter hesaplarının tweet'lerinden elde edilmiştir.
+Bu veriler gerçek Twitter hesabının tweet'lerinden çıkarılmış KİŞİSEL YAZIM DNA'sıdır.
+Bu DNA TÜM yazım tarzlarının (samimi, haber, analitik, kişisel vb.) TEMELİDİR.
 
-### NASIL KULLANACAKSIN:
-1. YAZIM TARZI DNA: İmza kelimeleri, kalıpları ve kuralları BİREBİR uygula.
-   Bunlar yüzlerce tweet'ten çıkarılmış gerçek yazım özellikleri.
-2. TWEET ÖRNEKLERİ: Seçilmiş örneklerdeki ton, dil, cümle yapısı,
-   kelime tercihleri ve anlatım biçimini model al.
-3. ETKİLEŞİM STRATEJİSİ: En çok etkileşim alan tweet'lerin hook, konu ve
-   yapılarını referans al.
-4. BİREBİR KOPYALAMA: Tweet'leri kopyalama ama aynı RUHU, TONU ve YAKLAŞIMI koru.
+### BU DNA'YI NASIL KULLANACAKSIN:
 
-### ÖNCELİK SIRASI (çakışmalarda buna uy):
-- 1. Kullanıcının kendi tweet örnekleri (en yüksek öncelik)
-- 2. İlk eklenen hesabın tarz DNA'sı
-- 3. Diğer hesap analizleri (sadece ek ilham için)
-- Çakışma varsa HER ZAMAN daha samimi ve doğal olan tarza uy
+1. İMZA KELİMELERİ: Aşağıdaki imza kelimelerini ve kalıplarını doğal şekilde kullan.
+   "bi baktım", "sessiz sedasız", "bence", "cidden" gibi ifadeler senin DNA'n — onları kullan.
+
+2. TON VE YAKLAŞIM: Aşağıdaki tweet örneklerindeki TONU model al:
+   - Nasıl giriş yapıyor (hook tarzı)
+   - Nasıl geçişler kullanıyor
+   - Nasıl bitiyor (kapanış tarzı)
+   - Hangi kelimeler seçiyor, nasıl cümle kuruyor
+
+3. YAZIP TARZINA UYARLA: Seçilen yazım tarzı (haber, analitik, kişisel vb.) FORMATI belirler.
+   AMA senin kişisel tonun, kelime seçimin, doğallığın HEP bu DNA'dan gelir.
+   Yani haber yazarken bile SENİN sesinle yaz, robotik haber bülteni gibi değil.
+
+4. ASLA BİREBİR KOPYALAMA: Örnek tweet'lerin cümlelerini kopyalama.
+   Aynı RUHU, TONU ve YAKLAŞIMI koru ama KENDİ cümlelerini kur.
 
 {body}
 
 KRİTİK KURALLAR:
-1. Yukarıdaki YAZIM TARZI DNA'sını uygula — küçük harf, imza kelimeleri, kapanış tarzı.
-2. Bu kişi gibi YAZ — aynı kelimeler, aynı akış, aynı samimiyet.
+1. YAZIM TARZI DNA'sını uygula — küçük harf, imza kelimeleri, kapanış tarzı.
+2. Bu kişi gibi YAZ — aynı doğallık, aynı samimiyet, aynı akış.
 3. SORU ile bitirme. "Sizce?", "Siz ne düşünüyorsunuz?" gibi CTA soruları YASAK.
 4. ASLA "@hesapadi diyor ki", "yorumlarda", "X'te kullanıcılar" gibi kaynak referansı verme.
-5. Bilgiyi KENDİ DENEYİMİN ve BİLGİN gibi yaz — sanki sen araştırdın, sen test ettin.
-6. Robotik ve yapay ifadeler YASAK — doğal, samimi, insan gibi yaz.
+5. ASLA "şu tweet'teki", "örnekteki" gibi referans verme — kendi orijinal içeriğini yaz.
+6. Bilgiyi KENDİ DENEYİMİN ve BİLGİN gibi yaz — sanki sen araştırdın, sen test ettin.
+7. Robotik ve yapay ifadeler YASAK — doğal, samimi, insan gibi yaz.
 """

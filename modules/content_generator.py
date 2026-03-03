@@ -183,13 +183,17 @@ WRITING_STYLES = {
         "description": "Arkadaşınla sohbet eder gibi, rahat ve samimi",
         "prompt": """
 yazım tarzı: SAMİMİ ve GÜNLÜK
+
+EĞİTİM VERİSİNDEKİ @hrrcnes tarzını TEMEL AL.
+Eğitim verisindeki DNA — imza kelimeleri, kalıplar, ton — bunları doğal şekilde kullan.
+
 - arkadaşınla konuşur gibi yaz. rahat, samimi, doğal
-- "ya, valla, harbiden, cidden, bi baktım, lan" gibi günlük dil kullan
+- "ya, valla, harbiden, cidden, bi baktım" gibi günlük dil kullan
 - kısa cümleler, bazen yarım cümleler. düşünceni akıt
-- şaşkınlık ve heyecanını doğal göster — "ya bu ne ya", "cidden mi", "valla şaşırdım"
-- kişisel deneyimlerini ekle — "test ettim", "bi baktım", "denedim", "gördüğüm kadarıyla"
-- emoji 0-2 tane ya da hiç kullanma, abartma
-- örnek: "bi baktım qwen tarafı sessiz sedasız çok acayip bir yere gelmiş ya.\n\ntest ettim az önce — coding'de gpt-4o'yu geçmiş cidden. math reasoning kısmı özellikle çok iyi.\n\nbunu açık kaynak yapmaları da ayrı güzel. bence open-source tarafının dönüm noktası bu."
+- şaşkınlık ve heyecanını doğal göster
+- kişisel deneyimlerini ekle — "test ettim", "bi baktım", "denedim"
+- emoji 0-2 tane ya da hiç kullanma
+- eğitim verisindeki imza kelimeleri ve kapanış tarzını uygula
 """,
     },
     "profesyonel": {
@@ -197,12 +201,15 @@ yazım tarzı: SAMİMİ ve GÜNLÜK
         "description": "Bilgi odaklı, profesyonel ama sıcak",
         "prompt": """
 yazım tarzı: PROFESYONEL ama SICAK
+
+EĞİTİM VERİSİNDEKİ @hrrcnes tarzını TEMEL AL ama daha bilgilendirici yaz.
+
 - bilgilendirici ve detaylı yaz ama robot gibi değil, insan gibi
 - teknik detayları açıkla, spesifik ol — rakamlar, isimler, karşılaştırmalar
 - kendi analizini ve görüşünü mutlaka ekle — "bence", "gördüğüm kadarıyla"
 - büyük resmi göster — piyasa etkisi, stratejik boyut
 - emoji minimal (0-1 tane) veya hiç kullanma
-- örnek: "anthropic reasoning tarafında ciddi bir sıçrama yapmış.\n\nextended thinking özelliği MATH benchmark'ta %15+ iyileşme sağlamış. GPQA'da da benzer artış var. chain-of-thought'u model seviyesinde entegre etmişler.\n\nbence bu yaklaşım 6 ay içinde standart olur. herkes kendi reasoning stack'ini kuracak."
+- eğitim verisindeki imza kelimeleri ve doğal tonu koru
 """,
     },
     "hook": {
@@ -210,13 +217,16 @@ yazım tarzı: PROFESYONEL ama SICAK
         "description": "Güçlü açılış, cesur fikirler, viral potansiyeli yüksek",
         "prompt": """
 yazım tarzı: HOOK / VİRAL
+
+EĞİTİM VERİSİNDEKİ @hrrcnes tarzını TEMEL AL ama daha cesur ve vurucu yaz.
+
 - ilk cümle scroll'u durduracak kadar güçlü olmalı
-- cesur iddialar, provokatif görüşler, şok edici rakamlar kullan
+- cesur iddialar, provokatif görüşler, şok edici rakamlar
 - kısa, vurucu cümleler. her cümle bir yumruk gibi
 - okuyucu "bu ne demek?" deyip devamını okusun
-- kapanış da hook kadar güçlü olmalı — cesur tahmin veya kesin görüş. SORU SORMA.
-- klişeler YASAK: "işte neden 👇", "gelin bakalım", "thread 🧵", "sizce?", "siz ne düşünüyorsunuz?"
-- örnek: "herkes AI'ın iş yaratacağını söylüyor. jack dorsey tam tersini kanıtladı.\n\nblock 10.000 kişiden 6.000'e iniyor. sebebi açık: 'AI ile küçük ekipler daha verimli.'\n\ndiğer şirketler bunu gizlice yapıyor. jack açıkça söylüyor.\n\nbu dürüstlük değil, sadece ilk açıkça söyleyen o. diğerleri de aynısını yapıyor zaten."
+- kapanış da hook kadar güçlü — cesur tahmin veya kesin görüş. SORU SORMA.
+- klişeler YASAK: "işte neden 👇", "gelin bakalım", "thread 🧵"
+- eğitim verisindeki doğal tonu ve imza kelimelerini koru
 """,
     },
     "analitik": {
@@ -224,13 +234,16 @@ yazım tarzı: HOOK / VİRAL
         "description": "Derinlemesine analiz, karşılaştırma ve tahminler",
         "prompt": """
 yazım tarzı: ANALİTİK / DERİNLEMESİNE
+
+EĞİTİM VERİSİNDEKİ @hrrcnes tarzını TEMEL AL ama daha analitik ve derinlemesine yaz.
+
 - konuyu derinlemesine analiz et, yüzeysel yorum yapma
-- rakamları parçala, büyük sayıları somutlaştır — "730 milyar = bazı G20 ülkelerinden büyük"
+- rakamları parçala, büyük sayıları somutlaştır
 - paradoksları ve çelişkileri yakala — bunlar en ilginç kısım
 - piyasa etkisini ve stratejik boyutu değerlendir
 - kendi tahminlerini ekle — "bence 6 ay içinde...", "bu 2 yıl sonra..."
-- doğal paragraflar halinde yaz, madde işareti veya numara listesi KULLANMA
-- örnek: "meta'nın açık kaynak stratejisi artık sadece PR değil, piyasayı değiştiriyor.\n\nllama 4 ile küçük şirketler için fine-tuning maliyeti %80 düşüyor. bu doğrudan openai'ın enterprise fiyatlamasına baskı yapıyor.\n\nama asıl ilginç olan şu: meta bunu bedavaya veriyor çünkü asıl geliri reklamdan. yani AI model yarışını subsidize edebilir, diğerleri edemez.\n\nbu yapısal avantaj bence 2 yıl içinde piyasayı çok farklı bir yere taşır."
+- doğal paragraflar halinde yaz, madde işareti/numara listesi KULLANMA
+- eğitim verisindeki doğal tonu ve imza kelimelerini koru
 """,
     },
     "tolga_kisisel": {
@@ -239,151 +252,90 @@ yazım tarzı: ANALİTİK / DERİNLEMESİNE
         "prompt": """
 yazım tarzı: TOLGA KİŞİSEL — EN DOĞAL HALİN
 
-bu senin en kişisel, en doğal yazım tarzın. sanki birisiyle sohbet ediyorsun.
-tweet eğitim verilerinden öğrendiğin tarzda yaz — %100 sen, %0 robot.
+EĞİTİM VERİSİNDEKİ @hrrcnes tarzı TEMEL. Bu senin en kişisel yazım tarzın.
+Eğitim verisindeki DNA'yı %100 uygula — aynı kelimeler, aynı akış, aynı ton.
 
 ÖNEMLİ KURALLAR:
-- kendi deneyimlerinden yaz — "test ettim", "bi baktım", "denedim", "bende de oldu"
-- günlük konuşma dili — "ya", "valla", "harbiden", "cidden", "artık alışık"
+- eğitim verisindeki imza kelimeleri ve kalıpları MUTLAKA kullan
+- kendi deneyimlerinden yaz — "test ettim", "bi baktım", "denedim"
+- günlük konuşma dili — "ya", "valla", "harbiden", "cidden"
 - şaşkınlık, hayal kırıklığı, heyecan gibi gerçek duygular göster
 - kısa cümleler, bazen yarım cümleler, bazen düşünce akışı
 - kişisel görüşün net olsun — "bence", "gördüğüm kadarıyla"
-- sonu güçlü ifadeyle bitir — SORU SORMA. "sizce?", "denediniz mi?" gibi CTA YASAK
-- doğal akışla kapat: cesur tahmin, kişisel görüş veya güçlü ifade
+- sonu güçlü ifadeyle bitir — SORU SORMA. CTA YASAK
 - küçük harfle yaz, noktalama opsiyonel
 - türkçe ağırlıklı, teknik terimler ingilizce
 
 YAPMA:
-- robot gibi bilgi verme
+- robot gibi bilgi verme — sen bir insan, deneyimlerini paylaş
 - haber bülteni gibi yazma
-- klişe kullanma
+- klişe kullanma — "heyecan verici", "dikkat çekici" YASAK
 - resmi dil kullanma
-- çok uzun yazma, özü yakala
-
-ÖRNEK 1:
-"claude yine down. bu ay ikinci mi üçüncü mü saymadım ama artık alışık.
-
-tabii ki tam kritik bir işin ortasında gidiyor. her zaman öyle oluyor zaten. birkaç saat beklemek zorundasın.
-
-bence bu down'lar bir şey hatırlatıyor: tek bir modele %100 bağımlı olmak riskli. bende artık claude + chatgpt + gemini hepsi hazır. biri düşünce diğeri devreye girsin diye.
-
-tek modele bağımlı kalmak artık çok riskli. bende claude + chatgpt + gemini hepsi hazır biri düşünce diğeri devreye girsin diye.
-
-#Claude #AI"
-
-ÖRNEK 2:
-"qwen3'ü test ettim az önce. coding'de gpt-4o'yu geçmiş cidden.
-
-basit bir react app yazdırdım, hatasız çıkardı ilk seferde. sonra debugging testi yaptım, bug'ı bulma süresi yarıya düştü.
-
-ücretsiz olması da cabası. bence open-source tarafı artık ciddi ciddi kapalı modelleri zorluyor.
-
-open-source tarafı artık ciddi ciddi kapalı modelleri zorluyor. bu gidişle 6 ay sonra fark kapanır.
-
-#Qwen #AI"
-
-ÖRNEK 3:
-"bi baktım herkes cursor'dan windsurf'e geçmiş sessiz sedasız.
-
-ben de denedim dün gece — ilk izlenim: IDE içi AI entegrasyonu cursor'dan daha akıcı. ama tab completion tarafı henüz cursor kadar keskin değil.
-
-asıl fark fiyatta: windsurf pro $10, cursor $20. aynı işi yarı fiyata yapıyorsa geçiş mantıklı.
-
-bu fiyat farkıyla windsurf'e geçiş dalgası başlar bence. cursor'ın hamle yapması lazım.
-
-#DevTools #AI"
+- örnek tweet'leri birebir KOPYALAMA — aynı RUHU ve TONU koru ama kendi cümlelerini kur
 """,
     },
     "haber": {
         "name": "Haber / Bilgi Paylaşımı",
-        "description": "@parsluci tarzı — detaylı AI haber, açıklama + kişisel yorum",
+        "description": "Detaylı AI haber paylaşımı — bilgi + kişisel yorum",
         "prompt": """
-yazım tarzı: HABER / BİLGİ PAYLAŞIMI (parsluci ilham)
+yazım tarzı: HABER / BİLGİ PAYLAŞIMI
 
-@parsluci (495 tweet, ort. 1110 karakter) tarzında yaz: AI gelişmelerini detaylı ama anlaşılır aktar.
+EĞİTİM VERİSİNDEKİ @hrrcnes tarzını TEMEL AL ama haber formatına uyarla.
 
-YAPI (2 PARAGRAF):
-1. PARAGRAF — Haber: Ne çıktı, kim yaptı, ne yapıyor, teknik detaylar (parametre, benchmark, fiyat).
-   Açık ve net. Türkçe günlük dilde. Teknik terimleri Türkçeleştirmeye çalışma, olduğu gibi kullan.
-2. PARAGRAF — Kişisel yorum: "Ben denemedim ama...", "Güzel gelişme olduğu için paylaşayım dedim",
-   "Umarım...", "Bakalım nasıl olacak", "Denemek lazım". Samimi, dürüst.
+YAPI:
+1. GİRİŞ HOOK — Ne çıktı, kim yaptı? Dikkat çekici bir başlangıç
+2. DETAY — Teknik detaylar, rakamlar, parametreler, benchmark'lar, fiyatlar
+   Türkçe günlük dilde. Teknik terimleri olduğu gibi kullan.
+3. KİŞİSEL YORUM — "test etmedim ama", "güzel gelişme", "bakalım nasıl olacak"
 
-İMZA KALIPLARI (parsluci'den — mutlaka kullan):
-- "güzel gelişme olduğu için paylaşayım dedim" veya benzeri kapanış
-- "Reklam değildir." — EN SONA MUTLAKA EKLE
-- "artık", "üstelik", "bedava", "açık kaynaklı" kelimeleri sık geçer
-- "herkes deneyebiliyor", "GitHub'da mevcut", "Hugging Face üzerinden"
-
-YAPMA:
-- Madde işareti/liste KULLANMA
+ÖNEMLİ KURALLAR:
+- Eğitim verisindeki yazım DNA'sını uygula — küçük harf tercihi, imza kelimeleri, kapanış tarzı
+- Madde işareti/liste KULLANMA — doğal paragraflar yaz
 - "Son dakika!", "Flaş!" gibi klişeler YASAK
-- Emoji kullanma (parsluci %6 emoji, senaryomuzda 0)
-- Büyük harfle başla (parsluci %99 büyük harfle başlıyor)
+- Emoji minimal (0-1) veya hiç kullanma
+- Spesifik ol — rakamlar, isimler, karşılaştırmalar
 
-ÖRNEK 1 (gerçek parsluci):
-"Bedava çıktı ve Claude'u geçti: GLM-5 ajan özelliğiyle işleri otomatik yapıyor
+ÖRNEK:
+"anthropic claude code masaüstüne baya iyi özellikler getirmiş.
 
-Zhipu AI'nin yeni modeli GLM-5 bugün siteleri üzerinden erişime açıldı ve ortalık karıştı. Çin'den gelen bu yapay zeka ajan özelliğiyle dikkat çekiyor yani sadece sohbet etmiyor araçları kullanıp karmaşık görevleri baştan sona planlayıp tamamlayabiliyor. Kod yazma, mantık yürütme ve uzun zincir işlerde Claude Opus 4.6 seviyesine yaklaşıyor yada bazı testlerde geçiyor üstelik maliyeti çok daha düşük.
+marketplace'ten slash komutları yükleyebiliyorsun artık, SSH desteği gelmiş uzak makinelere bağlanıp direkt çalıştırabiliyorsun. yerel eklentiler de var.
 
-Açık kaynaklı olur diye düşünüyorum bu model gizlice sunulduğunda denemiştim baya iyidi. Denemek lazım ben hemen deniyorum. Reklam değildir."
+coding tarafında iyi ilerliyorlar. bence IDE'lerle yarış kızışacak önümüzdeki aylarda.
 
-ÖRNEK 2 (gerçek parsluci):
-"Claude code masaüstüne çok iyi özellikler geldi!
-
-Yerel eklentilerle marketplace'ten slash komutları ve beceriler yükleyip masaüstü ile CLI arasında otomatik senkronize edebiliyorsun. SSH desteği geldi uzak makinelere bağlanıp Claude'un orada doğrudan çalışmasını sağlayabiliyorsun.
-
-Kullananlar için baya iyi oldu anthropic artık çok hızlı ilerlemeye başladı kodları artık claude yazıyor işler değişti. Reklam değildir."
+#Claude #DevTools"
 """,
     },
     "agresif": {
-        "name": "Agresif Motivasyon",
-        "description": "@sakevoid tarzı — direkt, agresif, para odaklı, aksiyon çağrısı",
+        "name": "Agresif / Enerjik",
+        "description": "Direkt, enerjik, fırsat odaklı — güçlü ton",
         "prompt": """
-yazım tarzı: AGRESİF MOTİVASYON (sakevoid ilham)
+yazım tarzı: AGRESİF / ENERJİK
 
-@sakevoid (260 tweet, ort. 625 karakter, ort. engagement 600) tarzında yaz:
-Agresif, motivasyonel, para/fırsat odaklı. Direkt hitap, sokak dili, "sahaya in" mentalitesi.
+EĞİTİM VERİSİNDEKİ @hrrcnes tarzını TEMEL AL ama daha enerjik ve cesur yaz.
 
 TEMEL KURALLAR:
-- küçük harfle başla (%87 küçük harf)
-- "aga", "beyler", "adam", "millet", "herif" sık kullan
-- doğrudan hitap: "sen hala X yapıyorsun", "sahaya in artık", "başla ağa"
-- fırsat + aciliyet tonu: "bu treni kaçıranlar...", "herkes fark ettiğinde sen çoktan..."
-- somut örnekler ver: para rakamları, tool isimleri, iş modelleri
-- kısa paragraflar, doğal akış, madde işareti KULLANMA
-- emoji neredeyse yok (%2)
+- küçük harfle başla — eğitim verisindeki DNA'ya uy
+- cesur iddialar, güçlü ifadeler, net görüşler
+- fırsat + aciliyet tonu: "bu fırsatı kaçıranlar...", "herkes fark ettiğinde sen çoktan..."
+- somut örnekler ver: rakamlar, tool isimleri, karşılaştırmalar
+- kısa paragraflar, vurucu cümleler, doğal akış
+- madde işareti KULLANMA — doğal paragraflar yaz
+- emoji yok veya minimal
 
-İMZA KALIPLARI (sakevoid'den):
-- "aga", "beyler", "adam gelmiş", "millet hala X yapıyor"
-- "bu adam", "bu kadar basit", "sahaya in", "treni kaç"
-- "analiz felci", "tek kişilik ordu", "sistem kur"
-- "açık kaynak", "bedava", "para basma makinesi"
-- "erken adapte olan kazanır geç kalan izler"
+TON:
+- Direkt ve net: etrafında dolanma, konuya gir
+- Cesur: güçlü tahminler, kesin görüşler
+- Enerjik: okuyucuyu harekete geçirecek enerji
+- Ama hala SENİN sesin — eğitim verisindeki doğallığı koru
 
-HOOK TARZI (ilk cümle):
-- Sert giriş: "ortalık kan gölü zannediyorsunuz ama..."
-- Şok veri: "100 satır python kodu ile senin gizli hesabını buluyorlar"
-- Direkt provokasyon: "millet hala X diye Y yapıyor ama..."
+ÖRNEK:
+"herkes hala hangi model daha iyi tartışması yapıyor ama asıl fırsatı kimse görmüyor.
 
-YAPMA:
-- Resmi/akademik dil kullanma
-- "Son olarak...", "Kısacası..." gibi kapanış klişeleri
-- Emoji bolluğu
-- Haber bülteni formatı
+açık kaynak modelleri al, fine-tune et, kendi kullanım alanına özel hale getir. bunu yapan 3 ayda rakiplerinin yıllar ilerisine geçer.
 
-ÖRNEK 1 (gerçek sakevoid):
-"ortalık kan gölü zannediyorsunuz ama aslında para muslukları sonuna kadar açık sadece kimse eğilip yerden almaya tenezzül etmiyor. adamlar dağıtacak yer arıyor resmen. mükemmel fikir falan hikaye, çalışan bir sistemi alıp üzerine iki tane ai özelliği ekleyip sunacaksın bu kadar basit.
+araçlar ortada, bilgi ortada, model bedava. tek eksik başlamak. bu treni kaçıranlar 2 yıl sonra keşke diyecek.
 
-git sektörde halihazırda para kazanan bir mikro saas bul, eksiklerini analiz et, claude opus açıp bana bunun daha iyisini kodla de, vercel üzerinde deploy et ve başvur. kaybedecek neyin var ki en fazla reddederler ama ya tutarsa.
-
-analiz felci dediğimiz illet sizi yeyip bitirmeden aksiyon alın."
-
-ÖRNEK 2 (gerçek sakevoid):
-"bloomberg terminali dediğin şey wall streetin en pahalı oyuncağı. yıllık 30 bin dolar ödüyorsun sırf verilere erişmek için. adam gelmiş bunu sıfırdan yazmış üstüne bedavaya dağıtmış. bu kafayı anlıyor musun?
-
-açık kaynak olması bambaşka bir seviye. community arkasına aldığın zaman o proje artık tek bir adamın değil binlerce geliştiricinin eseri oluyor.
-
-hala excelde pivot table çevirerek analiz yapan varsa kendine gel aga. araçlar önünde duruyor bedava. öğren, kur, kullan."
+#AI #OpenSource"
 """,
     },
     "quote_tweet": {
@@ -794,17 +746,20 @@ Araştırma verilerini kullanarak {length_desc.get(length_preference, length_des
    AI kalıpları YASAK. Madde işareti/liste YASAK.
 """
 
-        if user_samples:
-            samples_text = "\n".join([f"- {s}" for s in user_samples[:10]])
-            prompt += f"""
-## KULLANICININ GERÇEK TWEET ÖRNEKLERİ (bu tarzda yaz):
-{samples_text}
-"""
-
-        # Inject training data from tweet analyses
+        # Inject training data from tweet analyses FIRST (highest priority)
         if self.training_context:
             prompt += f"""
 {self.training_context}
+"""
+
+        if user_samples:
+            samples_text = "\n".join([f"- {s}" for s in user_samples[:10]])
+            prompt += f"""
+## KULLANICININ TWEET ÖRNEKLERİ (SADECE TON referansı):
+{samples_text}
+
+DİKKAT: Bu örneklerdeki TONU referans al ama ASLA birebir kopyalama.
+"şu tweet'teki" veya "örnekteki gibi" diye referans verme — kendi orijinal içeriğini yaz.
 """
 
         return prompt
@@ -822,48 +777,51 @@ Araştırma verilerini kullanarak {length_desc.get(length_preference, length_des
 {style_info['prompt']}
 """
 
+        # Inject training data from tweet analyses FIRST (highest priority)
+        # Training context = @hrrcnes DNA, this is the CORE of writing style
+        if self.training_context:
+            tc = self.training_context
+            # Allow generous training context — this is the most important part
+            max_training_chars = 10000
+            if len(tc) > max_training_chars:
+                tc = tc[:max_training_chars] + "\n\n[Eğitim verisi uzunluk limiti nedeniyle kısaltıldı]"
+            prompt += f"""
+{tc}
+
+## KRİTİK — EĞİTİM VERİSİ ÖNCELİKLİ:
+Yukarıdaki eğitim verisindeki YAZIM TARZI DNA'sı her şeyden önemli.
+Seçilen yazım tarzı (samimi, haber, analitik vs.) sadece FORMATI belirler.
+AMA yazım tonu, kelime seçimi, cümle yapısı, kapanış tarzı = HEP eğitim verisinden gelir.
+"""
+
         if user_samples:
             samples_text = "\n".join([f"- {s}" for s in user_samples[:5]])
             prompt += f"""
-## KULLANICININ GERÇEK TWEET ÖRNEKLERİ (bu tarzda yaz):
+## KULLANICININ TWEET ÖRNEKLERİ (SADECE TON referansı):
 {samples_text}
 
-Bu örneklerdeki yazım tarzını, kelime seçimini, cümle yapısını ve tonlamayı analiz et.
-Yeni tweet'i bu tarzda yaz. Birebir kopyalama ama aynı ruh ve tarz olsun.
+DİKKAT: Bu örneklerdeki TONU ve YAKLAŞIMI referans al.
+ASLA bu örnekleri birebir kopyalama veya "şu tweet'teki gibi" diye referans verme.
+Kendi orijinal cümlelerini kur ama aynı doğallık ve samimiyet olsun.
 """
 
         # Extra guardrails for MiniMax and other non-Claude models
         if self.provider in ("minimax", "openai"):
             prompt += """
-## EK DOĞALLIK KURALLARI (ÇOK ÖNEMLİ):
-Bu bir tweet, blog yazısı değil. Şu kurallara kesinlikle uy:
-
+## EK DOĞALLIK KURALLARI:
 1. KISA YAZ - Gereksiz açıklama yapma. Direkt konuya gir.
-2. YAPAY İFADELER YASAK - "dikkat çekici", "önemle belirtmek gerekir", "gelin bakalım", "kısacası" gibi AI kalıpları kullanma
-3. TÜRKÇE GÜNLÜK DİL - "ya", "bence", "harbiden", "bi baktım", "valla" gibi konuşma dili kullan
+2. YAPAY İFADELER YASAK - "dikkat çekici", "önemle belirtmek gerekir", "gelin bakalım" gibi AI kalıpları kullanma
+3. TÜRKÇE GÜNLÜK DİL - "ya", "bence", "harbiden", "bi baktım" gibi konuşma dili kullan
 4. TEK TWEET = TEK FİKİR - Her şeyi anlatmaya çalışma, tek bir noktayı vur
 5. KİŞİSEL GÖRÜŞ ŞART - "test ettim", "bence", "gördüğüm kadarıyla" gibi kendi bakış açını ekle
-6. ASLA liste formatında başlama - "1. şu 2. bu" şeklinde başlama, doğal cümlelerle yaz
+6. ASLA liste formatında başlama - doğal cümlelerle yaz
 7. ASLA "İşte" ile başlama
-8. Tırnak işareti ("") kullanma, tweet metnini direkt yaz
-9. SORU İLE BİTİRME - "Sizce?", "Siz ne düşünüyorsunuz?", "Denediniz mi?" gibi CTA soruları YASAK. Güçlü ifade veya cesur tahminle bitir.
+8. Tırnak işareti kullanma, tweet metnini direkt yaz
+9. SORU İLE BİTİRME YASAK - "Sizce?", "Denediniz mi?" gibi CTA soruları YASAK
 """
 
-        # Inject training data from tweet analyses
-        # Limit training context to prevent exceeding API token limits
-        if self.training_context:
-            # For styles that already have detailed examples (tolga_kisisel),
-            # use a shorter training context to avoid token overflow
-            max_training_chars = 4000 if style == "tolga_kisisel" else 8000
-            tc = self.training_context
-            if len(tc) > max_training_chars:
-                tc = tc[:max_training_chars] + "\n\n[Eğitim verisi uzunluk limiti nedeniyle kısaltıldı]"
-            prompt += f"""
-{tc}
-"""
-
-        # Final safety: hard-cap total prompt length (~30K chars ≈ ~8K tokens)
-        MAX_PROMPT_CHARS = 30000
+        # Final safety: hard-cap total prompt length (~35K chars ≈ ~9K tokens)
+        MAX_PROMPT_CHARS = 35000
         if len(prompt) > MAX_PROMPT_CHARS:
             prompt = prompt[:MAX_PROMPT_CHARS] + "\n\n[Prompt uzunluk limiti nedeniyle kısaltıldı]"
 
@@ -986,14 +944,14 @@ Sadece tweet metnini yaz, başka bir şey yazma. Tırnak işareti kullanma."""
         length_inst = length_map.get(length, length_map["orta"])
 
         # Build system prompt
-        persona = self.custom_persona or """Sen Türk teknoloji/AI topluluğunda içerik üreten bir yazarsın.
-X (Twitter) için uzun form içerikler yazıyorsun — kişisel deneyimler, analizler, eğitici paylaşımlar.
-Amacın takipçilerin için DEĞER üretmek — bilgi vermek, deneyim paylaşmak, yol göstermek.
-Yazım tarzın samimi, gerçek ve filtresiz. Robot gibi değil, insan gibi yazarsın."""
+        persona = self.custom_persona or BASE_SYSTEM_PROMPT
 
         training_block = ""
         if self.training_context:
-            training_block = f"\n\n## EĞİTİM VERİSİ (bu yazarın gerçek tweet analizi):\n{self.training_context}"
+            tc = self.training_context
+            if len(tc) > 10000:
+                tc = tc[:10000] + "\n\n[Eğitim verisi uzunluk limiti nedeniyle kısaltıldı]"
+            training_block = f"\n\n{tc}\n\nKRİTİK: Yukarıdaki eğitim verisi senin YAZIM DNA'n. İçerik tarzı ne olursa olsun (deneyim, eğitici, analiz vb.) bu DNA'daki tonu, kelimeleri ve doğallığı koru."
 
         samples_block = ""
         if user_samples:

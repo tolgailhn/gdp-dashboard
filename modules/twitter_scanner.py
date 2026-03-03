@@ -45,17 +45,43 @@ class AITopic:
             return f"{int(hours / 24)} gün önce"
 
 
-# Default important AI accounts to monitor
-DEFAULT_AI_ACCOUNTS = [
-    "OpenAI", "AnthropicAI", "GoogleDeepMind", "xai", "MetaAI",
-    "MistralAI", "huggingface", "nvidia", "GoogleAI",
-    "stabilityai", "RunwayML",
-    "perplexity_ai", "sama", "elonmusk", "karpathy",
-    "ylecun", "demishassabis", "DarioAmodei",
-    "DrJimFan",
-    "hardmaru", "swyx", "bindureddy",
-    "Alibaba_Qwen",
-]
+# Default important AI accounts to monitor (categorized)
+# 1. xAI / Grok Odaklı (hızlı beta + leak)
+# 2. Ana AI Beta & Leak Avcıları
+# 3. Teknik Derinlik + Yeni Model
+# 4. Resmi Büyük Oyuncular
+# 5. Niche / Open-Source / Indie
+# 6. Bonus (büyük isimler + niche paper paylaşımları)
+
+DEFAULT_AI_ACCOUNTS_CATEGORIZED = {
+    "xAI / Grok": [
+        "XFreeze", "xai", "grok",
+    ],
+    "Beta & Leak Avcıları": [
+        "testingcatalog", "rowancheung", "MatthewBerman",
+        "adrgrondin", "bentossell",
+    ],
+    "Teknik Derinlik": [
+        "karpathy", "twominutepapers", "goodside",
+        "OfficialLoganK", "mattshumer_",
+    ],
+    "Resmi Büyük Oyuncular": [
+        "OpenAI", "AnthropicAI", "GoogleDeepMind",
+        "NVIDIAAI", "HuggingFace", "perplexity_ai",
+    ],
+    "Niche / Open-Source": [
+        "Thom_Wolf", "jeremyphoward", "AIHighlight",
+        "soumithchintala",
+    ],
+    "Bonus": [
+        "sama", "ylecun", "demishassabis",
+    ],
+}
+
+# Flat list for backward compatibility
+DEFAULT_AI_ACCOUNTS = []
+for _accounts in DEFAULT_AI_ACCOUNTS_CATEGORIZED.values():
+    DEFAULT_AI_ACCOUNTS.extend(_accounts)
 
 # AI-related search queries
 AI_SEARCH_QUERIES = [

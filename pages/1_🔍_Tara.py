@@ -5,7 +5,7 @@ X/Twitter'da AI gelişmelerini tarar ve listeler
 import streamlit as st
 import datetime
 from modules.ui_components import inject_custom_css, check_password, render_tweet_card, get_secret, render_sidebar_nav
-from modules.twitter_scanner import TwitterScanner, DEFAULT_AI_ACCOUNTS
+from modules.twitter_scanner import TwitterScanner, DEFAULT_AI_ACCOUNTS, DEFAULT_AI_ACCOUNTS_CATEGORIZED
 from modules.style_manager import load_monitored_accounts
 
 # Page config
@@ -219,26 +219,56 @@ elif "scan_results" in st.session_state:
     st.info("Arama kriterlerine uygun sonuç bulunamadı. Filtreleri değiştirmeyi deneyin.")
 
 else:
-    # Show monitored accounts
+    # Show monitored accounts by category
     st.markdown("### 👀 İzlenen AI Hesapları")
     st.markdown("Tarama başlatıldığında bu hesaplar kontrol edilecek:")
 
+    category_icons = {
+        "xAI / Grok": "⚡",
+        "Beta & Leak Avcıları": "🔍",
+        "Teknik Derinlik": "🧠",
+        "Resmi Büyük Oyuncular": "🏢",
+        "Niche / Open-Source": "🌱",
+        "Bonus": "⭐",
+    }
+
+    for cat_name, cat_accounts in DEFAULT_AI_ACCOUNTS_CATEGORIZED.items():
+        icon = category_icons.get(cat_name, "📌")
+        st.markdown(f"""
+        <div style="margin:16px 0 8px 0; font-size:14px; font-weight:600; color:#8899a6;">
+            {icon} {cat_name}
+        </div>
+        """, unsafe_allow_html=True)
+        cols = st.columns(min(len(cat_accounts), 4))
+        for i, account in enumerate(cat_accounts):
+            with cols[i % len(cols)]:
+                st.markdown(f"""
+                <div style="background:#1a1a2e; border:1px solid #2a2a4a; border-radius:8px;
+                            padding:8px 12px; margin:4px 0; font-size:13px;">
+                    <span style="color:#1DA1F2;">@{account}</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # Show custom accounts if any
     custom_accounts = load_monitored_accounts()
-    all_accounts = DEFAULT_AI_ACCOUNTS + custom_accounts
+    if custom_accounts:
+        st.markdown(f"""
+        <div style="margin:16px 0 8px 0; font-size:14px; font-weight:600; color:#8899a6;">
+            📌 Özel Hesaplar
+        </div>
+        """, unsafe_allow_html=True)
+        cols = st.columns(4)
+        for i, account in enumerate(custom_accounts):
+            with cols[i % 4]:
+                st.markdown(f"""
+                <div style="background:#1a1a2e; border:1px solid #2a2a4a; border-radius:8px;
+                            padding:8px 12px; margin:4px 0; font-size:13px;">
+                    <span style="color:#1DA1F2;">@{account}</span>
+                </div>
+                """, unsafe_allow_html=True)
 
-    # Display in columns
-    cols = st.columns(4)
-    for i, account in enumerate(all_accounts[:24]):
-        with cols[i % 4]:
-            st.markdown(f"""
-            <div style="background:#1a1a2e; border:1px solid #2a2a4a; border-radius:8px;
-                        padding:8px 12px; margin:4px 0; font-size:13px;">
-                <span style="color:#1DA1F2;">@{account}</span>
-            </div>
-            """, unsafe_allow_html=True)
-
-    if len(all_accounts) > 24:
-        st.caption(f"...ve {len(all_accounts) - 24} hesap daha")
+    total = len(DEFAULT_AI_ACCOUNTS) + len(custom_accounts)
+    st.caption(f"Toplam {total} hesap izleniyor")
 
     st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
 

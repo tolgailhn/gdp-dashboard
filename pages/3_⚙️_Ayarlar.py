@@ -7,7 +7,7 @@ import json
 from modules.ui_components import inject_custom_css, check_password, get_secret, render_sidebar_nav
 from modules.content_generator import ContentGenerator
 from modules.tweet_publisher import TweetPublisher
-from modules.twitter_scanner import DEFAULT_AI_ACCOUNTS
+from modules.twitter_scanner import DEFAULT_AI_ACCOUNTS, DEFAULT_AI_ACCOUNTS_CATEGORIZED
 from modules.style_manager import (
     load_user_samples, save_user_samples,
     load_custom_persona, save_custom_persona,
@@ -521,15 +521,25 @@ with tab3:
     st.markdown("### İzlenen AI Hesapları")
     st.markdown("Bu hesaplar tarama sırasında otomatik kontrol edilir.")
 
-    # Default accounts
+    # Default accounts by category
     st.markdown("**Varsayılan Hesaplar:**")
-    cols = st.columns(4)
-    for i, account in enumerate(DEFAULT_AI_ACCOUNTS[:20]):
-        with cols[i % 4]:
-            st.markdown(f"`@{account}`")
+    category_icons = {
+        "xAI / Grok": "⚡",
+        "Beta & Leak Avcıları": "🔍",
+        "Teknik Derinlik": "🧠",
+        "Resmi Büyük Oyuncular": "🏢",
+        "Niche / Open-Source": "🌱",
+        "Bonus": "⭐",
+    }
+    for cat_name, cat_accounts in DEFAULT_AI_ACCOUNTS_CATEGORIZED.items():
+        icon = category_icons.get(cat_name, "📌")
+        st.markdown(f"**{icon} {cat_name}**")
+        cols = st.columns(min(len(cat_accounts), 4))
+        for i, account in enumerate(cat_accounts):
+            with cols[i % len(cols)]:
+                st.markdown(f"`@{account}`")
 
-    if len(DEFAULT_AI_ACCOUNTS) > 20:
-        st.caption(f"...ve {len(DEFAULT_AI_ACCOUNTS) - 20} hesap daha")
+    st.caption(f"Toplam {len(DEFAULT_AI_ACCOUNTS)} varsayılan hesap")
 
     st.markdown("---")
 

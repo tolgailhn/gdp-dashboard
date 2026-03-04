@@ -819,7 +819,7 @@ if generate_clicked or regenerate_clicked:
 
     # Load training data from tweet analyses (session_state first, then files)
     analyses = load_all_analyses(session_state=st.session_state)
-    training_context = build_training_context(analyses) if analyses else ""
+    training_context = build_training_context(analyses, topic=topic_text) if analyses else ""
 
     with st.spinner("Tweet üretiliyor... 🤖"):
         try:
@@ -1190,7 +1190,7 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
                     model = st.session_state.get("ai_model_openai", "gpt-4o")
 
                 _rw_analyses = load_all_analyses(session_state=st.session_state)
-                _rw_training = build_training_context(_rw_analyses) if _rw_analyses else ""
+                _rw_training = build_training_context(_rw_analyses, topic=topic_text) if _rw_analyses else ""
                 _rw_persona = load_custom_persona()
                 generator = ContentGenerator(
                     provider=ai_provider, api_key=api_key, model=model,

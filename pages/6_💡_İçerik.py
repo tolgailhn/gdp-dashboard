@@ -312,7 +312,7 @@ with tab1:
                     user_samples = load_user_samples()
                     custom_persona = load_custom_persona()
                     _analyses = load_all_analyses(session_state=st.session_state)
-                    _training_context = build_training_context(_analyses) if _analyses else ""
+                    _training_context = build_training_context(_analyses, topic=sel_title) if _analyses else ""
                     generator = ContentGenerator(
                         provider=ai_provider,
                         api_key=ai_api_key,
@@ -581,7 +581,7 @@ with tab2:
                 user_samples = load_user_samples()
                 custom_persona = load_custom_persona()
                 _analyses = load_all_analyses(session_state=st.session_state)
-                _training_context = build_training_context(_analyses) if _analyses else ""
+                _training_context = build_training_context(_analyses, topic=topic) if _analyses else ""
                 generator = ContentGenerator(
                     provider=ai_provider,
                     api_key=ai_api_key,

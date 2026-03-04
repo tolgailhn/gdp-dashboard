@@ -14,6 +14,10 @@ from modules.style_manager import (
     load_monitored_accounts, save_monitored_accounts,
     load_post_history
 )
+from modules.tweet_pool import (
+    load_pool, save_pool, load_pool_accounts, save_pool_accounts,
+    add_tweets_to_pool, get_pool_stats, bulk_fetch_accounts,
+)
 
 # Page config
 st.set_page_config(
@@ -40,11 +44,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Tabs ---
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "🔑 API Anahtarları",
     "👤 X Hesap Bilgileri",
     "👀 İzlenen Hesaplar",
     "✍️ Yazım Tarzı",
+    "🏊 Tweet Havuzu",
     "📊 Geçmiş",
     "🔄 Güncelleme"
 ])
@@ -769,9 +774,176 @@ with tab4:
 
 
 # ===================
-# TAB 5: History
+# TAB 5: Tweet Havuzu
 # ===================
 with tab5:
+    st.markdown("### Tweet Havuzu Yönetimi")
+    st.markdown("""
+    Birden fazla hesaptan yüksek etkileşimli tweet'leri otomatik çekip biriktir.
+    Bu havuz, tweet yazarken AI'a çeşitli örnekler sunar. Tweet'ler hiçbir zaman silinmez, sadece birikir.
+    """)
+
+    # --- Hesap Listesi ---
+    st.markdown("#### Kaynak Hesaplar")
+    st.markdown("Tweet'leri çekilecek hesapları virgülle ayırarak girin.")
+
+    pool_accounts = load_pool_accounts()
+
+    accounts_input = st.text_area(
+        "Hesap listesi",
+        value=", ".join(pool_accounts) if pool_accounts else "",
+        placeholder="hrrcnes, elonmusk, hesap3, hesap4",
+        height=80,
+        key="pool_accounts_input",
+        help="@ işareti olmadan, virgülle ayırarak yazın"
+    )
+
+    col_save, col_clear = st.columns(2)
+    with col_save:
+        if st.button("💾 Hesap Listesini Kaydet", use_container_width=True, type="primary"):
+            if accounts_input.strip():
+                new_accounts = [a.strip().lstrip("@").lower()
+                               for a in accounts_input.split(",") if a.strip()]
+                save_pool_accounts(new_accounts)
+                st.success(f"{len(new_accounts)} hesap kaydedildi!")
+                st.rerun()
+            else:
+                st.warning("En az bir hesap girin!")
+
+    with col_clear:
+        if st.button("🗑️ Listeyi Temizle", use_container_width=True):
+            save_pool_accounts([])
+            st.success("Hesap listesi temizlendi!")
+            st.rerun()
+
+    st.markdown("---")
+
+    # --- Engagement Eşiği ---
+    st.markdown("#### Çekme Ayarları")
+    col_eng, col_count = st.columns(2)
+    with col_eng:
+        min_engagement = st.slider(
+            "Min Engagement Skoru",
+            min_value=0, max_value=1000, value=100, step=10,
+            help="Bu skorun altındaki tweet'ler havuza eklenmez. RT=20x, Reply=13.5x, Like=1x",
+            key="pool_min_engagement"
+        )
+    with col_count:
+        tweet_count = st.slider(
+            "Hesap başına çekilecek tweet",
+            min_value=50, max_value=1000, value=500, step=50,
+            help="Her hesaptan kaç tweet çekilsin",
+            key="pool_tweet_count"
+        )
+
+    # --- Çekme Butonu ---
+    pool_accounts_current = load_pool_accounts()
+    if pool_accounts_current:
+        st.markdown(f"**{len(pool_accounts_current)} hesaptan tweet çekilecek:** {', '.join(f'@{a}' for a in pool_accounts_current)}")
+
+        if st.button("🚀 Tweet'leri Çek ve Havuza Ekle", type="primary", use_container_width=True,
+                      key="fetch_pool_tweets"):
+            # Twikit client oluştur
+            twikit_user = get_secret("twikit_username", "")
+            twikit_pass = get_secret("twikit_password", "")
+            twikit_email = get_secret("twikit_email", "")
+            twikit_totp = get_secret("twikit_totp_secret", "")
+
+            if not twikit_user or not twikit_pass:
+                st.error("Twikit kullanıcı bilgileri eksik! API Anahtarları sekmesinden ayarlayın.")
+            else:
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+
+                def progress_callback(msg):
+                    status_text.markdown(f"⏳ {msg}")
+
+                with st.spinner("Tweet'ler çekiliyor..."):
+                    try:
+                        from modules.twikit_client import TwikitSearchClient
+                        tc = TwikitSearchClient(
+                            twikit_user, twikit_pass, twikit_email,
+                            totp_secret=twikit_totp
+                        )
+
+                        if not tc.authenticate():
+                            st.error("Twikit giriş başarısız! Cookie veya şifre kontrol edin.")
+                        else:
+                            results = bulk_fetch_accounts(
+                                twikit_client=tc,
+                                accounts=pool_accounts_current,
+                                min_engagement=min_engagement,
+                                tweet_count=tweet_count,
+                                progress_callback=progress_callback,
+                            )
+
+                            # Sonuçları göster
+                            total_added = 0
+                            for i, r in enumerate(results):
+                                progress_bar.progress((i + 1) / len(results))
+                                if r.get("error"):
+                                    st.warning(f"@{r['username']}: Hata — {r['error']}")
+                                else:
+                                    total_added += r["added"]
+                                    st.success(
+                                        f"@{r['username']}: {r['fetched']} tweet çekildi, "
+                                        f"**{r['added']} eklendi**, {r['skipped']} atlandı"
+                                    )
+
+                            status_text.empty()
+                            st.markdown(f"### Toplam **{total_added}** yeni tweet havuza eklendi!")
+
+                    except Exception as e:
+                        st.error(f"Beklenmeyen hata: {e}")
+    else:
+        st.info("Önce yukarıdan hesap listesi ekleyin, sonra tweet'leri çekebilirsiniz.")
+
+    st.markdown("---")
+
+    # --- Havuz İstatistikleri ---
+    st.markdown("#### Havuz İstatistikleri")
+    pool_data = load_pool()
+    stats = get_pool_stats(pool_data)
+
+    if stats["total_tweets"] > 0:
+        col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+        with col_s1:
+            st.metric("Toplam Tweet", f"{stats['total_tweets']:,}")
+        with col_s2:
+            st.metric("Hesap Sayısı", stats["accounts_count"])
+        with col_s3:
+            st.metric("Ort. Engagement", f"{stats['avg_engagement']:,.0f}")
+        with col_s4:
+            st.metric("Max Engagement", f"{stats['max_engagement']:,.0f}")
+
+        # Hesap bazlı dağılım
+        if stats.get("authors"):
+            st.markdown("**Hesap bazlı dağılım:**")
+            for author, count in sorted(stats["authors"].items(), key=lambda x: x[1], reverse=True):
+                st.markdown(f"- @{author}: **{count}** tweet")
+
+        # Son güncelleme
+        if pool_data.get("last_updated"):
+            st.caption(f"Son güncelleme: {pool_data['last_updated'][:19]}")
+
+        # Havuz önizleme
+        with st.expander(f"Havuz Önizleme (ilk 10 tweet)"):
+            for t in pool_data["pool"][:10]:
+                st.markdown(f"""
+                <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.06);
+                            border-radius:8px; padding:8px 12px; margin:4px 0; font-size:13px; color:#f1f5f9;">
+                    <b>@{t['author']}</b> — Skor: {t['engagement_score']:,.0f}<br>
+                    {t['text'][:200]}{'...' if len(t['text']) > 200 else ''}
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.info("Havuz henüz boş. Yukarıdan hesap ekleyip tweet'leri çekin!")
+
+
+# ===================
+# TAB 6: History
+# ===================
+with tab6:
     st.markdown("### Paylaşım Geçmişi")
 
     history = load_post_history()
@@ -812,9 +984,9 @@ with tab5:
 
 
 # ===================
-# TAB 6: Update
+# TAB 7: Update
 # ===================
-with tab6:
+with tab7:
     st.markdown("### Uygulama Güncelleme")
     st.markdown("""
     GitHub'daki son değişiklikleri çekip uygulamayı yeniden başlatır.

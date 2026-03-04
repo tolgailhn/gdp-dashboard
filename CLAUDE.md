@@ -41,6 +41,7 @@ modules/
   style_manager.py            → JSON dosya yöneticisi (taslaklar, geçmiş, kişiler)
   ui_components.py            → Streamlit UI bileşenleri, CSS, sidebar, auth
   media_finder.py             → Görsel/video arama: X + DuckDuckGo image search
+  tweet_pool.py               → Tweet havuzu: çoklu hesaptan tweet biriktirme, akıllı seçim
 ```
 
 ### Modüller Arası Bağımlılıklar
@@ -56,6 +57,8 @@ deep_research → DDG + BeautifulSoup (web arama/makale çekme)
 grok_client → OpenAI SDK (xAI base_url ile)
 content_generator → anthropic / openai SDK (+ vision desteği)
 media_finder → twikit_client (X arama) + duckduckgo_search (web görsel)
+tweet_pool → tweet_analyzer (tweet çekme + engagement hesaplama)
+Pages → tweet_pool (havuz yönetimi, akıllı seçim)
 ```
 
 ### AI Provider Sıralaması
@@ -121,6 +124,13 @@ MiniMax (öncelikli) → Anthropic Claude → OpenAI GPT. `get_ai_client()` bu s
 ---
 
 ## Değişiklik Günlüğü
+
+### 2026-03-04 (Tweet Havuzu Sistemi)
+- **feat**: `tweet_pool.py` — Yeni modül: çoklu hesaptan tweet biriktirme, engagement filtresi, akıllı seçim
+- **feat**: Akıllı seçim: konuya uygun 50 örnek + rastgele karışım (her seferinde farklı kombinasyon)
+- **feat**: `pages/3_⚙️_Ayarlar.py` — Tweet Havuzu tab'ı: hesap listesi, engagement eşiği, toplu çekme, istatistikler
+- **feat**: `build_training_context()` — topic parametresi, havuz entegrasyonu (havuz varsa havuzdan, yoksa fallback)
+- **feat**: `content_generator.py` — max_training_chars 10K → 25K (50 tweet desteği)
 
 ### 2026-03-04
 - **feat**: DuckDuckGo paralel arama (ThreadPoolExecutor) — web, haber, makale çekme paralel

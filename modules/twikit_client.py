@@ -299,20 +299,21 @@ class TwikitSearchClient:
 
     def _tweet_to_dict(self, tweet) -> dict:
         """Convert a twikit Tweet object to a standardized dict."""
-        # Parse datetime
+        # Parse datetime — try property first, then standard Twitter format
         created_at = None
         try:
             created_at = tweet.created_at_datetime
         except Exception:
-            pass
-
+            raw_date = getattr(tweet, 'created_at', None)
+            if raw_date and isinstance(raw_date, str):
+                for fmt in ("%a %b %d %H:%M:%S %z %Y", "%Y-%m-%dT%H:%M:%S.%fZ"):
+                    try:
+                        created_at = datetime.datetime.strptime(raw_date, fmt)
+                        break
+                    except ValueError:
+                        continue
         if not created_at:
-            try:
-                created_at = datetime.datetime.strptime(
-                    tweet.created_at, "%a %b %d %H:%M:%S %z %Y"
-                )
-            except Exception:
-                created_at = datetime.datetime.now(datetime.timezone.utc)
+            created_at = datetime.datetime.now(datetime.timezone.utc)
 
         if created_at and created_at.tzinfo is None:
             created_at = created_at.replace(tzinfo=datetime.timezone.utc)

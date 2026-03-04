@@ -151,7 +151,7 @@ Return ONLY the JSON array, no other text."""},
     _track_cost(result["input_tokens"], result["output_tokens"])
 
     raw = re.sub(r'<think>.*?</think>', '', result["text"], flags=re.DOTALL).strip()
-    json_match = re.search(r'\[.*\]', raw, re.DOTALL)
+    json_match = re.search(r'\[.*?\]', raw, re.DOTALL)
     if json_match:
         try:
             results = json.loads(json_match.group())
@@ -192,7 +192,7 @@ Return ONLY the JSON array, no other text."""},
     _track_cost(result["input_tokens"], result["output_tokens"])
 
     raw = re.sub(r'<think>.*?</think>', '', result["text"], flags=re.DOTALL).strip()
-    json_match = re.search(r'\[.*\]', raw, re.DOTALL)
+    json_match = re.search(r'\[.*?\]', raw, re.DOTALL)
     if json_match:
         try:
             results = json.loads(json_match.group())
@@ -369,7 +369,7 @@ yeni model çıkışları, önemli güncellemeler. Genel kategori isimleri DEĞ�
 
     # Parse JSON response
     raw = re.sub(r'<think>.*?</think>', '', result["text"], flags=re.DOTALL).strip()
-    json_match = re.search(r'\[.*\]', raw, re.DOTALL)
+    json_match = re.search(r'\[.*?\]', raw, re.DOTALL)
     if json_match:
         try:
             return json.loads(json_match.group())
@@ -510,3 +510,9 @@ def get_grok_cost() -> float:
 def get_grok_call_count() -> int:
     """Get current session's Grok API call count."""
     return st.session_state.get("grok_call_count", 0)
+
+
+def reset_grok_cost():
+    """Reset Grok usage cost and call count for the current session."""
+    st.session_state["grok_usage_cost"] = 0.0
+    st.session_state["grok_call_count"] = 0

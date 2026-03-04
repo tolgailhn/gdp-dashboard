@@ -10,24 +10,26 @@ from modules.ui_components import inject_custom_css, check_password, render_stat
 from modules.style_manager import load_post_history, load_draft_tweets
 
 # --- Auto-update: Her baslatmada GitHub'dan son halini cek ---
+# Bu ozellik sadece ENABLE_AUTO_UPDATE=true ise calisir (Streamlit Cloud icin)
 if "auto_updated" not in st.session_state:
     st.session_state.auto_updated = True
-    try:
-        project_dir = str(Path(__file__).parent)
-        result = subprocess.run(
-            ["git", "pull", "origin", "main"],
-            cwd=project_dir,
-            capture_output=True, text=True, timeout=15,
-        )
-        if "Already up to date" not in result.stdout:
-            # Yeni bagimlilik varsa kur
-            subprocess.run(
-                ["pip", "install", "-r", "requirements.txt", "--quiet"],
+    import os
+    if os.environ.get("ENABLE_AUTO_UPDATE", "").lower() == "true":
+        try:
+            project_dir = str(Path(__file__).parent)
+            result = subprocess.run(
+                ["git", "pull", "origin", "main"],
                 cwd=project_dir,
-                capture_output=True, timeout=60,
+                capture_output=True, text=True, timeout=15,
             )
-    except Exception:
-        pass  # Offline veya git yoksa sessizce gec
+            if "Already up to date" not in result.stdout:
+                subprocess.run(
+                    ["pip", "install", "-r", "requirements.txt", "--quiet"],
+                    cwd=project_dir,
+                    capture_output=True, timeout=60,
+                )
+        except Exception:
+            pass  # Offline veya git yoksa sessizce gec
 
 # Page config
 st.set_page_config(

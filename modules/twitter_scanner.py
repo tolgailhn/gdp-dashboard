@@ -45,8 +45,9 @@ class AITopic:
 
     @property
     def engagement_score(self) -> float:
-        return (self.like_count * 1 + self.retweet_count * 2 +
-                self.reply_count * 1.5)
+        # X algorithm weights: RT=20x, Reply=13.5x, Like=1x
+        return (self.like_count * 1 + self.retweet_count * 20 +
+                self.reply_count * 13.5)
 
     @property
     def total_engagement(self) -> int:
@@ -445,10 +446,14 @@ def categorize_topic(text: str) -> str:
     return best_category
 
 
+# Pre-computed lowercase set for fast membership checks
+_DEFAULT_AI_ACCOUNTS_LOWER = frozenset(a.lower() for a in DEFAULT_AI_ACCOUNTS)
+
+
 def calculate_relevance(topic: AITopic, time_range_hours: int) -> float:
     """Calculate relevance score based on engagement, recency, and content"""
-    # Engagement component (0-40 points)
-    engagement = min(40, (topic.engagement_score / 100) * 40)
+    # Engagement component (0-40 points) — adjusted for X algorithm weights
+    engagement = min(40, (topic.engagement_score / 1000) * 40)
 
     # Recency component (0-30 points)
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -464,7 +469,7 @@ def calculate_relevance(topic: AITopic, time_range_hours: int) -> float:
         quality += 10
     if "http" in text or "pic.twitter" in text:
         quality += 5
-    if topic.author_username.lower() in [a.lower() for a in DEFAULT_AI_ACCOUNTS]:
+    if topic.author_username.lower() in _DEFAULT_AI_ACCOUNTS_LOWER:
         quality += 5
 
     return engagement + recency + quality

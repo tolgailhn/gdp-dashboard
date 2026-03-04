@@ -64,11 +64,22 @@ def get_ai_client():
 def get_scanner():
     """Try to initialize X scanner for topic discovery."""
     try:
-        from modules.x_scanner import XScanner
-        cookies = get_secret("x_cookies", get_secret("X_COOKIES", ""))
-        if not cookies:
+        from modules.twitter_scanner import TwitterScanner
+
+        bearer_token = get_secret("twitter_bearer_token", "")
+        twikit_username = get_secret("twikit_username", "")
+        twikit_password = get_secret("twikit_password", "")
+        twikit_email = get_secret("twikit_email", "")
+
+        if not bearer_token and not twikit_username:
             return None
-        scanner = XScanner(cookies)
+
+        scanner = TwitterScanner(
+            bearer_token=bearer_token,
+            twikit_username=twikit_username,
+            twikit_password=twikit_password,
+            twikit_email=twikit_email,
+        )
         return scanner
     except Exception:
         return None

@@ -4,6 +4,7 @@ Manages writing style profiles, sample tweets, and custom personas
 """
 import json
 import os
+import datetime
 from pathlib import Path
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -105,7 +106,6 @@ def save_draft_tweets(drafts: list[dict]):
 
 def add_draft(text: str, topic: str = "", style: str = ""):
     """Add a draft tweet"""
-    import datetime
     drafts = load_draft_tweets()
     drafts.insert(0, {
         "text": text,
@@ -130,7 +130,6 @@ def save_follower_suggestions(username: str, followers: list[dict]):
     path = DATA_DIR / "follower_suggestions.json"
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    import datetime
     existing = load_all_follower_suggestions()
     existing[username.lower()] = {
         "username": username,

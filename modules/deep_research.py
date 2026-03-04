@@ -2542,7 +2542,7 @@ def research_topic_from_text(
             if progress_callback:
                 progress_callback(f"Makale okunuyor ({fetched + 1})...")
             article = fetch_article_content(url)
-            if article and article["content"] and len(article["content"]) > 200:
+            if article and article.get("content") and len(article["content"]) > 200:
                 result.deep_articles.append(article)
                 fetched += 1
 

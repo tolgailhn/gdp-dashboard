@@ -64,7 +64,8 @@ class TelegramNotifier:
                 "Araştırma": "📄", "Benchmark": "📊",
                 "Açık Kaynak": "🔓", "API/Platform": "⚙️",
                 "AI Ajanlar": "🤖", "Görüntü/Video": "🎨",
-                "Endüstri": "💼",
+                "Endüstri": "💼", "GitHub/Repo": "💻",
+                "AI Araçlar": "🛠️", "Donanım": "🖥️", "Genel": "📌",
             }.get(getattr(topic, 'category', ''), "📌")
 
             author = getattr(topic, 'author_username', '?')

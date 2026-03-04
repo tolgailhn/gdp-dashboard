@@ -1045,6 +1045,10 @@ def render_grok_cost_indicator():
             <div style="color:#f1f5f9; font-size:13px;">${cost:.3f} · {calls} çağrı</div>
         </div>
         """, unsafe_allow_html=True)
+        if st.button("Sıfırla", key="grok_cost_reset", type="secondary"):
+            from modules.grok_client import reset_grok_cost
+            reset_grok_cost()
+            st.rerun()
 
 
 def render_sidebar_nav(current_page: str = ""):

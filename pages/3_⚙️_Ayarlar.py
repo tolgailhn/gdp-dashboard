@@ -818,65 +818,187 @@ with tab6:
     st.markdown("### Uygulama Güncelleme")
     st.markdown("""
     GitHub'daki son değişiklikleri çekip uygulamayı yeniden başlatır.
-    Streamlit Cloud'daki **Reboot** butonuyla aynı işi yapar.
     """)
 
     import subprocess
     from pathlib import Path
 
-    # Mevcut versiyon bilgisi
+    project_dir = str(Path(__file__).parent.parent)
+
+    # --- Mevcut durum bilgisi ---
     try:
-        project_dir = str(Path(__file__).parent.parent)
+        # Mevcut branch
+        branch_result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=project_dir, capture_output=True, text=True, timeout=5,
+        )
+        current_branch = branch_result.stdout.strip() if branch_result.returncode == 0 else "bilinmiyor"
+
+        # Son commit
         git_log = subprocess.run(
             ["git", "log", "--oneline", "-5"],
             cwd=project_dir, capture_output=True, text=True, timeout=5,
         )
+
+        # Remote'da yeni commit var mı kontrol et
+        subprocess.run(
+            ["git", "fetch", "origin", current_branch],
+            cwd=project_dir, capture_output=True, text=True, timeout=15,
+        )
+        behind_result = subprocess.run(
+            ["git", "rev-list", "--count", f"HEAD..origin/{current_branch}"],
+            cwd=project_dir, capture_output=True, text=True, timeout=5,
+        )
+        behind_count = int(behind_result.stdout.strip()) if behind_result.returncode == 0 else 0
+
+        # Durum kartları
+        col_s1, col_s2, col_s3 = st.columns(3)
+        with col_s1:
+            st.markdown(f"""
+            <div class="stat-box">
+                <div class="stat-number" style="font-size:16px;">🌿 {current_branch}</div>
+                <div class="stat-label">Aktif Branch</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col_s2:
+            if behind_count > 0:
+                st.markdown(f"""
+                <div class="stat-box" style="border-color: rgba(251, 191, 36, 0.3);">
+                    <div class="stat-number" style="font-size:22px; background: linear-gradient(135deg, #fbbf24, #f59e0b); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">{behind_count}</div>
+                    <div class="stat-label">Yeni Güncelleme</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="stat-box">
+                    <div class="stat-number" style="font-size:18px;">✅</div>
+                    <div class="stat-label">Güncel</div>
+                </div>
+                """, unsafe_allow_html=True)
+        with col_s3:
+            st.markdown(f"""
+            <div class="stat-box">
+                <div class="stat-number" style="font-size:16px;">🖥️ NSSM</div>
+                <div class="stat-label">Servis Yönetimi</div>
+            </div>
+            """, unsafe_allow_html=True)
+
         if git_log.returncode == 0:
-            st.markdown("**Son güncellemeler:**")
-            st.code(git_log.stdout.strip(), language="text")
+            with st.expander("Son 5 Commit", expanded=False):
+                st.code(git_log.stdout.strip(), language="text")
+
     except Exception:
-        pass
+        current_branch = "main"
+        behind_count = 0
 
     st.markdown("---")
 
-    col_up1, col_up2 = st.columns(2)
+    # --- Güncelleme butonları ---
+    col_up1, col_up2, col_up3 = st.columns(3)
 
     with col_up1:
-        if st.button("🔄 Güncelle ve Yeniden Başlat", type="primary", use_container_width=True):
-            with st.spinner("GitHub'dan güncelleniyor..."):
-                try:
-                    result = subprocess.run(
-                        ["git", "pull", "origin", "main"],
-                        cwd=project_dir,
-                        capture_output=True, text=True, timeout=30,
-                    )
-
-                    if result.returncode == 0:
-                        if "Already up to date" in result.stdout:
-                            st.info("Zaten güncel! Değişiklik yok.")
-                        else:
-                            # Yeni bagimlilik varsa kur
-                            subprocess.run(
-                                ["pip", "install", "-r", "requirements.txt", "--quiet"],
-                                cwd=project_dir,
-                                capture_output=True, timeout=60,
-                            )
-                            st.success("Güncelleme tamamlandı! Sayfa yeniden yükleniyor...")
-                            st.rerun()
-                    else:
-                        st.error(f"Git hatası: {result.stderr}")
-
-                except subprocess.TimeoutExpired:
-                    st.error("Güncelleme zaman aşımına uğradı. İnternet bağlantınızı kontrol edin.")
-                except Exception as e:
-                    st.error(f"Güncelleme hatası: {e}")
+        update_btn = st.button(
+            "📥 Güncellemeleri Çek",
+            type="primary" if behind_count > 0 else "secondary",
+            use_container_width=True,
+            help="GitHub'dan son değişiklikleri indirir (git pull)"
+        )
 
     with col_up2:
-        if st.button("🔃 Sayfayı Yeniden Yükle", use_container_width=True):
-            st.rerun()
+        restart_btn = st.button(
+            "🔄 Servisi Yeniden Başlat",
+            use_container_width=True,
+            help="NSSM ile Streamlit servisini restart eder"
+        )
+
+    with col_up3:
+        update_restart_btn = st.button(
+            "⚡ Güncelle + Restart",
+            type="primary",
+            use_container_width=True,
+            help="Güncellemeleri çeker, bağımlılıkları kurar ve servisi yeniden başlatır"
+        )
+
+    # --- Güncelleme işlemi ---
+    if update_btn or update_restart_btn:
+        with st.spinner("GitHub'dan güncelleniyor..."):
+            try:
+                result = subprocess.run(
+                    ["git", "pull", "origin", current_branch],
+                    cwd=project_dir,
+                    capture_output=True, text=True, timeout=30,
+                )
+
+                if result.returncode == 0:
+                    if "Already up to date" in result.stdout:
+                        st.info("Zaten güncel! Değişiklik yok.")
+                    else:
+                        st.success("Güncelleme indirildi!")
+                        # Değişenleri göster
+                        st.code(result.stdout.strip(), language="text")
+
+                        # Bağımlılıkları güncelle
+                        with st.spinner("Bağımlılıklar kontrol ediliyor..."):
+                            pip_result = subprocess.run(
+                                ["pip", "install", "-r", "requirements.txt", "--quiet"],
+                                cwd=project_dir,
+                                capture_output=True, text=True, timeout=120,
+                            )
+                            if pip_result.returncode == 0:
+                                st.success("Bağımlılıklar güncellendi!")
+                            else:
+                                st.warning(f"Bağımlılık uyarısı: {pip_result.stderr[:200]}")
+
+                        # Eğer "Güncelle + Restart" basıldıysa servisi restart et
+                        if update_restart_btn:
+                            st.info("Servis yeniden başlatılıyor... Sayfa birkaç saniye içinde yeniden yüklenecek.")
+                            try:
+                                subprocess.Popen(
+                                    ["nssm", "restart", "Streamlit"],
+                                    cwd=project_dir,
+                                    creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0,
+                                )
+                            except FileNotFoundError:
+                                # nssm PATH'te değilse tam yolu dene
+                                try:
+                                    subprocess.Popen(
+                                        [r"C:\nssm\nssm-2.24\win64\nssm.exe", "restart", "Streamlit"],
+                                    )
+                                except Exception as e:
+                                    st.error(f"NSSM bulunamadı: {e}")
+                                    st.code("C:\\nssm\\nssm-2.24\\win64\\nssm.exe restart Streamlit", language="powershell")
+                        else:
+                            st.info("Değişikliklerin etkili olması için servisi yeniden başlatın.")
+                else:
+                    st.error(f"Git hatası: {result.stderr}")
+
+            except subprocess.TimeoutExpired:
+                st.error("Güncelleme zaman aşımına uğradı. İnternet bağlantınızı kontrol edin.")
+            except Exception as e:
+                st.error(f"Güncelleme hatası: {e}")
+
+    # --- Sadece restart ---
+    if restart_btn and not update_restart_btn:
+        st.info("Servis yeniden başlatılıyor... Sayfa birkaç saniye içinde yeniden yüklenecek.")
+        try:
+            subprocess.Popen(
+                ["nssm", "restart", "Streamlit"],
+                cwd=project_dir,
+                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0,
+            )
+        except FileNotFoundError:
+            try:
+                subprocess.Popen(
+                    [r"C:\nssm\nssm-2.24\win64\nssm.exe", "restart", "Streamlit"],
+                )
+            except Exception as e:
+                st.error(f"NSSM bulunamadı: {e}")
+                st.code("C:\\nssm\\nssm-2.24\\win64\\nssm.exe restart Streamlit", language="powershell")
 
     st.markdown("---")
-    st.markdown("""
-    **Not:** Uygulama her başlatıldığında GitHub'dan otomatik güncellenir.
-    Bu buton sadece uygulama açıkken yeni güncelleme geldiğinde kullanılır.
+    st.markdown(f"""
+    **Bilgi:**
+    - Güncellemeler `origin/{current_branch}` branch'ından çekilir
+    - "Servisi Yeniden Başlat" NSSM ile Streamlit'i restart eder
+    - Sayfa birkaç saniye içinde otomatik yeniden yüklenir
     """)

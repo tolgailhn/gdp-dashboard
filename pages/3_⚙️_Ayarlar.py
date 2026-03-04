@@ -919,12 +919,39 @@ with tab6:
             help="Güncellemeleri çeker, bağımlılıkları kurar ve servisi yeniden başlatır"
         )
 
+    # --- Helper: NSSM restart ---
+    def _nssm_restart():
+        """NSSM ile Streamlit servisini restart et."""
+        try:
+            subprocess.Popen(
+                ["nssm", "restart", "Streamlit"],
+                cwd=project_dir,
+                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0,
+            )
+            return True
+        except FileNotFoundError:
+            try:
+                subprocess.Popen(
+                    [r"C:\nssm\nssm-2.24\win64\nssm.exe", "restart", "Streamlit"],
+                )
+                return True
+            except Exception as e:
+                st.error(f"NSSM bulunamadı: {e}")
+                st.code("C:\\nssm\\nssm-2.24\\win64\\nssm.exe restart Streamlit", language="powershell")
+                return False
+
     # --- Güncelleme işlemi ---
     if update_btn or update_restart_btn:
         with st.spinner("GitHub'dan güncelleniyor..."):
             try:
+                # git pull with inline config (sunucuda git config olmasa bile çalışır)
                 result = subprocess.run(
-                    ["git", "pull", "--ff-only", "origin", current_branch],
+                    [
+                        "git",
+                        "-c", "user.email=dashboard@update",
+                        "-c", "user.name=Dashboard",
+                        "pull", "--ff-only", "origin", current_branch,
+                    ],
                     cwd=project_dir,
                     capture_output=True, text=True, timeout=30,
                 )
@@ -934,7 +961,6 @@ with tab6:
                         st.info("Zaten güncel! Değişiklik yok.")
                     else:
                         st.success("Güncelleme indirildi!")
-                        # Değişenleri göster
                         st.code(result.stdout.strip(), language="text")
 
                         # Bağımlılıkları güncelle
@@ -949,28 +975,37 @@ with tab6:
                             else:
                                 st.warning(f"Bağımlılık uyarısı: {pip_result.stderr[:200]}")
 
-                        # Eğer "Güncelle + Restart" basıldıysa servisi restart et
                         if update_restart_btn:
-                            st.info("Servis yeniden başlatılıyor... Sayfa birkaç saniye içinde yeniden yüklenecek.")
-                            try:
-                                subprocess.Popen(
-                                    ["nssm", "restart", "Streamlit"],
-                                    cwd=project_dir,
-                                    creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0,
-                                )
-                            except FileNotFoundError:
-                                # nssm PATH'te değilse tam yolu dene
-                                try:
-                                    subprocess.Popen(
-                                        [r"C:\nssm\nssm-2.24\win64\nssm.exe", "restart", "Streamlit"],
-                                    )
-                                except Exception as e:
-                                    st.error(f"NSSM bulunamadı: {e}")
-                                    st.code("C:\\nssm\\nssm-2.24\\win64\\nssm.exe restart Streamlit", language="powershell")
+                            st.info("Servis yeniden başlatılıyor...")
+                            _nssm_restart()
                         else:
                             st.info("Değişikliklerin etkili olması için servisi yeniden başlatın.")
                 else:
-                    st.error(f"Git hatası: {result.stderr}")
+                    # ff-only başarısız → lokal değişiklik var, reset dene
+                    if "Not possible to fast-forward" in result.stderr or "fatal" in result.stderr:
+                        st.warning("Lokal değişiklik tespit edildi. Sıfırlanıp güncelleniyor...")
+                        reset_result = subprocess.run(
+                            ["git", "reset", "--hard", f"origin/{current_branch}"],
+                            cwd=project_dir,
+                            capture_output=True, text=True, timeout=15,
+                        )
+                        if reset_result.returncode == 0:
+                            st.success("Güncelleme tamamlandı! (reset + pull)")
+                            # Bağımlılıkları güncelle
+                            subprocess.run(
+                                ["pip", "install", "-r", "requirements.txt", "--quiet"],
+                                cwd=project_dir,
+                                capture_output=True, text=True, timeout=120,
+                            )
+                            if update_restart_btn:
+                                st.info("Servis yeniden başlatılıyor...")
+                                _nssm_restart()
+                            else:
+                                st.info("Servisi yeniden başlatın.")
+                        else:
+                            st.error(f"Reset hatası: {reset_result.stderr}")
+                    else:
+                        st.error(f"Git hatası: {result.stderr}")
 
             except subprocess.TimeoutExpired:
                 st.error("Güncelleme zaman aşımına uğradı. İnternet bağlantınızı kontrol edin.")
@@ -980,20 +1015,7 @@ with tab6:
     # --- Sadece restart ---
     if restart_btn and not update_restart_btn:
         st.info("Servis yeniden başlatılıyor... Sayfa birkaç saniye içinde yeniden yüklenecek.")
-        try:
-            subprocess.Popen(
-                ["nssm", "restart", "Streamlit"],
-                cwd=project_dir,
-                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0,
-            )
-        except FileNotFoundError:
-            try:
-                subprocess.Popen(
-                    [r"C:\nssm\nssm-2.24\win64\nssm.exe", "restart", "Streamlit"],
-                )
-            except Exception as e:
-                st.error(f"NSSM bulunamadı: {e}")
-                st.code("C:\\nssm\\nssm-2.24\\win64\\nssm.exe restart Streamlit", language="powershell")
+        _nssm_restart()
 
     st.markdown("---")
     st.markdown(f"""

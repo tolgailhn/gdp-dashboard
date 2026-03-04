@@ -1264,7 +1264,6 @@ def render_sidebar_nav(current_page: str = ""):
             ("✍️ Yaz", "pages/2_✍️_Yaz.py", "yaz"),
             ("💡 İçerik", "pages/6_💡_İçerik.py", "icerik"),
             ("📊 Analiz", "pages/4_📊_Analiz.py", "analiz"),
-            ("👥 Takipçiler", "pages/5_👥_Takipçiler.py", "takipci"),
             ("⚙️ Ayarlar", "pages/3_⚙️_Ayarlar.py", "ayarlar"),
             ("📅 Takvim", "pages/7_📅_Takvim.py", "takvim"),
         ]

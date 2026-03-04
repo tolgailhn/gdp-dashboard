@@ -1,13 +1,15 @@
 """
-Tweet Analiz Sayfasi
-Herhangi bir hesabin son tweet'lerini cekip engagement analizi yapar.
-Analiz sonuclari tweet yaziminda AI egitim verisi olarak kullanilir.
+Analiz & Takipci Sayfasi
+- Tweet analizi: hesaplarin tweet'lerini cekip engagement analizi yapar
+- Takipci kesfi: benzer hesaplarin onayli takipcilerini bul
+- Tweet havuzu: coklu hesaptan tweet biriktir
 
 Streamlit Cloud uyumlulugu:
 - Veriler hem dosya sistemine hem session_state'e kaydedilir
-- Export/Import ile analiz verileri indirilebilir ve geri yuklenebilir
+- Export/Import ile veriler indirilebilir ve geri yuklenebilir
 """
 import json
+import datetime
 import streamlit as st
 import openai as _openai
 import anthropic as _anthropic
@@ -18,6 +20,10 @@ from modules.tweet_analyzer import (
     save_tweet_analysis, load_all_analyses,
     delete_tweet_analysis, build_training_context,
     export_all_analyses, import_analyses_from_json
+)
+from modules.tweet_pool import (
+    load_pool, load_pool_accounts, save_pool_accounts,
+    get_pool_stats, bulk_fetch_accounts,
 )
 
 # Page config
@@ -39,10 +45,143 @@ render_sidebar_nav(current_page="analiz")
 st.markdown("""
 <div class="page-header">
     <span class="page-icon">📊</span>
-    <h1>Tweet Analizi</h1>
-    <p>Hesapların tweet'lerini çek, engagement analizi yap, AI'ı eğit</p>
+    <h1>Analiz & Keşif</h1>
+    <p>Tweet analizi, takipçi keşfi, tweet havuzu — hepsi tek yerde</p>
 </div>
 """, unsafe_allow_html=True)
+
+
+# --- Follower helper functions ---
+def _save_followers(username: str, followers: list[dict]):
+    """Save to both session_state and file."""
+    data = {
+        "username": username,
+        "fetched_at": datetime.datetime.now().isoformat(),
+        "followers": followers,
+    }
+    if "follower_suggestions" not in st.session_state:
+        st.session_state["follower_suggestions"] = {}
+    st.session_state["follower_suggestions"][username.lower()] = data
+    try:
+        from modules.style_manager import save_follower_suggestions
+        save_follower_suggestions(username, followers)
+    except Exception:
+        pass
+
+
+def _load_all_followers() -> dict:
+    """Load from session_state first, then files."""
+    result = {}
+    try:
+        from modules.style_manager import load_all_follower_suggestions
+        result = load_all_follower_suggestions()
+    except Exception:
+        pass
+    ss = st.session_state.get("follower_suggestions", {})
+    result.update(ss)
+    if result:
+        st.session_state["follower_suggestions"] = result
+    return result
+
+
+def _delete_followers(username: str):
+    """Delete from both session_state and file."""
+    ss = st.session_state.get("follower_suggestions", {})
+    if username.lower() in ss:
+        del ss[username.lower()]
+    try:
+        from modules.style_manager import delete_follower_suggestions
+        delete_follower_suggestions(username)
+    except Exception:
+        pass
+
+
+def _export_followers_json() -> str:
+    """Export all follower data as JSON."""
+    data = _load_all_followers()
+    return json.dumps({
+        "type": "follower_suggestions_export",
+        "exported_at": datetime.datetime.now().isoformat(),
+        "suggestions": data,
+    }, ensure_ascii=False, indent=2)
+
+
+def _import_followers_json(json_str: str) -> int:
+    """Import follower data from JSON. Returns count."""
+    try:
+        data = json.loads(json_str)
+    except json.JSONDecodeError:
+        return 0
+    suggestions = data.get("suggestions", {})
+    if not suggestions:
+        return 0
+    if "follower_suggestions" not in st.session_state:
+        st.session_state["follower_suggestions"] = {}
+    count = 0
+    for key, value in suggestions.items():
+        st.session_state["follower_suggestions"][key] = value
+        try:
+            from modules.style_manager import save_follower_suggestions
+            save_follower_suggestions(value.get("username", key), value.get("followers", []))
+        except Exception:
+            pass
+        count += 1
+    return count
+
+
+def _display_followers(followers: list[dict], source_username: str):
+    """Display follower list with profile links."""
+    verified_count = sum(1 for f in followers if f.get("is_blue_verified"))
+    total_followers_of_followers = sum(f.get("followers_count", 0) for f in followers)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Toplam", len(followers))
+    with col2:
+        st.metric("Onayli", verified_count)
+    with col3:
+        avg_followers = total_followers_of_followers // max(len(followers), 1)
+        st.metric("Ort. Takipci", f"{avg_followers:,}")
+
+    sort_by = st.selectbox(
+        "Sirala",
+        options=["followers_count", "name"],
+        format_func=lambda x: {"followers_count": "Takipci sayisina gore", "name": "Isme gore"}[x],
+        key=f"sort_{source_username}"
+    )
+
+    sorted_followers = sorted(followers, key=lambda f: f.get(sort_by, 0),
+                              reverse=(sort_by == "followers_count"))
+
+    for i, f in enumerate(sorted_followers):
+        name = f.get("name", "?")
+        uname = f.get("username", "?")
+        bio = f.get("bio", "")[:120]
+        f_count = f.get("followers_count", 0)
+        is_verified = f.get("is_blue_verified", False)
+        profile_url = f"https://x.com/{uname}"
+        verified_badge = ' <span style="color:#a5b4fc;">✓</span>' if is_verified else ""
+
+        st.markdown(f"""
+        <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.06); border-radius:8px;
+                    padding:10px 14px; margin:4px 0; display:flex; justify-content:space-between; align-items:center;">
+            <div style="flex:1;">
+                <div>
+                    <span style="color:#f1f5f9; font-weight:bold; font-size:14px;">{name}</span>{verified_badge}
+                    <span style="color:#94a3b8; font-size:13px;"> @{uname}</span>
+                </div>
+                <div style="color:#94a3b8; font-size:12px; margin-top:2px;">{bio}</div>
+                <div style="color:#94a3b8; font-size:11px; margin-top:2px;">👥 {f_count:,} takipci</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.link_button(
+            f"@{uname} Profilini Ac",
+            profile_url,
+            use_container_width=False,
+            key=f"follow_{source_username}_{i}_{uname}"
+        )
 
 def _display_analysis(username: str, analysis: dict, ai_report: str = ""):
     """Display analysis results in a structured format."""
@@ -204,7 +343,13 @@ def _display_analysis(username: str, analysis: dict, ai_report: str = ""):
 
 
 # --- Tabs ---
-tab1, tab2, tab3 = st.tabs(["🔍 Yeni Analiz", "📁 Kayitli Analizler", "💾 Disa/Iceri Aktar"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "🔍 Yeni Analiz",
+    "📁 Kayitli Analizler",
+    "👥 Takipci Kesfi",
+    "🏊 Tweet Havuzu",
+    "💾 Disa/Iceri Aktar",
+])
 
 # ===================
 # TAB 1: New Analysis
@@ -384,9 +529,300 @@ with tab2:
 
 
 # ===================
-# TAB 3: Export / Import
+# TAB 3: Takipci Kesfi
 # ===================
 with tab3:
+    st.markdown("### Onayli Takipci Kesfet")
+    st.markdown("""
+    <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:12px;
+                padding:16px; margin-bottom:16px;">
+        <div style="color:#a5b4fc; font-weight:bold; font-size:16px;">Nasil Calisiyor?</div>
+        <div style="color:#94a3b8; font-size:13px; margin-top:4px;">
+            1. Senin nisindeki bir hesabin kullanici adini gir<br>
+            2. O hesabin onayli (mavi tikli) takipcilerini cekeriz<br>
+            3. Listeden profillerine tikla ve manuel takip et<br>
+            4. Geri takip ederlerse onayli takipci sayin artar<br>
+            <br>
+            <strong>⚠️ Otomatik takip YOK</strong> — ban riski yuzunden. Sen tikla, sen takip et.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    _tw_user = get_secret("twikit_username", "")
+    _tw_pass = get_secret("twikit_password", "")
+    _tw_email = get_secret("twikit_email", "")
+
+    if not _tw_user or not _tw_pass:
+        st.error("Twikit yapilandirilmamis! Ayarlar sayfasindan Twikit kullanici adi ve sifre ekleyin.")
+    else:
+        st.markdown("#### Hedef Hesap")
+
+        target_username = st.text_input(
+            "Twitter kullanici adi",
+            placeholder="ornek: AnthropicAI veya sama (@ olmadan)",
+            key="target_follower_username"
+        )
+
+        fcol1, fcol2 = st.columns(2)
+        with fcol1:
+            follower_limit = st.slider("Maks takipci sayisi", 50, 500, 200, step=50, key="follower_limit")
+        with fcol2:
+            verified_only = st.checkbox("Sadece onayli (mavi tikli)", value=True, key="verified_only")
+
+        fetch_clicked = st.button(
+            "👥 Takipci Cek",
+            type="primary",
+            use_container_width=True,
+            disabled=not target_username.strip(),
+            key="fetch_followers_btn"
+        )
+
+        if fetch_clicked:
+            username = target_username.strip().lstrip("@")
+
+            with st.spinner("Twikit ile giris yapiliyor..."):
+                _twikit = TwikitSearchClient(_tw_user, _tw_pass, _tw_email)
+                if not _twikit.authenticate():
+                    st.error("Twikit giris basarisiz!")
+                    st.stop()
+
+            progress = st.empty()
+            progress.caption(f"@{username} bilgileri aliniyor...")
+
+            user_info = _twikit.get_user_info(username)
+            if not user_info:
+                st.error(f"@{username} bulunamadi. Kullanici adi dogru mu?")
+                st.stop()
+
+            st.markdown(f"""
+            <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(99,102,241,0.2); border-radius:12px;
+                        padding:16px; margin:12px 0;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div>
+                        <span style="color:#f1f5f9; font-weight:bold; font-size:16px;">{user_info['name']}</span>
+                        <span style="color:#a5b4fc; font-size:14px;"> @{user_info['username']}</span>
+                        {"<span style='color:#a5b4fc;'> ✓</span>" if user_info.get('is_blue_verified') else ""}
+                    </div>
+                </div>
+                <div style="color:#94a3b8; font-size:13px; margin-top:6px;">{user_info.get('bio', '')[:200]}</div>
+                <div style="color:#94a3b8; font-size:12px; margin-top:8px;">
+                    👥 {user_info.get('followers_count', 0):,} takipci |
+                    👤 {user_info.get('following_count', 0):,} takip |
+                    📝 {user_info.get('tweet_count', 0):,} tweet
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            with st.spinner(f"@{username} takipcileri cekiliyor... Bu biraz zaman alabilir."):
+                followers = _twikit.get_user_followers(
+                    username, limit=follower_limit,
+                    verified_only=verified_only,
+                    progress_callback=lambda msg: progress.caption(msg)
+                )
+
+            progress.empty()
+
+            if not followers:
+                if verified_only:
+                    st.warning(f"@{username} hesabinda onayli takipci bulunamadi. "
+                              f"'Sadece onayli' secenegini kapatip tekrar deneyin.")
+                else:
+                    st.warning(f"@{username} takipcileri cekilemedi.")
+            else:
+                _save_followers(username, followers)
+                st.success(f"{len(followers)} {'onayli ' if verified_only else ''}takipci bulundu ve kaydedildi!")
+                _display_followers(followers, username)
+
+    # --- Kayitli Takipci Listeleri ---
+    st.markdown("---")
+    st.markdown("#### Kayitli Takipci Listeleri")
+
+    all_suggestions = _load_all_followers()
+
+    if not all_suggestions:
+        st.info("Henuz kayitli takipci listesi yok. Yukaridan bir hesap girerek baslayin.")
+    else:
+        for key, data in all_suggestions.items():
+            f_username = data.get("username", key)
+            fetched_at = data.get("fetched_at", "?")[:16]
+            followers_list = data.get("followers", [])
+
+            with st.expander(f"@{f_username} — {len(followers_list)} takipci ({fetched_at})"):
+                _display_followers(followers_list, f_username)
+
+                if st.button(f"🗑️ @{f_username} Listesini Sil", key=f"del_followers_{f_username}"):
+                    _delete_followers(f_username)
+                    st.success(f"@{f_username} listesi silindi!")
+                    st.rerun()
+
+
+# ===================
+# TAB 4: Tweet Havuzu
+# ===================
+with tab4:
+    st.markdown("### Tweet Havuzu Yönetimi")
+    st.markdown("""
+    Birden fazla hesaptan yüksek etkileşimli tweet'leri otomatik çekip biriktir.
+    Bu havuz, tweet yazarken AI'a çeşitli örnekler sunar. Tweet'ler hiçbir zaman silinmez, sadece birikir.
+    """)
+
+    # --- Hesap Listesi ---
+    st.markdown("#### Kaynak Hesaplar")
+    st.markdown("Tweet'leri çekilecek hesapları virgülle ayırarak girin.")
+
+    pool_accounts = load_pool_accounts()
+
+    accounts_input = st.text_area(
+        "Hesap listesi",
+        value=", ".join(pool_accounts) if pool_accounts else "",
+        placeholder="hrrcnes, elonmusk, hesap3, hesap4",
+        height=80,
+        key="pool_accounts_input",
+        help="@ işareti olmadan, virgülle ayırarak yazın"
+    )
+
+    col_save, col_clear = st.columns(2)
+    with col_save:
+        if st.button("💾 Hesap Listesini Kaydet", use_container_width=True, type="primary",
+                      key="pool_save_accounts"):
+            if accounts_input.strip():
+                new_accounts = [a.strip().lstrip("@").lower()
+                               for a in accounts_input.split(",") if a.strip()]
+                save_pool_accounts(new_accounts)
+                st.success(f"{len(new_accounts)} hesap kaydedildi!")
+                st.rerun()
+            else:
+                st.warning("En az bir hesap girin!")
+
+    with col_clear:
+        if st.button("🗑️ Listeyi Temizle", use_container_width=True, key="pool_clear_accounts"):
+            save_pool_accounts([])
+            st.success("Hesap listesi temizlendi!")
+            st.rerun()
+
+    st.markdown("---")
+
+    # --- Engagement Eşiği ---
+    st.markdown("#### Çekme Ayarları")
+    col_eng, col_count = st.columns(2)
+    with col_eng:
+        pool_min_engagement = st.slider(
+            "Min Engagement Skoru",
+            min_value=0, max_value=1000, value=100, step=10,
+            help="Bu skorun altındaki tweet'ler havuza eklenmez. RT=20x, Reply=13.5x, Like=1x",
+            key="pool_min_engagement"
+        )
+    with col_count:
+        pool_tweet_count = st.slider(
+            "Hesap başına çekilecek tweet",
+            min_value=50, max_value=1000, value=500, step=50,
+            help="Her hesaptan kaç tweet çekilsin",
+            key="pool_tweet_count"
+        )
+
+    # --- Çekme Butonu ---
+    pool_accounts_current = load_pool_accounts()
+    if pool_accounts_current:
+        st.markdown(f"**{len(pool_accounts_current)} hesaptan tweet çekilecek:** "
+                    f"{', '.join(f'@{a}' for a in pool_accounts_current)}")
+
+        if st.button("🚀 Tweet'leri Çek ve Havuza Ekle", type="primary", use_container_width=True,
+                      key="fetch_pool_tweets"):
+            _pw_user = get_secret("twikit_username", "")
+            _pw_pass = get_secret("twikit_password", "")
+            _pw_email = get_secret("twikit_email", "")
+            _pw_totp = get_secret("twikit_totp_secret", "")
+
+            if not _pw_user or not _pw_pass:
+                st.error("Twikit kullanıcı bilgileri eksik! Ayarlar sayfasından Twikit bilgilerini girin.")
+            else:
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+
+                def pool_progress_callback(msg):
+                    status_text.markdown(f"⏳ {msg}")
+
+                with st.spinner("Tweet'ler çekiliyor..."):
+                    try:
+                        tc = TwikitSearchClient(
+                            _pw_user, _pw_pass, _pw_email,
+                            totp_secret=_pw_totp
+                        )
+
+                        if not tc.authenticate():
+                            st.error("Twikit giriş başarısız! Cookie veya şifre kontrol edin.")
+                        else:
+                            results = bulk_fetch_accounts(
+                                twikit_client=tc,
+                                accounts=pool_accounts_current,
+                                min_engagement=pool_min_engagement,
+                                tweet_count=pool_tweet_count,
+                                progress_callback=pool_progress_callback,
+                            )
+
+                            total_added = 0
+                            for i, r in enumerate(results):
+                                progress_bar.progress((i + 1) / len(results))
+                                if r.get("error"):
+                                    st.warning(f"@{r['username']}: Hata — {r['error']}")
+                                else:
+                                    total_added += r["added"]
+                                    st.success(
+                                        f"@{r['username']}: {r['fetched']} tweet çekildi, "
+                                        f"**{r['added']} eklendi**, {r['skipped']} atlandı"
+                                    )
+
+                            status_text.empty()
+                            st.markdown(f"### Toplam **{total_added}** yeni tweet havuza eklendi!")
+
+                    except Exception as e:
+                        st.error(f"Beklenmeyen hata: {e}")
+    else:
+        st.info("Önce yukarıdan hesap listesi ekleyin, sonra tweet'leri çekebilirsiniz.")
+
+    st.markdown("---")
+
+    # --- Havuz İstatistikleri ---
+    st.markdown("#### Havuz İstatistikleri")
+    pool_data = load_pool()
+    stats = get_pool_stats(pool_data)
+
+    if stats["total_tweets"] > 0:
+        col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+        with col_s1:
+            st.metric("Toplam Tweet", f"{stats['total_tweets']:,}")
+        with col_s2:
+            st.metric("Hesap Sayısı", stats["accounts_count"])
+        with col_s3:
+            st.metric("Ort. Engagement", f"{stats['avg_engagement']:,.0f}")
+        with col_s4:
+            st.metric("Max Engagement", f"{stats['max_engagement']:,.0f}")
+
+        if stats.get("authors"):
+            st.markdown("**Hesap bazlı dağılım:**")
+            for author, count in sorted(stats["authors"].items(), key=lambda x: x[1], reverse=True):
+                st.markdown(f"- @{author}: **{count}** tweet")
+
+        if pool_data.get("last_updated"):
+            st.caption(f"Son güncelleme: {pool_data['last_updated'][:19]}")
+
+        with st.expander("Havuz Önizleme (ilk 10 tweet)"):
+            for t in pool_data["pool"][:10]:
+                st.markdown(f"""
+                <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.06);
+                            border-radius:8px; padding:8px 12px; margin:4px 0; font-size:13px; color:#f1f5f9;">
+                    <b>@{t['author']}</b> — Skor: {t['engagement_score']:,.0f}<br>
+                    {t['text'][:200]}{'...' if len(t['text']) > 200 else ''}
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.info("Havuz henüz boş. Yukarıdan hesap ekleyip tweet'leri çekin!")
+
+
+# ===================
+# TAB 5: Export / Import
+# ===================
+with tab5:
     st.markdown("### Disa / Iceri Aktar")
 
     st.markdown("""
@@ -456,5 +892,61 @@ with tab3:
                         st.rerun()
                 else:
                     st.error("Gecersiz dosya formati. 'Tumunu Indir' ile alinan dosyayi kullanin.")
+            except Exception as e:
+                st.error(f"Dosya okuma hatasi: {e}")
+
+    # --- Takipci Verileri ---
+    st.markdown("---")
+    st.markdown("### Takipci Verileri")
+
+    col_fexp, col_fimp = st.columns(2)
+
+    with col_fexp:
+        st.markdown("#### 📤 Takipci Listesi Indir")
+
+        current_followers = _load_all_followers()
+        if current_followers:
+            total_f = sum(len(d.get("followers", [])) for d in current_followers.values())
+            st.info(f"{len(current_followers)} liste, toplam {total_f} takipci")
+
+            fexport_json = _export_followers_json()
+            st.download_button(
+                label="📥 Takipci Listesini Indir (JSON)",
+                data=fexport_json,
+                file_name="follower_suggestions_export.json",
+                mime="application/json",
+                use_container_width=True,
+                type="primary",
+                key="export_followers_btn"
+            )
+        else:
+            st.warning("Indirilecek takipci listesi yok.")
+
+    with col_fimp:
+        st.markdown("#### 📥 Takipci Listesi Yukle")
+
+        uploaded_f_file = st.file_uploader(
+            "Onceki takipci dosyasini yukleyin",
+            type=["json"],
+            key="import_followers_file"
+        )
+
+        if uploaded_f_file:
+            try:
+                f_json_str = uploaded_f_file.read().decode("utf-8")
+                preview = json.loads(f_json_str)
+                suggestions = preview.get("suggestions", {})
+
+                if suggestions:
+                    total_f = sum(len(d.get("followers", [])) for d in suggestions.values())
+                    st.info(f"Dosyada {len(suggestions)} liste, toplam {total_f} takipci")
+
+                    if st.button("✅ Takipci Listesini Iceri Aktar", type="primary",
+                                 use_container_width=True, key="import_followers_btn"):
+                        fcount = _import_followers_json(f_json_str)
+                        st.success(f"{fcount} liste yuklendi!")
+                        st.rerun()
+                else:
+                    st.error("Gecersiz dosya formati.")
             except Exception as e:
                 st.error(f"Dosya okuma hatasi: {e}")

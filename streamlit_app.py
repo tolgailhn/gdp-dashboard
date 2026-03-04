@@ -206,7 +206,7 @@ with col5:
     </div>
     """, unsafe_allow_html=True)
     if st.button("Takipçi", key="followers_btn", use_container_width=True):
-        st.switch_page("pages/5_👥_Takipçiler.py")
+        st.switch_page("pages/4_📊_Analiz.py")
 
 with col6:
     st.markdown("""
@@ -284,7 +284,7 @@ with st.expander("📖 Nasıl Kullanılır?"):
     - Hesap tweet'lerini çekip analiz edin
     - AI bu verilerle daha iyi tweet yazar
 
-    **5. Takipçi Keşfi** (👥 Takipçiler)
+    **5. Takipçi Keşfi** (📊 Analiz → Takipci Kesfi)
     - Nişinizdeki hesapların takipçilerini keşfedin
     """)
 

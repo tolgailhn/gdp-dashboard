@@ -157,3 +157,82 @@ def delete_follower_suggestions(username: str):
         path = DATA_DIR / "follower_suggestions.json"
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+# --- Posting Schedule & Log ---
+
+def load_posting_log() -> list[dict]:
+    """Load posting schedule log (all daily records)"""
+    path = DATA_DIR / "posting_log.json"
+    if path.exists():
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
+
+def save_posting_log(log: list[dict]):
+    """Save posting schedule log"""
+    path = DATA_DIR / "posting_log.json"
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(log, f, ensure_ascii=False, indent=2)
+
+
+def log_scheduled_post(slot_time: str, post_type: str, content: str = "",
+                       has_media: bool = False, self_reply: bool = False,
+                       tweet_url: str = ""):
+    """Log a post for a specific schedule slot"""
+    log = load_posting_log()
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
+
+    entry = {
+        "date": today,
+        "slot_time": slot_time,
+        "post_type": post_type,
+        "content": content[:280] if content else "",
+        "has_media": has_media,
+        "self_reply": self_reply,
+        "tweet_url": tweet_url,
+        "logged_at": datetime.datetime.now().isoformat(),
+    }
+
+    log.insert(0, entry)
+    log = log[:500]  # Keep last 500 entries
+    save_posting_log(log)
+    return entry
+
+
+def load_daily_checklist(date_str: str = "") -> dict:
+    """Load daily algorithm checklist completion"""
+    path = DATA_DIR / "daily_checklists.json"
+    if not date_str:
+        date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+    if path.exists():
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data.get(date_str, {})
+    return {}
+
+
+def save_daily_checklist(checklist: dict, date_str: str = ""):
+    """Save daily algorithm checklist"""
+    path = DATA_DIR / "daily_checklists.json"
+    os.makedirs(DATA_DIR, exist_ok=True)
+    if not date_str:
+        date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+
+    data = {}
+    if path.exists():
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+    data[date_str] = checklist
+
+    # Keep last 90 days
+    if len(data) > 90:
+        sorted_dates = sorted(data.keys())
+        for old_date in sorted_dates[:-90]:
+            del data[old_date]
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)

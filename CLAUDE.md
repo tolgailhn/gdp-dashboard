@@ -28,6 +28,7 @@ pages/
   4_📊_Analiz.py             → Hesap analizi (stil öğrenme)
   5_👥_Takipçiler.py         → Takipçi keşfi
   6_💡_İçerik.py             → Uzun içerik üretimi + konu keşfi
+  7_📅_Takvim.py             → Günlük posting takvimi, log, algoritma checklist
 modules/
   twitter_scanner.py          → TwitterScanner sınıfı, AI konu keşfi
   content_generator.py        → ContentGenerator, tweet/thread üretimi (Claude/OpenAI/MiniMax)
@@ -143,3 +144,12 @@ MiniMax (öncelikli) → Anthropic Claude → OpenAI GPT. `get_ai_client()` bu s
 - **feat**: `pages/2_✍️_Yaz.py` — Tweet üretildikten sonra "Görsel/Video Bul" bölümü
 - **feat**: `pages/6_💡_İçerik.py` — İçerik üretildikten sonra "Görsel/Video Bul" bölümü (her iki tab)
 - **feat**: `ui_components.py:render_tweet_card` — Tweet kartında medya göstergesi (🖼️ badge)
+
+### 2026-03-04 (Posting Takvimi)
+- **feat**: `pages/7_📅_Takvim.py` — Günlük 4 post takvimi (hafta içi/sonu ayrı saatler)
+- **feat**: Geri sayım sayacı, slot durumu (paylaşıldı/bekliyor/ŞİMDİ)
+- **feat**: Post kayıt sistemi (tür, medya, self-reply, URL, içerik)
+- **feat**: Günlük algoritma checklist (6 madde, kalıcı kayıt)
+- **feat**: Haftalık özet (post sayısı, medya oranı, self-reply oranı, tür dağılımı)
+- **feat**: `style_manager.py` — `load_posting_log()`, `save_posting_log()`, `log_scheduled_post()`, `load_daily_checklist()`, `save_daily_checklist()`
+- **feat**: `streamlit_app.py` — Ana sayfada "Bugünkü Plan" özet kartı + geri sayım

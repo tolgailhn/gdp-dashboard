@@ -7,7 +7,7 @@ import datetime
 import subprocess
 from pathlib import Path
 from modules.ui_components import inject_custom_css, check_password, render_stat_box, get_secret, render_sidebar_nav
-from modules.style_manager import load_post_history, load_draft_tweets
+from modules.style_manager import load_post_history, load_draft_tweets, load_posting_log
 
 # --- Auto-update: Her baslatmada GitHub'dan son halini cek ---
 # Bu ozellik sadece ENABLE_AUTO_UPDATE=true ise calisir (Streamlit Cloud icin)
@@ -80,6 +80,59 @@ with col3:
     render_stat_box(str(today_posts), "Bugün")
 with col4:
     render_stat_box(f"{api_dot}", api_label)
+
+# --- Today's Schedule Mini ---
+posting_log = load_posting_log()
+today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+today_schedule_logs = [e for e in posting_log if e.get("date") == today_str]
+posted_slots = {e["slot_time"] for e in today_schedule_logs}
+
+is_weekend = datetime.datetime.now().weekday() >= 5
+slots_today = [
+    ("10:00" if is_weekend else "09:00", "☀️"),
+    ("13:30" if is_weekend else "13:00", "🍽️"),
+    ("17:30" if is_weekend else "17:00", "🚶"),
+    ("21:30" if is_weekend else "21:00", "🌙"),
+]
+
+# Find next slot
+now = datetime.datetime.now()
+next_slot_info = ""
+for slot_time, _ in slots_today:
+    h, m = map(int, slot_time.split(":"))
+    slot_dt = now.replace(hour=h, minute=m, second=0)
+    if slot_dt > now and slot_time not in posted_slots:
+        diff = slot_dt - now
+        hours = diff.seconds // 3600
+        mins = (diff.seconds % 3600) // 60
+        next_slot_info = f"Sonraki: {slot_time} ({hours}s {mins}dk)" if hours > 0 else f"Sonraki: {slot_time} ({mins}dk)"
+        break
+
+slot_indicators = ""
+for slot_time, icon in slots_today:
+    if slot_time in posted_slots:
+        slot_indicators += f'<span style="margin-right:8px;">{icon} <span style="color:#22c55e;">✅</span></span>'
+    else:
+        slot_indicators += f'<span style="margin-right:8px;">{icon} <span style="color:#64748b;">⏳</span></span>'
+
+st.markdown(f"""
+<div class="glass-card" style="border-left: 4px solid #6366f1; cursor: pointer;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div>
+            <span style="font-size: 20px;">📅</span>
+            <strong style="margin-left: 8px;">Bugünkü Plan</strong>
+            <span style="color: var(--text-secondary); margin-left: 12px;">{len(today_schedule_logs)}/4 post</span>
+        </div>
+        <div style="font-size: 13px; color: #a5b4fc;">{next_slot_info}</div>
+    </div>
+    <div style="margin-top: 10px; font-size: 16px;">
+        {slot_indicators}
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+if st.button("📅 Takvime Git", key="schedule_btn", use_container_width=True):
+    st.switch_page("pages/7_📅_Takvim.py")
 
 # --- Section: Quick Actions ---
 st.markdown("""

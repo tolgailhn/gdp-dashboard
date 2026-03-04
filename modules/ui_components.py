@@ -1072,6 +1072,7 @@ def render_sidebar_nav(current_page: str = ""):
             ("📊 Analiz", "pages/4_📊_Analiz.py", "analiz"),
             ("👥 Takipçiler", "pages/5_👥_Takipçiler.py", "takipci"),
             ("⚙️ Ayarlar", "pages/3_⚙️_Ayarlar.py", "ayarlar"),
+            ("📅 Takvim", "pages/7_📅_Takvim.py", "takvim"),
         ]
 
         for label, path, key in pages:
@@ -1111,6 +1112,7 @@ def render_sidebar_nav(current_page: str = ""):
         ("💡", "İçerik", "pages/6_💡_İçerik.py", "icerik"),
         ("📊", "Analiz", "pages/4_📊_Analiz.py", "analiz"),
         ("⚙️", "Ayar", "pages/3_⚙️_Ayarlar.py", "ayarlar"),
+        ("📅", "Takvim", "pages/7_📅_Takvim.py", "takvim"),
     ]
 
     nav_links = ""

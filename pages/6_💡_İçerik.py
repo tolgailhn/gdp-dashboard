@@ -8,7 +8,8 @@ from urllib.parse import quote as url_quote
 from modules.ui_components import (inject_custom_css, check_password,
                                    get_secret, render_sidebar_nav,
                                    render_research_engine_toggle, render_agentic_mode_toggle,
-                                   render_media_suggestions, render_media_source_selector)
+                                   render_media_suggestions, render_media_source_selector,
+                                   render_step_header)
 from modules.content_generator import ContentGenerator, get_available_formats, score_tweet, CONTENT_FORMATS
 from modules.deep_research import discover_topics, research_topic_from_text
 from modules.style_manager import load_user_samples, load_custom_persona, add_draft
@@ -109,21 +110,17 @@ with tab1:
     </div>
     """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        focus_area = st.text_input(
-            "Odak Alanı (opsiyonel)",
-            value="",
-            placeholder="Boş bırakırsan genel AI/teknoloji gelişmeleri bulunur",
-            key="topic_focus"
-        )
-    with col2:
-        st.write("")
-        st.write("")
-        discover_btn = st.button("🔍 Konuları Keşfet", type="primary", use_container_width=True)
+    focus_area = st.text_input(
+        "Odak Alanı (opsiyonel)",
+        value="",
+        placeholder="Boş bırakırsan genel AI/teknoloji gelişmeleri bulunur",
+        key="topic_focus"
+    )
 
-    # Grok engine toggle for topic discovery
-    discover_engine = render_research_engine_toggle(key_suffix="icerik_discover")
+    with st.expander("⚙️ Gelişmiş Ayarlar", expanded=False):
+        discover_engine = render_research_engine_toggle(key_suffix="icerik_discover")
+
+    discover_btn = st.button("🔍 Konuları Keşfet", type="primary", use_container_width=True)
 
     if discover_btn:
         scanner = get_scanner()
@@ -176,7 +173,6 @@ with tab1:
         sel_desc = sel_topic.get("description", "")
         sel_angle = sel_topic.get("angle", "")
 
-        st.markdown("---")
         st.markdown(f"""
         <div style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.25); border-radius:12px;
                     padding:16px; margin-bottom:16px;">
@@ -235,30 +231,28 @@ with tab1:
             key="discover_extra",
         )
 
-        # Research mode
-        d_col_rm, d_col_engine = st.columns(2)
-        with d_col_rm:
+        # Research settings grouped
+        with st.expander("⚙️ Araştırma Ayarları", expanded=False):
             d_research_mode_options = {
                 "x_and_web": "🌐 X + Web (Önerilen)",
                 "x_only": "🐦 Sadece X",
                 "x_deep": "🔬 Derin X (50-100 tweet)",
             }
-            d_research_mode = st.selectbox(
-                "Araştırma Modu",
-                options=list(d_research_mode_options.keys()),
-                format_func=lambda x: d_research_mode_options[x],
-                index=0,
-                key="discover_research_mode",
-            )
-        with d_col_engine:
-            st.write("")
-            st.write("")
-            d_engine = render_research_engine_toggle(key_suffix="discover_gen")
+            d_col_rm, d_col_engine = st.columns(2)
+            with d_col_rm:
+                d_research_mode = st.selectbox(
+                    "Araştırma Modu",
+                    options=list(d_research_mode_options.keys()),
+                    format_func=lambda x: d_research_mode_options[x],
+                    index=0,
+                    key="discover_research_mode",
+                )
+            with d_col_engine:
+                d_engine = render_research_engine_toggle(key_suffix="discover_gen")
 
-        # Agentic research mode
-        d_agentic_mode = render_agentic_mode_toggle(key_suffix="discover_content")
-        d_use_agentic = (d_agentic_mode == "standard")
-        d_use_grok_agentic = (d_agentic_mode == "grok")
+            d_agentic_mode = render_agentic_mode_toggle(key_suffix="discover_content")
+            d_use_agentic = (d_agentic_mode == "standard")
+            d_use_grok_agentic = (d_agentic_mode == "grok")
 
         col_gen, col_cancel = st.columns([3, 1])
         with col_gen:
@@ -343,7 +337,6 @@ with tab1:
         if "discover_generated_content" in st.session_state and st.session_state["discover_generated_content"]:
             d_content = st.session_state["discover_generated_content"]
 
-            st.markdown("---")
             st.markdown("### 📝 Üretilen İçerik")
 
             st.markdown(f"""
@@ -367,11 +360,10 @@ with tab1:
             </div>
             """, unsafe_allow_html=True)
 
-            d_col_a, d_col_b, d_col_c, d_col_d = st.columns(4)
+            d_col_a, d_col_b, d_col_c = st.columns(3)
             with d_col_a:
                 d_intent_url = f"https://x.com/intent/tweet?text={url_quote(d_content)}"
                 st.link_button("📱 X'te Aç", d_intent_url, use_container_width=True)
-                st.caption("Görsel ekleyebilirsin")
             with d_col_b:
                 if st.button("📋 Kopyala", key="d_copy_content", use_container_width=True):
                     st.code(d_content, language=None)
@@ -383,10 +375,10 @@ with tab1:
                         st.success("Taslak kaydedildi!")
                     except Exception as e:
                         st.error(f"Taslak kaydetme hatası: {e}")
-            with d_col_d:
-                if st.button("🔄 Yeniden Üret", key="d_regen_content", use_container_width=True):
-                    st.session_state.pop("discover_generated_content", None)
-                    st.rerun()
+
+            if st.button("🔄 Yeniden Üret", key="d_regen_content", use_container_width=True):
+                st.session_state.pop("discover_generated_content", None)
+                st.rerun()
 
             # --- Media Finder for discovered content ---
             with st.expander("🖼️ Görsel/Video Bul", expanded=False):
@@ -504,28 +496,27 @@ with tab2:
     do_research = st.checkbox("🔬 Önce konuyu araştır", value=True, key="content_research")
 
     if do_research:
-        research_mode_options = {
-            "x_and_web": "🌐 X + Web (Önerilen)",
-            "x_only": "🐦 Sadece X",
-            "x_deep": "🔬 Derin X (50-100 tweet)",
-        }
-        col_rm, col_engine = st.columns(2)
-        with col_rm:
-            research_mode = st.selectbox(
-                "Araştırma Modu",
-                options=list(research_mode_options.keys()),
-                format_func=lambda x: research_mode_options[x],
-                index=0,
-                key="research_mode",
-            )
-        with col_engine:
-            st.write("")
-            st.write("")
-            content_engine = render_research_engine_toggle(key_suffix="content_gen")
+        with st.expander("⚙️ Araştırma Ayarları", expanded=False):
+            research_mode_options = {
+                "x_and_web": "🌐 X + Web (Önerilen)",
+                "x_only": "🐦 Sadece X",
+                "x_deep": "🔬 Derin X (50-100 tweet)",
+            }
+            col_rm, col_engine = st.columns(2)
+            with col_rm:
+                research_mode = st.selectbox(
+                    "Araştırma Modu",
+                    options=list(research_mode_options.keys()),
+                    format_func=lambda x: research_mode_options[x],
+                    index=0,
+                    key="research_mode",
+                )
+            with col_engine:
+                content_engine = render_research_engine_toggle(key_suffix="content_gen")
 
-        content_agentic_mode = render_agentic_mode_toggle(key_suffix="content_gen")
-        use_agentic = (content_agentic_mode == "standard")
-        content_use_grok_agentic = (content_agentic_mode == "grok")
+            content_agentic_mode = render_agentic_mode_toggle(key_suffix="content_gen")
+            use_agentic = (content_agentic_mode == "standard")
+            content_use_grok_agentic = (content_agentic_mode == "grok")
 
     generate_btn = st.button("✨ İçerik Üret", type="primary", use_container_width=True, key="gen_content_btn")
 
@@ -615,7 +606,6 @@ with tab2:
     if "generated_content" in st.session_state and st.session_state["generated_content"]:
         content = st.session_state["generated_content"]
 
-        st.markdown("---")
         st.markdown("### 📝 Üretilen İçerik")
 
         # Preview box
@@ -641,11 +631,10 @@ with tab2:
         """, unsafe_allow_html=True)
 
         # Actions
-        col_a, col_b, col_c, col_d = st.columns(4)
+        col_a, col_b, col_c = st.columns(3)
         with col_a:
             intent_url = f"https://x.com/intent/tweet?text={url_quote(content)}"
             st.link_button("📱 X'te Aç", intent_url, use_container_width=True)
-            st.caption("Görsel ekleyebilirsin")
 
         with col_b:
             if st.button("📋 Kopyala", key="copy_content", use_container_width=True):
@@ -660,11 +649,9 @@ with tab2:
                 except Exception as e:
                     st.error(f"Taslak kaydetme hatası: {e}")
 
-        with col_d:
-            if st.button("🔄 Yeniden Üret", key="regen_content", use_container_width=True):
-                # Clear and re-trigger
-                st.session_state.pop("generated_content", None)
-                st.rerun()
+        if st.button("🔄 Yeniden Üret", key="regen_content", use_container_width=True):
+            st.session_state.pop("generated_content", None)
+            st.rerun()
 
         # --- Media Finder for generated content ---
         with st.expander("🖼️ Görsel/Video Bul", expanded=False):

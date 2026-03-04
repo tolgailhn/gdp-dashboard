@@ -994,6 +994,106 @@ def inject_custom_css():
     .stAlert { border-radius: var(--radius-md) !important; }
 
     /* ==========================================
+       STEP PANELS - Wizard-like flow
+       ========================================== */
+    .step-panel {
+        background: var(--bg-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 18px 20px;
+        margin: 12px 0;
+        position: relative;
+        overflow: hidden;
+    }
+    .step-panel::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0;
+        width: 3px; height: 100%;
+        background: var(--gradient-main);
+    }
+    .step-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .step-number {
+        width: 28px; height: 28px;
+        border-radius: 50%;
+        background: var(--gradient-main);
+        color: white;
+        font-size: 13px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .step-title {
+        color: var(--text-primary);
+        font-size: 15px;
+        font-weight: 700;
+    }
+    .step-subtitle {
+        color: var(--text-secondary);
+        font-size: 12px;
+        margin-left: auto;
+    }
+
+    /* --- Settings Panel (compact grouped options) --- */
+    .settings-panel {
+        background: rgba(15, 20, 35, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: var(--radius-md);
+        padding: 14px 16px;
+        margin: 8px 0;
+    }
+    .settings-panel-title {
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 10px;
+    }
+
+    /* --- Selection Preview (shows selected style/format info) --- */
+    .selection-preview {
+        background: rgba(99, 102, 241, 0.06);
+        border: 1px solid rgba(99, 102, 241, 0.15);
+        border-radius: var(--radius-sm);
+        padding: 10px 14px;
+        margin-top: 6px;
+    }
+    .selection-preview .sel-label {
+        color: #a5b4fc;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .selection-preview .sel-desc {
+        color: var(--text-secondary);
+        font-size: 12px;
+        margin-top: 2px;
+    }
+
+    /* --- Result Card (for generated tweet results) --- */
+    .result-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    /* Mobile step panel adjustments */
+    @media (max-width: 639px) {
+        .step-panel { padding: 14px 16px; margin: 8px 0; }
+        .step-number { width: 24px; height: 24px; font-size: 11px; }
+        .step-title { font-size: 14px; }
+        .settings-panel { padding: 12px; }
+    }
+
+    /* ==========================================
        METRICS - Override default
        ========================================== */
     [data-testid="stMetricValue"] {
@@ -1044,6 +1144,18 @@ def inject_custom_css():
         margin-bottom: 24px;
     }
     </style>
+    """, unsafe_allow_html=True)
+
+
+def render_step_header(number: int, title: str, subtitle: str = ""):
+    """Render a numbered step header inside a step panel."""
+    sub_html = f'<span class="step-subtitle">{subtitle}</span>' if subtitle else ''
+    st.markdown(f"""
+    <div class="step-header">
+        <span class="step-number">{number}</span>
+        <span class="step-title">{title}</span>
+        {sub_html}
+    </div>
     """, unsafe_allow_html=True)
 
 

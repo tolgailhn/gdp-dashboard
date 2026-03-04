@@ -924,7 +924,7 @@ with tab6:
         with st.spinner("GitHub'dan güncelleniyor..."):
             try:
                 result = subprocess.run(
-                    ["git", "pull", "origin", current_branch],
+                    ["git", "pull", "--ff-only", "origin", current_branch],
                     cwd=project_dir,
                     capture_output=True, text=True, timeout=30,
                 )

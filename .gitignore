@@ -1,5 +1,12 @@
 .streamlit/secrets.toml
 
+# App user data (generated at runtime)
+data/user_samples.json
+data/custom_persona.txt
+data/monitored_accounts.json
+data/post_history.json
+data/drafts.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

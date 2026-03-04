@@ -1,0 +1,39 @@
+{
+  "styles": {
+    "samimi": {
+      "name": "Samimi / Kişisel",
+      "description": "Kişisel deneyim odaklı, çok doğal ve samimi tweet yazımı",
+      "emoji_level": "none_or_low",
+      "formality": "very_casual",
+      "language_mix": "turkish_heavy"
+    },
+    "profesyonel": {
+      "name": "Profesyonel / Bilgilendirici",
+      "description": "Bilgi odaklı, profesyonel ama sıcak",
+      "emoji_level": "minimal",
+      "formality": "professional",
+      "language_mix": "balanced"
+    },
+    "hook": {
+      "name": "Hook / Viral Tarz",
+      "description": "Dikkat çekici açılış, viral potansiyeli yüksek",
+      "emoji_level": "medium",
+      "formality": "casual",
+      "language_mix": "balanced"
+    },
+    "analitik": {
+      "name": "Analitik / Derinlemesine",
+      "description": "Derinlemesine analiz, karşılaştırma ve tahminler",
+      "emoji_level": "minimal",
+      "formality": "semi-formal",
+      "language_mix": "english_heavy"
+    },
+    "haber": {
+      "name": "Haber / Bilgi Paylaşımı",
+      "description": "Haber hesapları gibi bilgilendirici ama senin tarzında",
+      "emoji_level": "minimal",
+      "formality": "semi-casual",
+      "language_mix": "balanced"
+    }
+  }
+}

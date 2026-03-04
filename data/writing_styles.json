@@ -1,10 +1,10 @@
 {
   "styles": {
     "samimi": {
-      "name": "Samimi / Günlük",
-      "description": "Arkadaşınla sohbet eder gibi, rahat ve samimi",
-      "emoji_level": "low",
-      "formality": "casual",
+      "name": "Samimi / Kişisel",
+      "description": "Kişisel deneyim odaklı, çok doğal ve samimi tweet yazımı",
+      "emoji_level": "none_or_low",
+      "formality": "very_casual",
       "language_mix": "turkish_heavy"
     },
     "profesyonel": {
@@ -27,13 +27,6 @@
       "emoji_level": "minimal",
       "formality": "semi-formal",
       "language_mix": "english_heavy"
-    },
-    "tolga_kisisel": {
-      "name": "Tolga Kişisel",
-      "description": "Kişisel deneyim odaklı, çok doğal ve samimi tweet yazımı",
-      "emoji_level": "none_or_low",
-      "formality": "very_casual",
-      "language_mix": "turkish_heavy"
     },
     "haber": {
       "name": "Haber / Bilgi Paylaşımı",

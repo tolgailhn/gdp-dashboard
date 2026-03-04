@@ -1,0 +1,26 @@
+[Unit]
+Description=X AI Otomasyon Dashboard (Streamlit)
+After=network.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__APP_DIR__
+ExecStart=__APP_DIR__/run.sh
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=5
+Environment=PYTHONUNBUFFERED=1
+
+# Bellek koruması — 1GB'ı geçerse yeniden başlat
+MemoryMax=1G
+MemoryHigh=768M
+
+# Güvenlik
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=__APP_DIR__/data __APP_DIR__/.streamlit
+
+[Install]
+WantedBy=multi-user.target

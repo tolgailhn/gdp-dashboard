@@ -58,8 +58,14 @@ has_ai = bool(get_secret("minimax_api_key", "") or get_secret("anthropic_api_key
 # --- Data ---
 post_history = load_post_history()
 drafts = load_draft_tweets()
-today_posts = len([p for p in post_history
-                   if p.get("posted_at", "").startswith(datetime.datetime.now(TZ_TR).strftime("%Y-%m-%d"))])
+posting_log = load_posting_log()
+today_str = datetime.datetime.now(TZ_TR).strftime("%Y-%m-%d")
+today_logs = [e for e in posting_log if e.get("date") == today_str]
+
+# Weekly logs (from Monday)
+_now = datetime.datetime.now(TZ_TR)
+_week_start = (_now - datetime.timedelta(days=_now.weekday())).strftime("%Y-%m-%d")
+week_logs = [e for e in posting_log if e.get("date", "") >= _week_start]
 
 # --- Hero Section ---
 api_dot = "🟢" if (has_twitter and has_ai) else "🟡"
@@ -76,19 +82,16 @@ st.markdown(f"""
 # --- Quick Stats ---
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    render_stat_box(str(len(post_history)), "Paylaşılan")
+    render_stat_box(f"{len(today_logs)}/4", "Bugün")
 with col2:
     render_stat_box(str(len(drafts)), "Taslak")
 with col3:
-    render_stat_box(str(today_posts), "Bugün")
+    render_stat_box(f"{len(week_logs)}/28", "Bu Hafta")
 with col4:
     render_stat_box(f"{api_dot}", api_label)
 
 # --- Today's Schedule Mini ---
-posting_log = load_posting_log()
-today_str = datetime.datetime.now(TZ_TR).strftime("%Y-%m-%d")
-today_schedule_logs = [e for e in posting_log if e.get("date") == today_str]
-posted_slots = {e["slot_time"] for e in today_schedule_logs}
+posted_slots = {e["slot_time"] for e in today_logs}
 
 is_weekend = datetime.datetime.now(TZ_TR).weekday() >= 5
 slots_today = [
@@ -124,7 +127,7 @@ st.markdown(f"""
         <div>
             <span style="font-size: 20px;">📅</span>
             <strong style="margin-left: 8px;">Bugünkü Plan</strong>
-            <span style="color: var(--text-secondary); margin-left: 12px;">{len(today_schedule_logs)}/4 post</span>
+            <span style="color: var(--text-secondary); margin-left: 12px;">{len(today_logs)}/4 post</span>
         </div>
         <div style="font-size: 13px; color: #a5b4fc;">{next_slot_info}</div>
     </div>

@@ -71,7 +71,13 @@ class TwikitSearchClient:
         """Run an async coroutine in the persistent event loop."""
         return self._runner.run(coro)
 
-    def _get_client(self):
+    async def _get_client(self):
+        """Get or create the twikit Client inside the persistent event loop.
+
+        The Client MUST be created inside the same event loop where it will
+        be used, because its internal aiohttp session binds to the current
+        loop at creation time.
+        """
         if self._client is None:
             from twikit import Client
             self._client = Client('tr')
@@ -82,7 +88,7 @@ class TwikitSearchClient:
         return self._run(self._auth_async())
 
     async def _auth_async(self) -> bool:
-        client = self._get_client()
+        client = await self._get_client()
         self.last_error = ""
 
         # 1. Try cookies from st.secrets (persistent on Streamlit Cloud)
@@ -202,7 +208,7 @@ class TwikitSearchClient:
     async def _search_async(self, query: str, count: int) -> list[dict]:
         results = []
         try:
-            client = self._get_client()
+            client = await self._get_client()
             tweets = await client.search_tweet(query, 'Latest', count=count)
             for tweet in tweets:
                 results.append(self._tweet_to_dict(tweet))
@@ -215,7 +221,7 @@ class TwikitSearchClient:
                 self._client = None  # Reset client
                 if await self._auth_async():
                     try:
-                        client = self._get_client()
+                        client = await self._get_client()
                         tweets = await client.search_tweet(query, 'Latest', count=count)
                         for tweet in tweets:
                             results.append(self._tweet_to_dict(tweet))
@@ -240,7 +246,7 @@ class TwikitSearchClient:
                                   progress_callback=None) -> list[dict]:
         results = []
         try:
-            client = self._get_client()
+            client = await self._get_client()
             user = await client.get_user_by_screen_name(username)
             if not user:
                 return results
@@ -360,7 +366,7 @@ class TwikitSearchClient:
 
     async def _user_info_async(self, username: str) -> dict | None:
         try:
-            client = self._get_client()
+            client = await self._get_client()
             user = await client.get_user_by_screen_name(username)
             if not user:
                 return None
@@ -399,7 +405,7 @@ class TwikitSearchClient:
                                      progress_callback) -> list[dict]:
         results = []
         try:
-            client = self._get_client()
+            client = await self._get_client()
             user = await client.get_user_by_screen_name(username)
             if not user:
                 return results

@@ -50,10 +50,24 @@ class _AsyncRunner:
 
             def _target():
                 asyncio.set_event_loop(self._loop)
+                # Tell sniffio we're in asyncio context. Without this,
+                # sniffio relies on asyncio.current_task() which may
+                # return None in a thread on Python 3.12+/3.14+.
+                try:
+                    import sniffio
+                    sniffio.thread_local.name = "asyncio"
+                except Exception:
+                    pass
                 try:
                     result_box[0] = self._loop.run_until_complete(coro)
                 except Exception as e:
                     error_box[0] = e
+                finally:
+                    try:
+                        import sniffio
+                        sniffio.thread_local.name = None
+                    except Exception:
+                        pass
 
             t = threading.Thread(target=_target, daemon=True)
             t.start()

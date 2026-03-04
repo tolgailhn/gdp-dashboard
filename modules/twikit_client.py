@@ -2,17 +2,18 @@
 Twikit Client Module
 Sync wrapper for twikit's async API for free Twitter search operations.
 Uses cookie-based auth to avoid Twitter API costs.
+
+Async strategy: A persistent event loop runs in a daemon thread.
+All twikit operations (including Client creation) happen inside that
+loop via run_coroutine_threadsafe(). This avoids nest_asyncio
+(broken on Python 3.14+) and keeps twikit's internal HTTP sessions
+bound to a single, consistent event loop.
 """
 import asyncio
 import datetime
 import re
+import threading
 from pathlib import Path
-
-try:
-    import nest_asyncio
-    nest_asyncio.apply()
-except ImportError:
-    pass
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 COOKIES_PATH = DATA_DIR / "twikit_cookies.json"
@@ -28,17 +29,34 @@ def _safe_int(val) -> int:
         return 0
 
 
-def _run_async(coro):
-    """Run an async coroutine synchronously, compatible with Streamlit."""
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coro)
+class _AsyncRunner:
+    """Persistent event loop in a background thread.
+
+    Twikit's Client uses httpx which requires a running async event loop.
+    nest_asyncio is broken on Python 3.14+, so we maintain our own loop
+    in a daemon thread. ALL async work (including Client creation) must
+    go through this runner.
+    """
+
+    def __init__(self):
+        self._loop = asyncio.new_event_loop()
+        self._thread = threading.Thread(
+            target=self._run_loop, daemon=True
+        )
+        self._thread.start()
+
+    def _run_loop(self):
+        asyncio.set_event_loop(self._loop)
+        self._loop.run_forever()
+
+    def run(self, coro, timeout=120):
+        """Submit a coroutine to the persistent loop and wait for result."""
+        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        return future.result(timeout=timeout)
+
+
+# Module-level runner shared by all TwikitSearchClient instances
+_runner = _AsyncRunner()
 
 
 def adapt_query_for_web(query: str, since_date: str = None) -> str:
@@ -64,7 +82,16 @@ class TwikitSearchClient:
         self._authenticated = False
         self.last_error = ""  # Store last error for UI display
 
-    def _get_client(self):
+    def _run(self, coro, timeout=120):
+        """Run an async coroutine in the persistent event loop thread."""
+        return _runner.run(coro, timeout=timeout)
+
+    async def _get_client(self):
+        """Get or create twikit Client inside the persistent event loop.
+
+        MUST be called from within the async runner so that httpx's
+        internal session is bound to the correct event loop.
+        """
         if self._client is None:
             from twikit import Client
             self._client = Client('tr')
@@ -72,24 +99,22 @@ class TwikitSearchClient:
 
     def authenticate(self) -> bool:
         """Authenticate with Twitter. Returns True on success."""
-        return _run_async(self._auth_async())
+        return self._run(self._auth_async())
 
     async def _verify_cookies(self, client) -> bool:
         """Verify loaded cookies actually work by making a simple API call."""
         try:
-            # Try to get own user info — lightweight check
             user = await client.user()
             return user is not None
         except Exception:
             try:
-                # Fallback: try getting a known user
                 user = await client.get_user_by_screen_name("x")
                 return user is not None
             except Exception:
                 return False
 
     async def _auth_async(self) -> bool:
-        client = self._get_client()
+        client = await self._get_client()
         self.last_error = ""
 
         # 1. Try cookies from st.secrets (persistent on Streamlit Cloud)
@@ -122,7 +147,6 @@ class TwikitSearchClient:
                 else:
                     print("Twikit auth: file cookies expired/invalid, will try login...")
                     self.last_error = "Cookie'ler süresi dolmuş, yeniden giriş yapılıyor..."
-                    # Don't delete cookies yet — try login first
             except Exception as e:
                 self.last_error = f"Cookie yükleme hatası: {e}"
                 try:
@@ -214,12 +238,12 @@ class TwikitSearchClient:
         if not self._authenticated:
             return []
         adapted = adapt_query_for_web(query, since_date)
-        return _run_async(self._search_async(adapted, count))
+        return self._run(self._search_async(adapted, count))
 
     async def _search_async(self, query: str, count: int) -> list[dict]:
         results = []
         try:
-            client = self._get_client()
+            client = await self._get_client()
             tweets = await client.search_tweet(query, 'Latest', count=count)
             for tweet in tweets:
                 results.append(self._tweet_to_dict(tweet))
@@ -232,7 +256,7 @@ class TwikitSearchClient:
                 self._client = None  # Reset client
                 if await self._auth_async():
                     try:
-                        client = self._get_client()
+                        client = await self._get_client()
                         tweets = await client.search_tweet(query, 'Latest', count=count)
                         for tweet in tweets:
                             results.append(self._tweet_to_dict(tweet))
@@ -251,13 +275,13 @@ class TwikitSearchClient:
         """Get recent tweets from a user with pagination. Returns list of tweet dicts."""
         if not self._authenticated:
             return []
-        return _run_async(self._user_tweets_async(username, count, progress_callback))
+        return self._run(self._user_tweets_async(username, count, progress_callback))
 
     async def _user_tweets_async(self, username: str, count: int,
                                   progress_callback=None) -> list[dict]:
         results = []
         try:
-            client = self._get_client()
+            client = await self._get_client()
             user = await client.get_user_by_screen_name(username)
             if not user:
                 self.last_error = f"@{username} kullanıcısı bulunamadı"
@@ -391,11 +415,11 @@ class TwikitSearchClient:
         """Get user profile info. Returns dict with user data."""
         if not self._authenticated:
             return None
-        return _run_async(self._user_info_async(username))
+        return self._run(self._user_info_async(username))
 
     async def _user_info_async(self, username: str) -> dict | None:
         try:
-            client = self._get_client()
+            client = await self._get_client()
             user = await client.get_user_by_screen_name(username)
             if not user:
                 return None
@@ -413,6 +437,7 @@ class TwikitSearchClient:
                 "profile_banner_url": getattr(user, 'profile_banner_url', '') or '',
             }
         except Exception as e:
+            self.last_error = f"Kullanıcı bilgi hatası (@{username}): {type(e).__name__}: {e}"
             print(f"Twikit user info error ({username}): {e}")
             return None
 
@@ -425,7 +450,7 @@ class TwikitSearchClient:
         """
         if not self._authenticated:
             return []
-        return _run_async(self._user_followers_async(
+        return self._run(self._user_followers_async(
             username, limit, verified_only, progress_callback
         ))
 
@@ -434,7 +459,7 @@ class TwikitSearchClient:
                                      progress_callback) -> list[dict]:
         results = []
         try:
-            client = self._get_client()
+            client = await self._get_client()
             user = await client.get_user_by_screen_name(username)
             if not user:
                 return results
@@ -495,3 +520,4 @@ class TwikitSearchClient:
         if COOKIES_PATH.exists():
             COOKIES_PATH.unlink()
         self._authenticated = False
+        self._client = None  # Also reset client to force fresh start

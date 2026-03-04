@@ -9,6 +9,20 @@ import re
 from dataclasses import dataclass, field
 
 
+def _get_full_text(tweet) -> str:
+    """Get full tweet text including note_tweet for long-form posts.
+
+    Twitter API v2 truncates tweets >280 chars unless 'note_tweet' is
+    requested in tweet_fields.  When available, note_tweet.text holds the
+    complete content.
+    """
+    if hasattr(tweet, 'data') and isinstance(tweet.data, dict):
+        note = tweet.data.get("note_tweet")
+        if note and isinstance(note, dict) and note.get("text"):
+            return note["text"]
+    return tweet.text
+
+
 @dataclass
 class AITopic:
     """Represents a discovered AI topic/development from X"""
@@ -651,7 +665,7 @@ class TwitterScanner:
                 query=query,
                 start_time=start_time,
                 max_results=min(max_results, 100),
-                tweet_fields=["created_at", "public_metrics", "author_id", "entities"],
+                tweet_fields=["created_at", "public_metrics", "author_id", "entities", "note_tweet"],
                 user_fields=["name", "username", "profile_image_url"],
                 media_fields=["url", "preview_image_url"],
                 expansions=["author_id", "attachments.media_keys"]
@@ -691,7 +705,7 @@ class TwitterScanner:
 
                 topic = AITopic(
                     id=str(tweet.id),
-                    text=tweet.text,
+                    text=_get_full_text(tweet),
                     author_name=author.name,
                     author_username=author.username,
                     author_profile_image=getattr(author, 'profile_image_url', ''),
@@ -748,7 +762,7 @@ class TwitterScanner:
                 id=user_data.id,
                 start_time=start_time,
                 max_results=min(max_results, 100),
-                tweet_fields=["created_at", "public_metrics", "entities"],
+                tweet_fields=["created_at", "public_metrics", "entities", "note_tweet"],
                 exclude=["retweets", "replies"]
             )
 
@@ -760,7 +774,7 @@ class TwitterScanner:
 
                 topic = AITopic(
                     id=str(tweet.id),
-                    text=tweet.text,
+                    text=_get_full_text(tweet),
                     author_name=user_data.name,
                     author_username=user_data.username,
                     author_profile_image=getattr(user_data, 'profile_image_url', ''),
@@ -783,7 +797,7 @@ class TwitterScanner:
         try:
             response = self.client.get_tweet(
                 id=tweet_id,
-                tweet_fields=["created_at", "public_metrics", "author_id", "conversation_id"],
+                tweet_fields=["created_at", "public_metrics", "author_id", "conversation_id", "note_tweet"],
                 user_fields=["name", "username", "profile_image_url"],
                 expansions=["author_id"]
             )
@@ -802,7 +816,7 @@ class TwitterScanner:
 
             return AITopic(
                 id=str(tweet.id),
-                text=tweet.text,
+                text=_get_full_text(tweet),
                 author_name=author.name if author else "Unknown",
                 author_username=author.username if author else "unknown",
                 author_profile_image=getattr(author, 'profile_image_url', '') if author else '',
@@ -826,7 +840,7 @@ class TwitterScanner:
             # First get the tweet to find conversation_id and author
             response = self.client.get_tweet(
                 id=tweet_id,
-                tweet_fields=["conversation_id", "author_id", "created_at"],
+                tweet_fields=["conversation_id", "author_id", "created_at", "note_tweet"],
                 expansions=["author_id"]
             )
             if not response.data:
@@ -841,21 +855,21 @@ class TwitterScanner:
             search_response = self.client.search_recent_tweets(
                 query=query,
                 max_results=100,
-                tweet_fields=["created_at", "in_reply_to_user_id"],
+                tweet_fields=["created_at", "in_reply_to_user_id", "note_tweet"],
                 sort_order="recency"
             )
 
             if not search_response.data:
-                return [tweet.text]
+                return [_get_full_text(tweet)]
 
-            # Sort by time (oldest first) and collect texts
+            # Sort by time (oldest first) and collect full texts
             thread_tweets = sorted(search_response.data, key=lambda t: t.created_at)
-            texts = [t.text for t in thread_tweets]
+            texts = [_get_full_text(t) for t in thread_tweets]
 
             # If the original tweet isn't in results, prepend it
             original_ids = {str(t.id) for t in thread_tweets}
             if str(tweet_id) not in original_ids and str(conversation_id) not in original_ids:
-                texts.insert(0, tweet.text)
+                texts.insert(0, _get_full_text(tweet))
 
             return texts
 

@@ -927,19 +927,32 @@ Araştırma verilerini kullanarak {length_desc_text} formatında yazıyorsun.
 1. KONU SABİTLEME: Orijinal tweet ne hakkındaysa O KONU hakkında yaz.
    Araştırmada tweet konusuyla alakasız bilgi varsa GÖRMEZDEN GEL.
 
-2. VERİ KULLANIMI: Araştırmadaki SPESİFİK rakamları, tarihleri, isimleri ve
+2. ORİJİNAL TWEET'İN DETAYLARINI KULLAN: Orijinal tweet'te bahsedilen TÜM özellikleri,
+   rakamları ve teknik detayları oku ve yazında kullan. Özellikle:
+   - Ürün özellikleri (model desteği, paralel çalışma, custom agents, GUI vb.)
+   - Fiyatlandırma, lansman teklifleri, ücretsiz plan detayları
+   - Desteklenen platformlar, teknik altyapı bilgileri
+   Bu bilgiler tweet metninde var — MUTLAKA kullan, atla geçme.
+
+3. VERİ KULLANIMI: Araştırmadaki SPESİFİK rakamları, tarihleri, isimleri ve
    bulguları tweet'e dahil et. "Yapay zeka gelişiyor" gibi genel ifadeler yerine
    "GPT-5 benchmark'ta %15 artış gösterdi" gibi spesifik ol.
 
-3. TWEET + ARAŞTIRMA BİRLEŞTİR: Tweet'in verdiği mesajı AL, araştırmayla ZENGİNLEŞTİR.
+4. TWEET + ARAŞTIRMA BİRLEŞTİR: Tweet'in verdiği mesajı AL, araştırmayla ZENGİNLEŞTİR.
    Tweet kısa ise → araştırmadan detay ve veri ekle.
    Tweet uzun ise → tweet'in verilerini kullan, araştırmadan bağlam ekle.
 
-4. ANALİZ EKLE: Bilgiyi ver, sonra KENDİ YORUMUNU kat.
+5. ANALİZ EKLE: Bilgiyi ver, sonra KENDİ YORUMUNU kat.
    Paradoksları, çelişkileri ve stratejik boyutu yakala.
 
-5. DOĞAL YAZ: Türkçe günlük dil, teknik terimler İngilizce.
+6. DOĞAL YAZ: Türkçe günlük dil, teknik terimler İngilizce.
    AI kalıpları YASAK. Madde işareti/liste YASAK.
+
+## ⛔ BİLGİ UYDURMA YASAĞI:
+- SADECE araştırma verisinde ve orijinal tweet'te bulunan bilgileri kullan.
+- "X'te bazıları şöyle diyor", "kullanıcılar şüpheli" gibi KAYNAKSIZ İDDİALAR UYDURMA.
+- Eğer bir bilgi araştırmada yoksa, O BİLGİYİ YAZMA. Boşluk doldurmak için hayal ürünü bilgi ekleme.
+- Araştırmada yeterli veri yoksa, az ama DOĞRU bilgiyle yaz. Az bilgi > yanlış bilgi.
 """
 
         # Inject training data from tweet analyses FIRST (highest priority)
@@ -1056,6 +1069,8 @@ KURALLAR:
 - Teknik detayları doğru ver
 - ASLA kaynak belirtme — "@şuhesap diyor ki", "X'te şöyle yazıyorlar", "yorumlarda" gibi ifadeler YASAK
 - Bilgiyi KENDİ DENEYİMİN gibi yaz — "test ettim", "bence", "gördüğüm kadarıyla"
+- ⛔ BİLGİ UYDURMA: "X'te bazıları diyor", "kullanıcılar şüpheli" gibi kaynaksız iddialar YASAK
+- Konudaki TÜM spesifik bilgileri (özellikler, rakamlar, desteklenen modeller vb.) kullan, atlama
 
 FORMAT:
 - Paragraflar arasında boş satır bırak

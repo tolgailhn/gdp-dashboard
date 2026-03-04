@@ -329,7 +329,9 @@ class TwikitSearchClient:
 
         return {
             'id': str(getattr(tweet, 'id', '')),
-            'text': getattr(tweet, 'full_text', '') or getattr(tweet, 'text', ''),
+            'text': (getattr(tweet, 'full_text', '')
+                     or getattr(tweet, 'text', '')
+                     or ''),
             'author_name': getattr(user, 'name', 'Unknown') if user else 'Unknown',
             'author_username': getattr(user, 'screen_name', 'unknown') if user else 'unknown',
             'author_profile_image': (getattr(user, 'profile_image_url', '') or '') if user else '',

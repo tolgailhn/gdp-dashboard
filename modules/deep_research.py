@@ -1695,7 +1695,7 @@ def compile_research_summary(r: ResearchResult) -> str:
     """
     parts = []
     total_chars = 0
-    MAX_TOTAL = 5500  # Target max for research context
+    MAX_TOTAL = 8000  # Target max for research context (increased for long-form tweets)
 
     # Section 1: Original tweet/thread — MOST IMPORTANT (always included)
     parts.append(f"# ANA KONU: {r.topic}")
@@ -1760,7 +1760,7 @@ def compile_research_summary(r: ResearchResult) -> str:
         if quality_tweets:
             parts.append(f"\n## X'te Öne Çıkan Yorumlar ({len(quality_tweets)} kaliteli):")
             for i, rt in enumerate(quality_tweets[:3], 1):
-                snippet = f"  {i}. @{rt['author']} ({rt['likes']}❤️): {rt['text'][:150]}"
+                snippet = f"  {i}. @{rt['author']} ({rt['likes']}❤️): {rt['text'][:500]}"
                 if total_chars + len(snippet) > MAX_TOTAL:
                     break
                 parts.append(snippet)
@@ -2281,7 +2281,7 @@ def research_topic_from_text(
                 if result.x_tweets:
                     parts.append(f"## X'TE BULUNAN GÜNCEL TWEETLER ({len(result.x_tweets)} tweet)")
                     for tw in result.x_tweets[:10]:
-                        parts.append(f"- @{tw['author']} ({tw['likes']} ❤️): {tw['text'][:200]}")
+                        parts.append(f"- @{tw['author']} ({tw['likes']} ❤️): {tw['text'][:500]}")
                 parts.append("\n## GROK OTONOM ARAŞTIRMA SONUÇLARI")
                 parts.append(grok_result)
                 result.summary = "\n".join(parts)
@@ -2319,7 +2319,7 @@ def research_topic_from_text(
             if result.x_tweets:
                 parts.append(f"## X'TE BULUNAN GÜNCEL TWEETLER ({len(result.x_tweets)} tweet)")
                 for tw in result.x_tweets[:10]:
-                    parts.append(f"- @{tw['author']} ({tw['likes']} ❤️): {tw['text'][:200]}")
+                    parts.append(f"- @{tw['author']} ({tw['likes']} ❤️): {tw['text'][:500]}")
 
             parts.append("\n## AI OTONOM ARAŞTIRMA SONUÇLARI")
             parts.append(agentic_result)
@@ -2594,7 +2594,7 @@ def _compile_topic_research_summary(r: TopicResearchResult) -> str:
         parts.append(f"\n## X'TE SON PAYLAŞIMLAR ({len(r.x_tweets)} tweet, en iyi {show_count} gösteriliyor):")
         parts.append("(Bu tweetler konuyla ilgili EN GÜNCEL bilgiler — BİRİNCİL KAYNAĞIN BUNLAR!)\n")
         for i, tw in enumerate(r.x_tweets[:show_count], 1):
-            parts.append(f"  {i}. @{tw['author']} ({tw['likes']}L {tw['retweets']}RT): {tw['text'][:300]}")
+            parts.append(f"  {i}. @{tw['author']} ({tw['likes']}L {tw['retweets']}RT): {tw['text'][:600]}")
 
     # Tweet link articles (from link-following, always show)
     tweet_link_articles = [a for a in r.deep_articles if a.get("source") == "tweet_link"]
@@ -2706,7 +2706,7 @@ def discover_topics(ai_client=None, ai_model: str = None,
                     if t.id not in seen_ids and len(t.text) > 60:
                         seen_ids.add(t.id)
                         x_tweets.append({
-                            "text": t.text[:300],
+                            "text": t.text[:600],
                             "author": t.author_username,
                             "likes": t.like_count,
                             "retweets": getattr(t, 'retweet_count', 0),
@@ -2751,7 +2751,7 @@ def discover_topics(ai_client=None, ai_model: str = None,
     if x_tweets:
         x_items = []
         for tw in x_tweets[:15]:
-            x_items.append(f"- @{tw['author']} ({tw['likes']} beğeni): {tw['text'][:200]}")
+            x_items.append(f"- @{tw['author']} ({tw['likes']} beğeni): {tw['text'][:500]}")
         x_context = "\n".join(x_items)
 
     web_context = ""

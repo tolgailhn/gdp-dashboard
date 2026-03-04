@@ -263,7 +263,7 @@ with mode_tab2:
                     if research.related_tweets:
                         st.markdown(f"\n**𝕏 İlgili Yorumlar ({len(research.related_tweets)}):**")
                         for rt in research.related_tweets[:3]:
-                            st.markdown(f"- @{rt['author']} ({rt['likes']} ❤️): _{rt['text'][:140]}_")
+                            st.markdown(f"- @{rt['author']} ({rt['likes']} ❤️): _{rt['text'][:300]}_")
 
             with st.expander("📊 Araştırma Sonuçları" if not use_agentic else "📊 Ek Detaylar", expanded=not use_agentic):
                 if research.topic:
@@ -293,7 +293,7 @@ with mode_tab2:
                 if research.related_tweets:
                     st.markdown(f"**𝕏 Yorumlar ({len(research.related_tweets)}):**")
                     for rt in research.related_tweets[:3]:
-                        st.markdown(f"- @{rt['author']} ({rt['likes']} ❤️): _{rt['text'][:140]}_")
+                        st.markdown(f"- @{rt['author']} ({rt['likes']} ❤️): _{rt['text'][:300]}_")
 
                 if not research.web_results and not research.deep_articles and not research.related_tweets:
                     st.warning("Bu konu için web'de yeterli bilgi bulunamadı.")

@@ -1,43 +1,111 @@
 """
 Grok AI Client Module
 xAI Grok API integration for X search, web search, and agentic research.
-Uses OpenAI SDK compatible API at api.x.ai/v1.
+Uses xAI Responses API with server-side x_search and web_search tools.
 """
 import json
 import re
 import datetime
+import requests as http_requests
 import streamlit as st
 from openai import OpenAI
 
 
-# Grok model for research (fast + cheap)
-GROK_MODEL = "grok-3-fast"
+# Grok model for research — grok-4-1-fast has best agentic search capabilities
+GROK_MODEL = "grok-4-1-fast"
+GROK_API_BASE = "https://api.x.ai/v1"
 
-# Cost estimates per 1M tokens (USD)
+# Cost estimates per 1M tokens (USD) — agentic tools are FREE
 COST_INPUT_PER_M = 5.00
 COST_OUTPUT_PER_M = 25.00
 
-# Tool costs (estimated per call)
-TOOL_COST_X_SEARCH = 0.005
-TOOL_COST_WEB_SEARCH = 0.005
+
+def _get_api_key(api_key: str = None) -> str:
+    """Get xAI API key from parameter or secrets."""
+    if api_key:
+        return api_key
+    from modules.ui_components import get_secret
+    return get_secret("xai_api_key", "")
 
 
-def _get_grok_client(api_key: str = None) -> OpenAI | None:
-    """Create Grok API client."""
-    if not api_key:
-        from modules.ui_components import get_secret
-        api_key = get_secret("xai_api_key", "")
-    if not api_key:
+def _grok_responses_api(
+    messages: list[dict],
+    tools: list[dict] = None,
+    model: str = None,
+    max_tokens: int = 3000,
+    temperature: float = 0.3,
+    api_key: str = None,
+) -> dict | None:
+    """
+    Call xAI Responses API with server-side tools (x_search, web_search).
+
+    Unlike Chat Completions, the Responses API lets xAI's server execute
+    searches autonomously — Grok actually searches X and web in real-time.
+
+    Returns: {"text": "...", "input_tokens": N, "output_tokens": N} or None
+    """
+    key = _get_api_key(api_key)
+    if not key:
         return None
-    return OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
+
+    payload = {
+        "model": model or GROK_MODEL,
+        "input": messages,
+        "temperature": temperature,
+    }
+    if tools:
+        payload["tools"] = tools
+    if max_tokens:
+        payload["max_output_tokens"] = max_tokens
+
+    try:
+        resp = http_requests.post(
+            f"{GROK_API_BASE}/responses",
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=120,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        # Extract text from response output
+        text = ""
+        if "output" in data:
+            for item in data["output"]:
+                if item.get("type") == "message":
+                    for content in item.get("content", []):
+                        if content.get("type") == "output_text":
+                            text += content.get("text", "")
+                        elif content.get("type") == "text":
+                            text += content.get("text", "")
+
+        # If output parsing didn't work, try output_text directly
+        if not text and "output_text" in data:
+            text = data["output_text"]
+
+        # Extract usage
+        usage = data.get("usage", {})
+        input_tokens = usage.get("input_tokens", 0) or usage.get("prompt_tokens", 0)
+        output_tokens = usage.get("output_tokens", 0) or usage.get("completion_tokens", 0)
+
+        return {
+            "text": text,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+        }
+
+    except Exception as e:
+        print(f"Grok Responses API error: {e}")
+        return None
 
 
-def _track_cost(input_tokens: int = 0, output_tokens: int = 0, tool_calls: int = 0):
-    """Track estimated Grok usage cost in session state."""
-    token_cost = (input_tokens / 1_000_000 * COST_INPUT_PER_M +
-                  output_tokens / 1_000_000 * COST_OUTPUT_PER_M)
-    tool_cost = tool_calls * TOOL_COST_X_SEARCH
-    total = token_cost + tool_cost
+def _track_cost(input_tokens: int = 0, output_tokens: int = 0):
+    """Track estimated Grok usage cost in session state. Server-side tools are FREE."""
+    total = (input_tokens / 1_000_000 * COST_INPUT_PER_M +
+             output_tokens / 1_000_000 * COST_OUTPUT_PER_M)
 
     if "grok_usage_cost" not in st.session_state:
         st.session_state["grok_usage_cost"] = 0.0
@@ -48,201 +116,91 @@ def _track_cost(input_tokens: int = 0, output_tokens: int = 0, tool_calls: int =
     st.session_state["grok_call_count"] += 1
 
 
-def _extract_usage(response) -> tuple[int, int]:
-    """Extract token usage from API response."""
-    try:
-        usage = response.usage
-        return (usage.prompt_tokens or 0, usage.completion_tokens or 0)
-    except Exception:
-        return (0, 0)
-
-
 # ========================================================================
 # SEARCH FUNCTIONS — replacements for DuckDuckGo
 # ========================================================================
 
 def grok_search_x(query: str, api_key: str = None, max_results: int = 10) -> list[dict]:
     """
-    Search X/Twitter using Grok's x_search tool.
-    Returns list of dicts with: text, author, url, likes, retweets.
+    Search X/Twitter using Grok's REAL server-side x_search tool.
+    Uses xAI Responses API — Grok actually searches X in real-time.
+    Returns list of dicts with: text, author, likes, retweets.
     """
-    client = _get_grok_client(api_key)
-    if not client:
-        return []
-
-    try:
-        response = client.chat.completions.create(
-            model=GROK_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a research assistant. Search X for the given query and return relevant posts. Return results as a JSON array."},
-                {"role": "user", "content": f"""Search X/Twitter for: "{query}"
+    result = _grok_responses_api(
+        messages=[
+            {"role": "system", "content": "You are a research assistant. Search X for the given query and return relevant posts as a JSON array. Return ONLY the JSON array."},
+            {"role": "user", "content": f"""Search X/Twitter for: "{query}"
 
 Return the top {max_results} most relevant and recent posts as a JSON array. Each item should have:
-- "text": the tweet text
+- "text": the full tweet text
 - "author": the username (without @)
-- "likes": number of likes (estimate if exact not available)
-- "retweets": number of retweets (estimate if exact not available)
+- "likes": number of likes
+- "retweets": number of retweets
 
-Return ONLY the JSON array, no other text."""}
-            ],
-            tools=[{
-                "type": "function",
-                "function": {
-                    "name": "x_search",
-                    "description": "Search X (Twitter) for posts matching a query",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {"type": "string", "description": "Search query"},
-                            "max_results": {"type": "integer", "description": "Maximum results"}
-                        },
-                        "required": ["query"]
-                    }
-                }
-            }],
-            tool_choice="auto",
-            max_tokens=2000,
-            temperature=0.1,
-        )
+Return ONLY the JSON array, no other text."""},
+        ],
+        tools=[{"type": "x_search"}],
+        max_tokens=2000,
+        temperature=0.1,
+        api_key=api_key,
+    )
 
-        inp, out = _extract_usage(response)
-        tool_count = 0
+    if not result or not result["text"]:
+        return []
 
-        # Process tool calls if any
-        choice = response.choices[0]
-        messages = [
-            {"role": "system", "content": "You are a research assistant. Return results as a JSON array."},
-            {"role": "user", "content": f'Search X for: "{query}" and return top {max_results} results as JSON array with text, author, likes, retweets fields.'},
-            choice.message,
-        ]
+    _track_cost(result["input_tokens"], result["output_tokens"])
 
-        if choice.message.tool_calls:
-            for tc in choice.message.tool_calls:
-                tool_count += 1
-                # Grok handles x_search internally, we get result back
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": "Search completed. Please format the results.",
-                })
-
-            # Get formatted results
-            response2 = client.chat.completions.create(
-                model=GROK_MODEL,
-                messages=messages,
-                max_tokens=2000,
-                temperature=0.1,
-            )
-            inp2, out2 = _extract_usage(response2)
-            inp += inp2
-            out += out2
-            raw = response2.choices[0].message.content or ""
-        else:
-            raw = choice.message.content or ""
-
-        _track_cost(inp, out, tool_count)
-
-        # Parse JSON results
-        raw = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
-        json_match = re.search(r'\[.*\]', raw, re.DOTALL)
-        if json_match:
+    raw = re.sub(r'<think>.*?</think>', '', result["text"], flags=re.DOTALL).strip()
+    json_match = re.search(r'\[.*\]', raw, re.DOTALL)
+    if json_match:
+        try:
             results = json.loads(json_match.group())
             return results[:max_results]
+        except json.JSONDecodeError:
+            pass
 
-        return []
-
-    except Exception as e:
-        print(f"Grok X search error: {e}")
-        return []
+    return []
 
 
 def grok_search_web(query: str, api_key: str = None, max_results: int = 8) -> list[dict]:
     """
-    Search the web using Grok's web_search tool.
+    Search the web using Grok's REAL server-side web_search tool.
+    Uses xAI Responses API — Grok actually searches the web in real-time.
     Returns list of dicts with: title, url, body (same format as DuckDuckGo).
     """
-    client = _get_grok_client(api_key)
-    if not client:
-        return []
-
-    try:
-        response = client.chat.completions.create(
-            model=GROK_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a research assistant. Search the web for the given query and return relevant results as a JSON array."},
-                {"role": "user", "content": f"""Search the web for: "{query}"
+    result = _grok_responses_api(
+        messages=[
+            {"role": "system", "content": "You are a research assistant. Search the web and return results as a JSON array. Return ONLY the JSON array."},
+            {"role": "user", "content": f"""Search the web for: "{query}"
 
 Return top {max_results} results as a JSON array. Each item should have:
 - "title": the page title
 - "url": the page URL
 - "body": a brief summary/snippet (2-3 sentences)
 
-Return ONLY the JSON array, no other text."""}
-            ],
-            tools=[{
-                "type": "function",
-                "function": {
-                    "name": "web_search",
-                    "description": "Search the web for information",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {"type": "string", "description": "Search query"}
-                        },
-                        "required": ["query"]
-                    }
-                }
-            }],
-            tool_choice="auto",
-            max_tokens=2000,
-            temperature=0.1,
-        )
+Return ONLY the JSON array, no other text."""},
+        ],
+        tools=[{"type": "web_search"}],
+        max_tokens=2000,
+        temperature=0.1,
+        api_key=api_key,
+    )
 
-        inp, out = _extract_usage(response)
-        tool_count = 0
+    if not result or not result["text"]:
+        return []
 
-        choice = response.choices[0]
-        messages = [
-            {"role": "system", "content": "You are a research assistant. Return results as a JSON array."},
-            {"role": "user", "content": f'Search web for: "{query}" and return top {max_results} results as JSON array with title, url, body fields.'},
-            choice.message,
-        ]
+    _track_cost(result["input_tokens"], result["output_tokens"])
 
-        if choice.message.tool_calls:
-            for tc in choice.message.tool_calls:
-                tool_count += 1
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": "Search completed. Please format the results.",
-                })
-
-            response2 = client.chat.completions.create(
-                model=GROK_MODEL,
-                messages=messages,
-                max_tokens=2000,
-                temperature=0.1,
-            )
-            inp2, out2 = _extract_usage(response2)
-            inp += inp2
-            out += out2
-            raw = response2.choices[0].message.content or ""
-        else:
-            raw = choice.message.content or ""
-
-        _track_cost(inp, out, tool_count)
-
-        raw = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
-        json_match = re.search(r'\[.*\]', raw, re.DOTALL)
-        if json_match:
+    raw = re.sub(r'<think>.*?</think>', '', result["text"], flags=re.DOTALL).strip()
+    json_match = re.search(r'\[.*\]', raw, re.DOTALL)
+    if json_match:
+        try:
             results = json.loads(json_match.group())
             return results[:max_results]
+        except json.JSONDecodeError:
+            pass
 
-        return []
-
-    except Exception as e:
-        print(f"Grok web search error: {e}")
-        return []
+    return []
 
 
 # ========================================================================
@@ -253,36 +211,29 @@ def grok_agentic_research(tweet_text: str, tweet_author: str = "",
                           api_key: str = None, max_iterations: int = 5,
                           progress_callback=None) -> str:
     """
-    Grok otonom araştırma — Grok modeli kendi x_search ve web_search tool'larıyla
-    otonom şekilde internette ve X'te gezinerek araştırma yapar.
+    Grok otonom araştırma — xAI Responses API ile Grok gerçekten X'te ve web'de
+    arama yaparak tweet konusunu araştırır.
 
-    Avantaj: X verilerine doğrudan erişim (DuckDuckGo'da yok).
+    Server-side tools: x_search + web_search (xAI sunucusu çalıştırır, ÜCRETSİZ).
     """
-    client = _get_grok_client(api_key)
-    if not client:
-        return ""
-
-    current_year = str(datetime.datetime.now().year)
+    if progress_callback:
+        progress_callback("🧠 Grok X ve web'de araştırıyor...")
 
     system_prompt = f"""Sen bir tweet araştırma asistanısın. Sana bir tweet verilecek.
 Görevin: Tweet'te bahsedilen konuları hem X'te hem web'de araştırıp kapsamlı bir özet hazırlamak.
 
-ARAÇLARIN:
-- x_search: X/Twitter'da arama yap — gerçek zamanlı tartışmaları, görüşleri, trendleri bul
-- web_search: Web'de arama yap — makaleler, haberler, teknik detaylar bul
-
 ARAŞTIRMA STRATEJİN:
 1. Tweet'i oku — hangi konular, ürünler, iddialar var?
-2. Önce X'te ara — bu konu hakkında insanlar ne diyor? Hangi tartışmalar var?
-3. Sonra web'de ara — teknik detaylar, haberler, benchmark sonuçları
+2. X'te ara — bu konu hakkında insanlar ne diyor? Hangi tartışmalar var?
+3. Web'de ara — teknik detaylar, haberler, benchmark sonuçları
 4. Bilgi yeterliyse özetle
 
 ⚠️ KURALLAR:
 - SADECE tweet'in konusunu araştır, konu dışına çıkma
 - Arama sorgularını İngilizce yaz
-- Maksimum 4-5 arama yap (odaklan)
 - X aramalarında gerçek insanların görüşlerini bul
 - Web aramalarında somut veriler ve kaynaklar bul
+- SADECE gerçek arama sonuçlarına dayalı bilgi ver, BİLGİ UYDURMA
 
 TAMAMLADIĞINDA şu formatta özetle:
 
@@ -301,129 +252,30 @@ TAMAMLADIĞINDA şu formatta özetle:
 ## BAĞLAM
 (Bu olay neden önemli?)"""
 
-    user_message = f"""Bu tweet'i araştır:
+    result = _grok_responses_api(
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"""Bu tweet'i araştır:
 
 @{tweet_author}: "{tweet_text[:1200]}"
 
-Hem X'te hem web'de araştır. Önce X'te bu konuda ne konuşulduğunu bul, sonra web'den detayları çek."""
+Hem X'te hem web'de araştır. Önce X'te bu konuda ne konuşulduğunu bul, sonra web'den detayları çek."""},
+        ],
+        tools=[{"type": "x_search"}, {"type": "web_search"}],
+        max_tokens=3000,
+        temperature=0.2,
+        api_key=api_key,
+    )
 
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "x_search",
-                "description": "Search X (Twitter) for posts, discussions, and opinions about a topic",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "Search query in English"}
-                    },
-                    "required": ["query"]
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "web_search",
-                "description": "Search the web for articles, news, technical details, and data",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "Search query in English"}
-                    },
-                    "required": ["query"]
-                }
-            }
-        },
-    ]
-
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_message},
-    ]
-
-    total_inp, total_out, total_tools = 0, 0, 0
-    search_count = 0
-
-    for iteration in range(max_iterations):
-        if progress_callback:
-            progress_callback(f"🧠 Grok araştırıyor... (adım {iteration + 1}, {search_count} arama)")
-
-        try:
-            response = client.chat.completions.create(
-                model=GROK_MODEL,
-                messages=messages,
-                tools=tools,
-                tool_choice="auto",
-                max_tokens=2000,
-                temperature=0.2,
-            )
-        except Exception as e:
-            print(f"Grok agentic research error: {e}")
-            break
-
-        inp, out = _extract_usage(response)
-        total_inp += inp
-        total_out += out
-
-        choice = response.choices[0]
-        assistant_msg = choice.message
-        messages.append(assistant_msg)
-
-        # Check if model is done
-        if choice.finish_reason == "stop" or not assistant_msg.tool_calls:
-            _track_cost(total_inp, total_out, total_tools)
-            return assistant_msg.content or ""
-
-        # Execute tool calls (Grok handles them internally via API)
-        for tc in assistant_msg.tool_calls:
-            fn_name = tc.function.name
-            try:
-                fn_args = json.loads(tc.function.arguments)
-            except json.JSONDecodeError:
-                fn_args = {}
-
-            total_tools += 1
-            search_count += 1
-
-            if progress_callback:
-                query = fn_args.get("query", "")[:50]
-                if fn_name == "x_search":
-                    progress_callback(f"🐦 X'te arıyor: {query}...")
-                elif fn_name == "web_search":
-                    progress_callback(f"🌐 Web'de arıyor: {query}...")
-
-            # For Grok's native tools, the API handles execution
-            # We just acknowledge and let Grok continue
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tc.id,
-                "content": "Search completed successfully. Analyze the results and continue.",
-            })
-
-    # Hit max iterations — ask for summary
-    messages.append({
-        "role": "user",
-        "content": "Araştırmayı bitir ve topladığın bilgileri yapılandırılmış formatta özetle."
-    })
-
-    try:
-        final = client.chat.completions.create(
-            model=GROK_MODEL,
-            messages=messages,
-            max_tokens=2000,
-            temperature=0.1,
-        )
-        inp, out = _extract_usage(final)
-        total_inp += inp
-        total_out += out
-        _track_cost(total_inp, total_out, total_tools)
-        return final.choices[0].message.content or ""
-    except Exception as e:
-        print(f"Grok agentic final error: {e}")
-        _track_cost(total_inp, total_out, total_tools)
+    if not result:
         return ""
+
+    _track_cost(result["input_tokens"], result["output_tokens"])
+
+    if progress_callback:
+        progress_callback("🧠 Grok araştırma tamamlandı")
+
+    return result["text"]
 
 
 # ========================================================================
@@ -435,16 +287,12 @@ def grok_discover_topics(focus_area: str = "",
                          progress_callback=None) -> list[dict]:
     """
     Grok ile X ve web'de spesifik, güncel AI/teknoloji gelişmelerini keşfet.
-    Multi-turn agentic: Grok kendi x_search + web_search ile otonom gezinir.
+    xAI Responses API: Grok GERÇEKTEN X'te ve web'de arama yapar (server-side tools).
     """
-    client = _get_grok_client(api_key)
-    if not client:
-        return []
-
     if progress_callback:
         progress_callback("🧠 Grok X ve web'de güncel gelişmeleri araştırıyor...")
 
-    current_year = str(datetime.datetime.now().year)
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
 
     focus_instruction = ""
     if focus_area and focus_area.strip():
@@ -457,6 +305,7 @@ ODAK ALANI: AI, yapay zeka, yazılım ve teknoloji (genel)
 En güncel ve ilgi çekici gelişmeleri bul."""
 
     system_prompt = f"""Sen bir teknoloji trend analisti ve içerik keşifçisisin.
+Bugünün tarihi: {current_date}
 Görevin: X (Twitter) ve web'de SON 24 SAATTEKİ en önemli, spesifik gelişmeleri bulmak.
 
 ⚠️ KRİTİK: Genel kategori isimleri YASAK. Her konu SPESİFİK bir gelişme olmalı.
@@ -470,18 +319,13 @@ KÖTÜ ÖRNEK (YAPMA):
 - "Dvina Code launched: GUI-first agentic coding with Claude Opus 4.6 free" ← spesifik ürün + detay
 - "OpenAI raised $110B at $730B valuation — biggest AI round ever" ← spesifik olay + rakam
 - "Qwen 3.5 400B MoE beats GPT-4o on coding benchmarks, fully open-source" ← spesifik model + sonuç
-- "Cursor vs Windsurf: developers comparing after Windsurf's new agent mode" ← spesifik karşılaştırma
 
 {focus_instruction}
 
-ARAŞTIRMA STRATEJİN:
-1. X'te "{current_year}" yılına ait en güncel AI/teknoloji paylaşımlarını ara
-2. Yüksek etkileşimli (çok beğeni/RT) tweet'leri bul — bunlar önemli gelişmelere işaret eder
-3. Web'de son haberleri kontrol et — yeni çıkan ürünler, güncellemeler, duyurular
-4. Her gelişme için: ne oldu, kim yaptı, neden önemli, hangi rakamlar var
-
 ⚠️ SADECE İNGİLİZCE İÇERİK ARA. Türkçe hesaplar/tweet'ler ARAMA — onlar zaten
 yabancı kaynaklardan çeviri yapıyor, biz doğrudan kaynağa gidelim.
+
+X'te ve web'de arama yap. Yüksek etkileşimli tweet'leri ve son haberleri bul.
 
 TAMAMLADIĞINDA şu JSON formatında 5-8 konu ver:
 [
@@ -496,7 +340,10 @@ TAMAMLADIĞINDA şu JSON formatında 5-8 konu ver:
 
 SADECE JSON döndür, başka bir şey yazma."""
 
-    user_message = f"""X'te ve web'de son 24 saatteki en önemli AI/teknoloji gelişmelerini bul.
+    result = _grok_responses_api(
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"""X'te ve web'de son 24 saatteki en önemli AI/teknoloji gelişmelerini bul.
 
 Önce X'te ara — hangi konular çok konuşuluyor, hangi ürünler/şirketler gündemde?
 Sonra web'de ara — hangi yeni ürünler çıktı, hangi duyurular yapıldı?
@@ -504,130 +351,24 @@ Sonra web'de ara — hangi yeni ürünler çıktı, hangi duyurular yapıldı?
 SPESİFİK gelişmeler istiyorum: ürün lansmanları, benchmark sonuçları, büyük yatırımlar,
 yeni model çıkışları, önemli güncellemeler. Genel kategori isimleri DEĞİL.
 
-{"Özellikle şu alana odaklan: " + focus_area if focus_area else "Genel AI ve teknoloji alanı."}"""
+{"Özellikle şu alana odaklan: " + focus_area if focus_area else "Genel AI ve teknoloji alanı."}"""},
+        ],
+        tools=[{"type": "x_search"}, {"type": "web_search"}],
+        max_tokens=4000,
+        temperature=0.3,
+        api_key=api_key,
+    )
 
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "x_search",
-                "description": "Search X (Twitter) for recent posts, discussions, and trending topics",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "Search query in English"}
-                    },
-                    "required": ["query"]
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "web_search",
-                "description": "Search the web for news, articles, and announcements",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "Search query in English"}
-                    },
-                    "required": ["query"]
-                }
-            }
-        },
-    ]
+    if not result or not result["text"]:
+        return []
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_message},
-    ]
-
-    total_inp, total_out, total_tools = 0, 0, 0
-    search_count = 0
-    max_iterations = 6
-
-    for iteration in range(max_iterations):
-        if progress_callback:
-            progress_callback(f"🧠 Grok gelişmeleri araştırıyor... (adım {iteration + 1}, {search_count} arama)")
-
-        try:
-            response = client.chat.completions.create(
-                model=GROK_MODEL,
-                messages=messages,
-                tools=tools,
-                tool_choice="auto",
-                max_tokens=3000,
-                temperature=0.3,
-            )
-        except Exception as e:
-            print(f"Grok discover topics error: {e}")
-            break
-
-        inp, out = _extract_usage(response)
-        total_inp += inp
-        total_out += out
-
-        choice = response.choices[0]
-        assistant_msg = choice.message
-        messages.append(assistant_msg)
-
-        # Check if model is done
-        if choice.finish_reason == "stop" or not assistant_msg.tool_calls:
-            _track_cost(total_inp, total_out, total_tools)
-            raw = assistant_msg.content or ""
-            break
-
-        # Execute tool calls (Grok handles them internally via API)
-        for tc in assistant_msg.tool_calls:
-            fn_name = tc.function.name
-            try:
-                fn_args = json.loads(tc.function.arguments)
-            except json.JSONDecodeError:
-                fn_args = {}
-
-            total_tools += 1
-            search_count += 1
-
-            if progress_callback:
-                query = fn_args.get("query", "")[:50]
-                if fn_name == "x_search":
-                    progress_callback(f"🐦 X'te arıyor: {query}...")
-                elif fn_name == "web_search":
-                    progress_callback(f"🌐 Web'de arıyor: {query}...")
-
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tc.id,
-                "content": "Search completed successfully. Analyze the results and continue researching or provide your final JSON response.",
-            })
-    else:
-        # Hit max iterations — ask for final JSON
-        messages.append({
-            "role": "user",
-            "content": "Araştırmayı bitir. Bulduğun spesifik gelişmeleri JSON formatında ver. SADECE JSON döndür."
-        })
-        try:
-            final = client.chat.completions.create(
-                model=GROK_MODEL,
-                messages=messages,
-                max_tokens=3000,
-                temperature=0.2,
-            )
-            inp, out = _extract_usage(final)
-            total_inp += inp
-            total_out += out
-            _track_cost(total_inp, total_out, total_tools)
-            raw = final.choices[0].message.content or ""
-        except Exception as e:
-            print(f"Grok discover final error: {e}")
-            _track_cost(total_inp, total_out, total_tools)
-            return []
+    _track_cost(result["input_tokens"], result["output_tokens"])
 
     if progress_callback:
-        progress_callback(f"🧠 Grok {search_count} arama yaptı, konular derleniyor...")
+        progress_callback("🧠 Grok araştırma tamamlandı, konular derleniyor...")
 
     # Parse JSON response
-    raw = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
+    raw = re.sub(r'<think>.*?</think>', '', result["text"], flags=re.DOTALL).strip()
     json_match = re.search(r'\[.*\]', raw, re.DOTALL)
     if json_match:
         try:
@@ -647,21 +388,15 @@ def grok_fact_check(draft_text: str, original_tweet: str = "",
                     progress_callback=None) -> str:
     """
     Grok ile tweet taslağındaki iddiaları doğrula.
-    X'teki tartışmaları ve web kaynaklarını kullanır.
+    xAI Responses API ile X'te ve web'de GERÇEK arama yaparak doğrular.
     """
-    client = _get_grok_client(api_key)
-    if not client:
-        return ""
-
     if progress_callback:
         progress_callback("🧠 Grok iddiaları doğruluyor...")
 
-    try:
-        response = client.chat.completions.create(
-            model=GROK_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a fact-checker. Verify claims using X and web search."},
-                {"role": "user", "content": f"""Aşağıdaki tweet taslağındaki iddiaları doğrula:
+    result = _grok_responses_api(
+        messages=[
+            {"role": "system", "content": "You are a fact-checker. Verify claims using X and web search. Only report facts you can verify from search results."},
+            {"role": "user", "content": f"""Aşağıdaki tweet taslağındaki iddiaları doğrula:
 
 TASLAK:
 "{draft_text}"
@@ -676,89 +411,23 @@ Her iddiayı X'te ve web'de araştır. Sonucu şu formatta ver:
 - ❌ [yanlış iddia] — doğrusu + kaynak
 
 ## ÖNERİLEN DÜZELTMELER
-(Varsa düzeltilmesi gereken kısımlar)"""}
-            ],
-            tools=[
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "x_search",
-                        "description": "Search X for verification",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {"query": {"type": "string"}},
-                            "required": ["query"]
-                        }
-                    }
-                },
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "web_search",
-                        "description": "Search web for verification",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {"query": {"type": "string"}},
-                            "required": ["query"]
-                        }
-                    }
-                },
-            ],
-            tool_choice="auto",
-            max_tokens=2000,
-            temperature=0.1,
-        )
+(Varsa düzeltilmesi gereken kısımlar)"""},
+        ],
+        tools=[{"type": "x_search"}, {"type": "web_search"}],
+        max_tokens=2000,
+        temperature=0.1,
+        api_key=api_key,
+    )
 
-        inp, out = _extract_usage(response)
-        tool_count = 0
-
-        choice = response.choices[0]
-        messages_fc = [
-            {"role": "system", "content": "You are a fact-checker."},
-            {"role": "user", "content": f'Verify claims in: "{draft_text[:500]}"'},
-            choice.message,
-        ]
-
-        # Handle up to 3 iterations of tool calls
-        for _ in range(3):
-            if not choice.message.tool_calls:
-                break
-
-            for tc in choice.message.tool_calls:
-                tool_count += 1
-                messages_fc.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": "Verification search completed.",
-                })
-
-            response2 = client.chat.completions.create(
-                model=GROK_MODEL,
-                messages=messages_fc,
-                tools=[
-                    {"type": "function", "function": {"name": "x_search", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
-                    {"type": "function", "function": {"name": "web_search", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
-                ],
-                tool_choice="auto",
-                max_tokens=2000,
-                temperature=0.1,
-            )
-            inp2, out2 = _extract_usage(response2)
-            inp += inp2
-            out += out2
-            choice = response2.choices[0]
-            messages_fc.append(choice.message)
-
-        _track_cost(inp, out, tool_count)
-
-        if progress_callback:
-            progress_callback("🧠 Grok doğrulama tamamlandı")
-
-        return choice.message.content or ""
-
-    except Exception as e:
-        print(f"Grok fact check error: {e}")
+    if not result:
         return ""
+
+    _track_cost(result["input_tokens"], result["output_tokens"])
+
+    if progress_callback:
+        progress_callback("🧠 Grok doğrulama tamamlandı")
+
+    return result["text"]
 
 
 # ========================================================================

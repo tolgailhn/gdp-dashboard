@@ -6,8 +6,10 @@ import json
 import os
 import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 DATA_DIR = Path(__file__).parent.parent / "data"
+TZ_TR = ZoneInfo("Europe/Istanbul")
 
 
 def load_user_samples() -> list[str]:
@@ -183,7 +185,8 @@ def log_scheduled_post(slot_time: str, post_type: str, content: str = "",
                        tweet_url: str = ""):
     """Log a post for a specific schedule slot"""
     log = load_posting_log()
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    now_tr = datetime.datetime.now(TZ_TR)
+    today = now_tr.strftime("%Y-%m-%d")
 
     entry = {
         "date": today,
@@ -193,7 +196,7 @@ def log_scheduled_post(slot_time: str, post_type: str, content: str = "",
         "has_media": has_media,
         "self_reply": self_reply,
         "tweet_url": tweet_url,
-        "logged_at": datetime.datetime.now().isoformat(),
+        "logged_at": now_tr.isoformat(),
     }
 
     log.insert(0, entry)
@@ -206,7 +209,7 @@ def load_daily_checklist(date_str: str = "") -> dict:
     """Load daily algorithm checklist completion"""
     path = DATA_DIR / "daily_checklists.json"
     if not date_str:
-        date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+        date_str = datetime.datetime.now(TZ_TR).strftime("%Y-%m-%d")
     if path.exists():
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -219,7 +222,7 @@ def save_daily_checklist(checklist: dict, date_str: str = ""):
     path = DATA_DIR / "daily_checklists.json"
     os.makedirs(DATA_DIR, exist_ok=True)
     if not date_str:
-        date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+        date_str = datetime.datetime.now(TZ_TR).strftime("%Y-%m-%d")
 
     data = {}
     if path.exists():

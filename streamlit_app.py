@@ -6,6 +6,9 @@ import streamlit as st
 import datetime
 import subprocess
 from pathlib import Path
+from zoneinfo import ZoneInfo
+
+TZ_TR = ZoneInfo("Europe/Istanbul")
 from modules.ui_components import inject_custom_css, check_password, render_stat_box, get_secret, render_sidebar_nav
 from modules.style_manager import load_post_history, load_draft_tweets, load_posting_log
 
@@ -56,7 +59,7 @@ has_ai = bool(get_secret("minimax_api_key", "") or get_secret("anthropic_api_key
 post_history = load_post_history()
 drafts = load_draft_tweets()
 today_posts = len([p for p in post_history
-                   if p.get("posted_at", "").startswith(datetime.datetime.now().strftime("%Y-%m-%d"))])
+                   if p.get("posted_at", "").startswith(datetime.datetime.now(TZ_TR).strftime("%Y-%m-%d"))])
 
 # --- Hero Section ---
 api_dot = "🟢" if (has_twitter and has_ai) else "🟡"
@@ -83,11 +86,11 @@ with col4:
 
 # --- Today's Schedule Mini ---
 posting_log = load_posting_log()
-today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+today_str = datetime.datetime.now(TZ_TR).strftime("%Y-%m-%d")
 today_schedule_logs = [e for e in posting_log if e.get("date") == today_str]
 posted_slots = {e["slot_time"] for e in today_schedule_logs}
 
-is_weekend = datetime.datetime.now().weekday() >= 5
+is_weekend = datetime.datetime.now(TZ_TR).weekday() >= 5
 slots_today = [
     ("10:00" if is_weekend else "09:00", "☀️"),
     ("13:30" if is_weekend else "13:00", "🍽️"),
@@ -96,7 +99,7 @@ slots_today = [
 ]
 
 # Find next slot
-now = datetime.datetime.now()
+now = datetime.datetime.now(TZ_TR)
 next_slot_info = ""
 for slot_time, _ in slots_today:
     h, m = map(int, slot_time.split(":"))

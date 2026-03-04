@@ -4,7 +4,10 @@ X algoritmasını optimize eden zamanlama stratejisi
 """
 import streamlit as st
 import datetime
+from zoneinfo import ZoneInfo
 from modules.ui_components import inject_custom_css, check_password, render_sidebar_nav
+
+TZ_TR = ZoneInfo("Europe/Istanbul")
 from modules.style_manager import (
     load_posting_log, log_scheduled_post,
     load_daily_checklist, save_daily_checklist,
@@ -55,7 +58,7 @@ POST_TYPES = ["Değer / Eğitim", "Meme / Eğlence", "Soru / Poll", "Opinion (k�
 
 def get_today_slots() -> list[dict]:
     """Get posting slots for today (weekday vs weekend)"""
-    today = datetime.datetime.now()
+    today = datetime.datetime.now(TZ_TR)
     if today.weekday() >= 5:  # Saturday=5, Sunday=6
         return WEEKEND_SLOTS
     return WEEKDAY_SLOTS
@@ -63,14 +66,14 @@ def get_today_slots() -> list[dict]:
 
 def get_slot_datetime(slot_time: str) -> datetime.datetime:
     """Convert slot time string to today's datetime"""
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(TZ_TR)
     hour, minute = map(int, slot_time.split(":"))
     return now.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
 
 def get_next_slot(slots: list[dict]) -> tuple[dict | None, datetime.timedelta | None]:
     """Find the next upcoming slot and time remaining"""
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(TZ_TR)
     for slot in slots:
         slot_dt = get_slot_datetime(slot["time"])
         if slot_dt > now:
@@ -80,13 +83,13 @@ def get_next_slot(slots: list[dict]) -> tuple[dict | None, datetime.timedelta | 
 
 def get_today_logs(posting_log: list[dict]) -> list[dict]:
     """Filter posting log for today only"""
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    today = datetime.datetime.now(TZ_TR).strftime("%Y-%m-%d")
     return [entry for entry in posting_log if entry.get("date") == today]
 
 
 def get_week_logs(posting_log: list[dict]) -> list[dict]:
     """Filter posting log for this week"""
-    today = datetime.datetime.now()
+    today = datetime.datetime.now(TZ_TR)
     week_start = today - datetime.timedelta(days=today.weekday())
     week_start_str = week_start.strftime("%Y-%m-%d")
     return [entry for entry in posting_log if entry.get("date", "") >= week_start_str]
@@ -116,8 +119,8 @@ posting_log = load_posting_log()
 today_logs = get_today_logs(posting_log)
 today_slots = get_today_slots()
 next_slot, time_remaining = get_next_slot(today_slots)
-today_str = datetime.datetime.now().strftime("%Y-%m-%d")
-is_weekend = datetime.datetime.now().weekday() >= 5
+today_str = datetime.datetime.now(TZ_TR).strftime("%Y-%m-%d")
+is_weekend = datetime.datetime.now(TZ_TR).weekday() >= 5
 checklist = load_daily_checklist()
 
 # --- Top Stats ---
@@ -166,7 +169,7 @@ st.markdown("---")
 
 # --- Today's Schedule ---
 day_label = "Hafta Sonu" if is_weekend else "Hafta İçi"
-day_name = datetime.datetime.now().strftime("%A")
+day_name = datetime.datetime.now(TZ_TR).strftime("%A")
 day_names_tr = {"Monday": "Pazartesi", "Tuesday": "Salı", "Wednesday": "Çarşamba",
                 "Thursday": "Perşembe", "Friday": "Cuma", "Saturday": "Cumartesi", "Sunday": "Pazar"}
 day_name_tr = day_names_tr.get(day_name, day_name)
@@ -182,7 +185,7 @@ logged_slots = {entry["slot_time"] for entry in today_logs}
 
 for i, slot in enumerate(today_slots):
     slot_dt = get_slot_datetime(slot["time"])
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(TZ_TR)
     is_posted = slot["time"] in logged_slots
     is_current = not is_posted and slot_dt <= now and (
         i == len(today_slots) - 1 or get_slot_datetime(today_slots[i + 1]["time"]) > now

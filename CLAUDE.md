@@ -39,6 +39,7 @@ modules/
   telegram_notifier.py        → Telegram bildirim gönderici
   style_manager.py            → JSON dosya yöneticisi (taslaklar, geçmiş, kişiler)
   ui_components.py            → Streamlit UI bileşenleri, CSS, sidebar, auth
+  media_finder.py             → Görsel/video arama: X + DuckDuckGo image search
 ```
 
 ### Modüller Arası Bağımlılıklar
@@ -52,7 +53,8 @@ Pages → style_manager (dosya I/O)
 twitter_scanner → twikit_client (ücretsiz arama)
 deep_research → DDG + BeautifulSoup (web arama/makale çekme)
 grok_client → OpenAI SDK (xAI base_url ile)
-content_generator → anthropic / openai SDK
+content_generator → anthropic / openai SDK (+ vision desteği)
+media_finder → twikit_client (X arama) + duckduckgo_search (web görsel)
 ```
 
 ### AI Provider Sıralaması
@@ -89,6 +91,9 @@ MiniMax (öncelikli) → Anthropic Claude → OpenAI GPT. `get_ai_client()` bu s
 | 2026-03-04 | Grok regex non-greedy (`.*?`) | Greedy `.*` birden fazla JSON array'i varsa yanlış parse ediyordu |
 | 2026-03-04 | `_DEFAULT_AI_ACCOUNTS_LOWER` frozenset | Her `calculate_relevance()` çağrısında list comprehension yerine O(1) lookup |
 | 2026-03-04 | Page 6 `x_scanner` → `twitter_scanner` | `x_scanner` modülü hiç yoktu, yarım kalmış refactoring |
+| 2026-03-04 | Görsel arama: varsayılan X, opsiyonel Web | X görselleri daha alakalı, DuckDuckGo ek seçenek |
+| 2026-03-04 | Vision: MiniMax → Claude/OpenAI fallback | MiniMax vision desteklemiyor, görsel analizi için otomatik fallback |
+| 2026-03-04 | media_urls araştırma akışında korunuyor | Daha önce AITopic→ResearchResult dönüşümünde kayboluyordu |
 
 ---
 
@@ -129,3 +134,12 @@ MiniMax (öncelikli) → Anthropic Claude → OpenAI GPT. `get_ai_client()` bu s
 - **fix**: `twikit_client.py` datetime ISO format fallback
 - **fix**: `style_manager.py` import düzeni
 - **chore**: `requirements.txt` — `lxml` eklendi
+
+### 2026-03-04 (Görsel Arama + Görsel Anlama)
+- **feat**: `media_finder.py` — Yeni modül: X ve DuckDuckGo'dan konu ile ilgili görsel/video arama
+- **feat**: `content_generator.py` — Vision (görsel anlama) desteği: Claude ve OpenAI ile görsel analizi
+- **feat**: `deep_research.py` — Araştırma sonuçlarında media_urls korunuyor (ResearchResult, TopicResearchResult)
+- **feat**: `ui_components.py` — Medya öneri grid'i, görsel analiz gösterimi, kaynak seçici
+- **feat**: `pages/2_✍️_Yaz.py` — Tweet üretildikten sonra "Görsel/Video Bul" bölümü
+- **feat**: `pages/6_💡_İçerik.py` — İçerik üretildikten sonra "Görsel/Video Bul" bölümü (her iki tab)
+- **feat**: `ui_components.py:render_tweet_card` — Tweet kartında medya göstergesi (🖼️ badge)

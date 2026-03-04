@@ -1170,6 +1170,13 @@ def render_tweet_card(topic, show_select: bool = True, key_prefix: str = ""):
     total_eng = topic.like_count + topic.retweet_count + topic.reply_count
     total_eng_html = f'<span style="color:#fbbf24; font-size:12px; font-weight:600;">📊 {_format_number(total_eng)}</span>'
 
+    # Media indicator
+    media_urls = getattr(topic, 'media_urls', []) or []
+    media_html = ""
+    if media_urls:
+        media_count = len(media_urls)
+        media_html = f'<span style="color:#10b981; font-size:11px; margin-left:6px;">🖼️ {media_count} medya</span>'
+
     # Time and date
     time_and_date = getattr(topic, 'time_and_date', '') or topic.time_ago
 
@@ -1182,6 +1189,7 @@ def render_tweet_card(topic, show_select: bool = True, key_prefix: str = ""):
                 {followers_html}
             </div>
             <div style="display:flex; gap:6px; align-items:center;">
+                {media_html}
                 <span class="tweet-category">{topic.category}</span>
                 <span class="relevance-badge {rel_class}">{rel_text}</span>
             </div>
@@ -1229,6 +1237,135 @@ def render_stat_box(number: str, label: str):
     <div class="stat-box">
         <div class="stat-number">{number}</div>
         <div class="stat-label">{label}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def render_media_suggestions(media_result, key_prefix: str = "media"):
+    """Render media search results as a visual grid with download links.
+
+    Args:
+        media_result: MediaSearchResult from media_finder module
+        key_prefix: Unique key prefix for Streamlit widgets
+    """
+    if not media_result or not media_result.has_results:
+        st.info("Bu konu için görsel bulunamadı.")
+        return
+
+    # --- Images ---
+    if media_result.images:
+        st.markdown(f"""
+        <div style="color:#a5b4fc; font-weight:bold; font-size:14px; margin:12px 0 8px 0;">
+            🖼️ Önerilen Görseller ({len(media_result.images)})
+        </div>
+        """, unsafe_allow_html=True)
+
+        cols = st.columns(min(len(media_result.images), 4))
+        for i, img in enumerate(media_result.images):
+            with cols[i % len(cols)]:
+                # Show image
+                try:
+                    st.image(img.thumbnail_url or img.url, use_container_width=True)
+                except Exception:
+                    st.markdown(f"""
+                    <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.1);
+                                border-radius:8px; padding:20px; text-align:center; color:#64748b;">
+                        🖼️ Önizleme yüklenemedi
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # Source badge
+                source_badge = "𝕏" if img.source == "x" else "🌐"
+                source_color = "#1d9bf0" if img.source == "x" else "#10b981"
+
+                st.markdown(f"""
+                <div style="font-size:11px; color:#94a3b8; margin:4px 0;">
+                    <span style="color:{source_color}; font-weight:bold;">{source_badge}</span>
+                    {img.title[:60] + '...' if len(img.title) > 60 else img.title}
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Download link
+                if img.source_url:
+                    st.markdown(f"[Kaynağı aç]({img.source_url})", unsafe_allow_html=False)
+                st.markdown(f"[Görseli indir]({img.url})", unsafe_allow_html=False)
+
+    # --- Videos ---
+    if media_result.videos:
+        st.markdown(f"""
+        <div style="color:#a5b4fc; font-weight:bold; font-size:14px; margin:16px 0 8px 0;">
+            🎬 Önerilen Videolar ({len(media_result.videos)})
+        </div>
+        """, unsafe_allow_html=True)
+
+        for i, vid in enumerate(media_result.videos):
+            col_thumb, col_info = st.columns([1, 3])
+            with col_thumb:
+                if vid.thumbnail_url:
+                    try:
+                        st.image(vid.thumbnail_url, use_container_width=True)
+                    except Exception:
+                        st.markdown("🎬", unsafe_allow_html=False)
+                else:
+                    st.markdown("🎬", unsafe_allow_html=False)
+            with col_info:
+                source_badge = "𝕏" if vid.source == "x" else "🌐"
+                st.markdown(f"""
+                <div style="color:#e2e8f0; font-size:13px; font-weight:bold;">
+                    {source_badge} {vid.title[:80]}
+                </div>
+                """, unsafe_allow_html=True)
+                if vid.author:
+                    st.caption(f"@{vid.author}")
+                if vid.source_url:
+                    st.markdown(f"[Videoyu aç]({vid.source_url})")
+
+    # Summary
+    total = len(media_result.images) + len(media_result.videos)
+    x_count = sum(1 for m in media_result.images + media_result.videos if m.source == "x")
+    web_count = total - x_count
+    parts = []
+    if x_count:
+        parts.append(f"𝕏 {x_count}")
+    if web_count:
+        parts.append(f"🌐 {web_count}")
+    st.caption(f"Toplam {total} medya bulundu ({' | '.join(parts)})")
+
+
+def render_media_source_selector(key_suffix: str = "") -> str:
+    """Render a media source selector toggle.
+
+    Returns: "x", "web", or "all"
+    """
+    options = {
+        "x": "𝕏 Sadece X",
+        "all": "𝕏+🌐 X + Web (Önerilen)",
+        "web": "🌐 Sadece Web",
+    }
+    selected = st.selectbox(
+        "Görsel Kaynağı",
+        options=list(options.keys()),
+        format_func=lambda x: options[x],
+        index=1,  # Default: all
+        key=f"media_source_{key_suffix}",
+    )
+    return selected
+
+
+def render_image_analysis(analysis_text: str, image_url: str = ""):
+    """Render the result of AI image analysis."""
+    if not analysis_text:
+        return
+
+    st.markdown(f"""
+    <div style="background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.15);
+                border-radius:12px; padding:14px; margin:8px 0;">
+        <div style="color:#a5b4fc; font-weight:bold; font-size:13px; margin-bottom:8px;">
+            👁️ Görsel Analizi
+        </div>
+        <div style="color:#e2e8f0; font-size:13px; line-height:1.6;">
+            {analysis_text}
+        </div>
     </div>
     """, unsafe_allow_html=True)
 

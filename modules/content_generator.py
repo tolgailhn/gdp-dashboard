@@ -1236,24 +1236,63 @@ Paragraflari kısa tut, metin duvarı olmasın. Sadece içerik metnini yaz."""
         else:
             return self._generate_openai(system_prompt, user_prompt)
 
-    def _generate_anthropic(self, system_prompt: str, user_prompt: str) -> str:
-        """Generate content using Anthropic Claude API"""
+    def _generate_anthropic(self, system_prompt: str, user_prompt: str,
+                             image_urls: list[str] = None) -> str:
+        """Generate content using Anthropic Claude API.
+
+        Args:
+            system_prompt: System instructions
+            user_prompt: User message text
+            image_urls: Optional list of image URLs for vision analysis
+        """
+        # Build message content — text only or multimodal
+        if image_urls:
+            content = []
+            for img_url in image_urls[:4]:  # Max 4 images per request
+                content.append({
+                    "type": "image",
+                    "source": {"type": "url", "url": img_url},
+                })
+            content.append({"type": "text", "text": user_prompt})
+        else:
+            content = user_prompt
+
         response = self.client.messages.create(
             model=self.model,
             max_tokens=4000,
             system=system_prompt,
-            messages=[{"role": "user", "content": user_prompt}],
+            messages=[{"role": "user", "content": content}],
             temperature=0.9,
         )
         return response.content[0].text.strip()
 
-    def _generate_openai(self, system_prompt: str, user_prompt: str) -> str:
-        """Generate content using OpenAI-compatible API (OpenAI, MiniMax, etc.)"""
+    def _generate_openai(self, system_prompt: str, user_prompt: str,
+                          image_urls: list[str] = None) -> str:
+        """Generate content using OpenAI-compatible API (OpenAI, MiniMax, etc.)
+
+        Args:
+            system_prompt: System instructions
+            user_prompt: User message text
+            image_urls: Optional list of image URLs for vision analysis (OpenAI only)
+        """
+        # Build user content — text only or multimodal
+        if image_urls and self.provider == "openai":
+            # MiniMax doesn't support vision, only use with OpenAI
+            user_content = []
+            for img_url in image_urls[:4]:
+                user_content.append({
+                    "type": "image_url",
+                    "image_url": {"url": img_url},
+                })
+            user_content.append({"type": "text", "text": user_prompt})
+        else:
+            user_content = user_prompt
+
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": user_content}
             ],
             max_tokens=4000,
             temperature=0.9,
@@ -1263,6 +1302,52 @@ Paragraflari kısa tut, metin duvarı olmasın. Sadece içerik metnini yaz."""
         import re
         text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
         return text
+
+    def analyze_image(self, image_url: str, context: str = "") -> str:
+        """Analyze an image using vision-capable AI and extract information.
+
+        Used to understand infographics, tables, charts, and data images
+        found in tweets during research.
+
+        Args:
+            image_url: Direct URL to the image
+            context: Optional context about where the image was found
+
+        Returns:
+            Text description/data extracted from the image
+        """
+        if not self.client:
+            return ""
+
+        # MiniMax doesn't support vision — skip
+        if self.provider == "minimax":
+            return ""
+
+        system_prompt = (
+            "Sen bir görsel analiz uzmanısın. Görseldeki tüm bilgileri, verileri, "
+            "tabloları, grafikleri ve metinleri detaylı olarak çıkar. "
+            "Eğer bir tablo veya sıralama varsa, tüm satırları ve sütunları yaz. "
+            "Eğer bir grafik varsa, trend ve önemli noktaları belirt. "
+            "Türkçe yanıt ver."
+        )
+
+        user_prompt = "Bu görseli analiz et ve içindeki tüm bilgileri çıkar."
+        if context:
+            user_prompt += f"\n\nBağlam: {context}"
+
+        try:
+            if self.provider == "anthropic":
+                return self._generate_anthropic(
+                    system_prompt, user_prompt, image_urls=[image_url]
+                )
+            elif self.provider == "openai":
+                return self._generate_openai(
+                    system_prompt, user_prompt, image_urls=[image_url]
+                )
+        except Exception as e:
+            print(f"Vision analysis error: {e}")
+            return ""
+        return ""
 
     def analyze_writing_style(self, sample_tweets: list[str]) -> str:
         """

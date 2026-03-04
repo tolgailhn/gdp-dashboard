@@ -9,7 +9,9 @@ from urllib.parse import quote as url_quote
 from modules.ui_components import (inject_custom_css, check_password,
                                    render_generated_tweet, render_thread_preview,
                                    get_secret, render_sidebar_nav,
-                                   render_research_engine_toggle, render_agentic_mode_toggle)
+                                   render_research_engine_toggle, render_agentic_mode_toggle,
+                                   render_media_suggestions, render_media_source_selector,
+                                   render_image_analysis)
 from modules.content_generator import (ContentGenerator, get_available_styles, get_style_info,
                                        get_available_formats, get_format_info, score_tweet,
                                        CONTENT_FORMATS)
@@ -1276,6 +1278,74 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
                 st.rerun()
             except Exception as e:
                 st.error(f"Yeniden yazma hatası: {e}")
+
+    # --- Media Finder Section ---
+    st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
+
+    with st.expander("🖼️ Görsel/Video Bul", expanded=False):
+        st.markdown("""
+        <div style="color:#94a3b8; font-size:12px; margin-bottom:10px;">
+            Tweet'inize eklemek için konuyla ilgili görsel ve video önerileri alın
+        </div>
+        """, unsafe_allow_html=True)
+
+        media_source = render_media_source_selector(key_suffix="yaz")
+
+        if st.button("🔍 Görsel Ara", type="secondary", use_container_width=True, key="find_media_yaz"):
+            from modules.media_finder import find_media
+            # Get twikit client for X search
+            _twikit = None
+            if media_source in ("x", "all"):
+                try:
+                    from modules.twikit_client import TwikitSearchClient
+                    _tw_user = get_secret("twikit_username", "")
+                    _tw_pass = get_secret("twikit_password", "")
+                    _tw_email = get_secret("twikit_email", "")
+                    if _tw_user:
+                        _twikit = TwikitSearchClient(
+                            username=_tw_user, password=_tw_pass, email=_tw_email
+                        )
+                        _twikit.authenticate()
+                except Exception as e:
+                    st.caption(f"Twikit bağlantı hatası: {e}")
+
+            with st.spinner("Görseller aranıyor..."):
+                media_result = find_media(
+                    topic_text=tweet_text,
+                    source=media_source,
+                    twikit_client=_twikit,
+                )
+                st.session_state["yaz_media_result"] = media_result
+
+        if "yaz_media_result" in st.session_state and st.session_state["yaz_media_result"]:
+            render_media_suggestions(st.session_state["yaz_media_result"], key_prefix="yaz")
+
+            # Vision analysis for images from research
+            if st.session_state["yaz_media_result"].images:
+                analyze_col1, analyze_col2 = st.columns([3, 1])
+                with analyze_col2:
+                    if st.button("👁️ Görseli Analiz Et", key="analyze_media_yaz", use_container_width=True):
+                        first_img = st.session_state["yaz_media_result"].images[0]
+                        # Use vision-capable AI
+                        _prov = st.session_state.get("ai_provider", "minimax")
+                        _vision_provider = _prov if _prov != "minimax" else "anthropic"
+                        _vision_key = get_secret(f"{_vision_provider}_api_key", "")
+                        if _vision_key:
+                            try:
+                                gen = ContentGenerator(
+                                    provider=_vision_provider,
+                                    api_key=_vision_key,
+                                )
+                                analysis = gen.analyze_image(first_img.url, context=tweet_text[:200])
+                                if analysis:
+                                    st.session_state["yaz_image_analysis"] = analysis
+                            except Exception as e:
+                                st.error(f"Görsel analiz hatası: {e}")
+                        else:
+                            st.warning("Görsel analizi için Anthropic veya OpenAI API anahtarı gerekli.")
+
+            if "yaz_image_analysis" in st.session_state:
+                render_image_analysis(st.session_state["yaz_image_analysis"])
 
 # Thread display
 if "generated_thread" in st.session_state and st.session_state.generated_thread:

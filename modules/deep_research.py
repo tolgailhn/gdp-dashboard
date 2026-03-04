@@ -49,6 +49,7 @@ class ResearchResult:
     related_tweets: list = field(default_factory=list)
     summary: str = ""
     synthesized_brief: str = ""  # AI-synthesized structured research brief
+    media_urls: list = field(default_factory=list)  # Media URLs from tweets (images/videos)
 
 
 def extract_tweet_id(url_or_id: str) -> str | None:
@@ -1303,12 +1304,15 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                                 for t in related:
                                     if t.id != tweet_id and t.id not in seen_ids and len(t.text) > 50:
                                         seen_ids.add(t.id)
+                                        t_media = getattr(t, 'media_urls', []) or []
                                         result.related_tweets.append({
                                             "text": t.text, "author": t.author_username,
                                             "likes": t.like_count,
                                             "retweets": getattr(t, 'retweet_count', 0),
                                             "followers": getattr(t, 'author_followers_count', 0),
+                                            "media_urls": t_media,
                                         })
+                                        result.media_urls.extend(t_media)
                             except Exception as e:
                                 print(f"X search in Grok agentic mode error: {e}")
                         result.related_tweets.sort(key=lambda x: x.get("likes", 0) + x.get("retweets", 0) * 2, reverse=True)
@@ -1376,6 +1380,7 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                             for t in related:
                                 if t.id != tweet_id and t.id not in seen_ids and len(t.text) > 50:
                                     seen_ids.add(t.id)
+                                    t_media = getattr(t, 'media_urls', []) or []
                                     result.related_tweets.append({
                                         "text": t.text,
                                         "author": t.author_username,
@@ -1383,7 +1388,9 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                                         "retweets": getattr(t, 'retweet_count', 0),
                                         "followers": getattr(t, 'author_followers_count', 0),
                                         "url": f"https://x.com/{t.author_username}/status/{t.id}",
+                                        "media_urls": t_media,
                                     })
+                                    result.media_urls.extend(t_media)
                         except Exception as e:
                             print(f"X search error in agentic mode: {e}")
 
@@ -1584,6 +1591,7 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                     for t in related:
                         if t.id != tweet_id and t.id not in seen_ids and len(t.text) > 50:
                             seen_ids.add(t.id)
+                            t_media = getattr(t, 'media_urls', []) or []
                             result.related_tweets.append({
                                 "text": t.text,
                                 "author": t.author_username,
@@ -1591,7 +1599,9 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                                 "retweets": getattr(t, 'retweet_count', 0),
                                 "followers": getattr(t, 'author_followers_count', 0),
                                 "url": f"https://x.com/{t.author_username}/status/{t.id}",
+                                "media_urls": t_media,
                             })
+                            result.media_urls.extend(t_media)
                 except Exception as e:
                     print(f"X search error ({q[:40]}): {e}")
 
@@ -2204,6 +2214,7 @@ class TopicResearchResult:
     news_results: list = field(default_factory=list)
     summary: str = ""
     agentic_summary: str = ""  # AI autonomous research results
+    media_urls: list = field(default_factory=list)  # Media URLs from X tweets
 
 
 def research_topic_from_text(
@@ -2331,6 +2342,7 @@ def research_topic_from_text(
                 for t in tweets:
                     if t.id not in seen_ids and len(t.text) > 40:
                         seen_ids.add(t.id)
+                        t_media = getattr(t, 'media_urls', []) or []
                         result.x_tweets.append({
                             "text": t.text,
                             "author": t.author_username,
@@ -2338,7 +2350,9 @@ def research_topic_from_text(
                             "retweets": t.retweet_count,
                             "url": t.url,
                             "created_at": t.created_at.isoformat() if t.created_at else "",
+                            "media_urls": t_media,
                         })
+                        result.media_urls.extend(t_media)
             except Exception as e:
                 print(f"X topic search error ({q[:50]}): {e}")
 

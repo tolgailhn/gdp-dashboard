@@ -7,7 +7,8 @@ import datetime
 from urllib.parse import quote as url_quote
 from modules.ui_components import (inject_custom_css, check_password,
                                    get_secret, render_sidebar_nav,
-                                   render_research_engine_toggle, render_agentic_mode_toggle)
+                                   render_research_engine_toggle, render_agentic_mode_toggle,
+                                   render_media_suggestions, render_media_source_selector)
 from modules.content_generator import ContentGenerator, get_available_formats, score_tweet, CONTENT_FORMATS
 from modules.deep_research import discover_topics, research_topic_from_text
 from modules.style_manager import load_user_samples, load_custom_persona, add_draft
@@ -387,6 +388,38 @@ with tab1:
                     st.session_state.pop("discover_generated_content", None)
                     st.rerun()
 
+            # --- Media Finder for discovered content ---
+            with st.expander("🖼️ Görsel/Video Bul", expanded=False):
+                st.caption("İçeriğinize eklemek için konuyla ilgili görseller bulun")
+                d_media_source = render_media_source_selector(key_suffix="discover")
+
+                if st.button("🔍 Görsel Ara", key="find_media_discover", use_container_width=True):
+                    from modules.media_finder import find_media
+                    _twikit = None
+                    if d_media_source in ("x", "all"):
+                        try:
+                            from modules.twikit_client import TwikitSearchClient
+                            _tw_user = get_secret("twikit_username", "")
+                            _tw_pass = get_secret("twikit_password", "")
+                            _tw_email = get_secret("twikit_email", "")
+                            if _tw_user:
+                                _twikit = TwikitSearchClient(
+                                    username=_tw_user, password=_tw_pass, email=_tw_email
+                                )
+                                _twikit.authenticate()
+                        except Exception:
+                            pass
+                    with st.spinner("Görseller aranıyor..."):
+                        media_result = find_media(
+                            topic_text=d_content,
+                            source=d_media_source,
+                            twikit_client=_twikit,
+                        )
+                        st.session_state["discover_media_result"] = media_result
+
+                if "discover_media_result" in st.session_state and st.session_state["discover_media_result"]:
+                    render_media_suggestions(st.session_state["discover_media_result"], key_prefix="discover")
+
 
 # ============================================================
 # TAB 2: Content Generation
@@ -632,3 +665,35 @@ with tab2:
                 # Clear and re-trigger
                 st.session_state.pop("generated_content", None)
                 st.rerun()
+
+        # --- Media Finder for generated content ---
+        with st.expander("🖼️ Görsel/Video Bul", expanded=False):
+            st.caption("İçeriğinize eklemek için konuyla ilgili görseller bulun")
+            c_media_source = render_media_source_selector(key_suffix="content")
+
+            if st.button("🔍 Görsel Ara", key="find_media_content", use_container_width=True):
+                from modules.media_finder import find_media
+                _twikit = None
+                if c_media_source in ("x", "all"):
+                    try:
+                        from modules.twikit_client import TwikitSearchClient
+                        _tw_user = get_secret("twikit_username", "")
+                        _tw_pass = get_secret("twikit_password", "")
+                        _tw_email = get_secret("twikit_email", "")
+                        if _tw_user:
+                            _twikit = TwikitSearchClient(
+                                username=_tw_user, password=_tw_pass, email=_tw_email
+                            )
+                            _twikit.authenticate()
+                    except Exception:
+                        pass
+                with st.spinner("Görseller aranıyor..."):
+                    media_result = find_media(
+                        topic_text=content,
+                        source=c_media_source,
+                        twikit_client=_twikit,
+                    )
+                    st.session_state["content_media_result"] = media_result
+
+            if "content_media_result" in st.session_state and st.session_state["content_media_result"]:
+                render_media_suggestions(st.session_state["content_media_result"], key_prefix="content")

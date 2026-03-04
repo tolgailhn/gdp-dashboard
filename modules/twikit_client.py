@@ -3,11 +3,11 @@ Twikit Client Module
 Sync wrapper for twikit's async API for free Twitter search operations.
 Uses cookie-based auth to avoid Twitter API costs.
 
-Async strategy: A persistent event loop runs in a daemon thread.
-All twikit operations (including Client creation) happen inside that
-loop via run_coroutine_threadsafe(). This avoids nest_asyncio
-(broken on Python 3.14+) and keeps twikit's internal HTTP sessions
-bound to a single, consistent event loop.
+Async strategy: A single event loop is reused across calls. Each call
+runs in a fresh thread via loop.run_until_complete() so that asyncio
+is properly detected by sniffio/httpx. A threading lock ensures only
+one call uses the loop at a time. The loop is never closed, so twikit's
+internal httpx sessions remain valid across calls.
 """
 import asyncio
 import datetime
@@ -30,29 +30,40 @@ def _safe_int(val) -> int:
 
 
 class _AsyncRunner:
-    """Persistent event loop in a background thread.
+    """Run async coroutines from sync code without nest_asyncio.
 
-    Twikit's Client uses httpx which requires a running async event loop.
-    nest_asyncio is broken on Python 3.14+, so we maintain our own loop
-    in a daemon thread. ALL async work (including Client creation) must
-    go through this runner.
+    Uses a persistent event loop (never closed) so that twikit's internal
+    httpx sessions stay valid. Each call runs in a dedicated thread via
+    loop.run_until_complete(), which properly activates the asyncio
+    context so sniffio/httpx can detect it.
     """
 
     def __init__(self):
         self._loop = asyncio.new_event_loop()
-        self._thread = threading.Thread(
-            target=self._run_loop, daemon=True
-        )
-        self._thread.start()
-
-    def _run_loop(self):
-        asyncio.set_event_loop(self._loop)
-        self._loop.run_forever()
+        self._lock = threading.Lock()
 
     def run(self, coro, timeout=120):
-        """Submit a coroutine to the persistent loop and wait for result."""
-        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
-        return future.result(timeout=timeout)
+        """Run a coroutine in a dedicated thread using run_until_complete."""
+        with self._lock:
+            result_box = [None]
+            error_box = [None]
+
+            def _target():
+                asyncio.set_event_loop(self._loop)
+                try:
+                    result_box[0] = self._loop.run_until_complete(coro)
+                except Exception as e:
+                    error_box[0] = e
+
+            t = threading.Thread(target=_target, daemon=True)
+            t.start()
+            t.join(timeout=timeout)
+
+            if t.is_alive():
+                raise TimeoutError(f"Async operation timed out after {timeout}s")
+            if error_box[0] is not None:
+                raise error_box[0]
+            return result_box[0]
 
 
 # Module-level runner shared by all TwikitSearchClient instances

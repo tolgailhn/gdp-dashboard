@@ -4,9 +4,9 @@ Sync wrapper for twikit's async API for free Twitter search operations.
 Uses cookie-based auth to avoid Twitter API costs.
 """
 import asyncio
-import concurrent.futures
 import datetime
 import re
+import threading
 from pathlib import Path
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -23,14 +23,24 @@ def _safe_int(val) -> int:
         return 0
 
 
-def _run_async(coro):
-    """Run an async coroutine synchronously.
+class _AsyncRunner:
+    """Persistent event loop in a background thread.
 
-    Uses a separate thread with its own event loop to avoid
-    nest_asyncio issues on Python 3.14+ and Streamlit compatibility.
+    Twikit Client must always run in the same event loop because it
+    maintains internal async HTTP sessions. asyncio.run() creates a
+    new loop each time which breaks those sessions. This class keeps
+    a single loop alive in a daemon thread.
     """
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        return pool.submit(asyncio.run, coro).result()
+
+    def __init__(self):
+        self._loop = asyncio.new_event_loop()
+        self._thread = threading.Thread(target=self._loop.run_forever, daemon=True)
+        self._thread.start()
+
+    def run(self, coro):
+        """Submit a coroutine to the persistent loop and wait for the result."""
+        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        return future.result()
 
 
 def adapt_query_for_web(query: str, since_date: str = None) -> str:
@@ -55,6 +65,11 @@ class TwikitSearchClient:
         self._client = None
         self._authenticated = False
         self.last_error = ""  # Store last error for UI display
+        self._runner = _AsyncRunner()
+
+    def _run(self, coro):
+        """Run an async coroutine in the persistent event loop."""
+        return self._runner.run(coro)
 
     def _get_client(self):
         if self._client is None:
@@ -64,7 +79,7 @@ class TwikitSearchClient:
 
     def authenticate(self) -> bool:
         """Authenticate with Twitter. Returns True on success."""
-        return _run_async(self._auth_async())
+        return self._run(self._auth_async())
 
     async def _auth_async(self) -> bool:
         client = self._get_client()
@@ -182,7 +197,7 @@ class TwikitSearchClient:
         if not self._authenticated:
             return []
         adapted = adapt_query_for_web(query, since_date)
-        return _run_async(self._search_async(adapted, count))
+        return self._run(self._search_async(adapted, count))
 
     async def _search_async(self, query: str, count: int) -> list[dict]:
         results = []
@@ -219,7 +234,7 @@ class TwikitSearchClient:
         """Get recent tweets from a user with pagination. Returns list of tweet dicts."""
         if not self._authenticated:
             return []
-        return _run_async(self._user_tweets_async(username, count, progress_callback))
+        return self._run(self._user_tweets_async(username, count, progress_callback))
 
     async def _user_tweets_async(self, username: str, count: int,
                                   progress_callback=None) -> list[dict]:
@@ -341,7 +356,7 @@ class TwikitSearchClient:
         """Get user profile info. Returns dict with user data."""
         if not self._authenticated:
             return None
-        return _run_async(self._user_info_async(username))
+        return self._run(self._user_info_async(username))
 
     async def _user_info_async(self, username: str) -> dict | None:
         try:
@@ -375,7 +390,7 @@ class TwikitSearchClient:
         """
         if not self._authenticated:
             return []
-        return _run_async(self._user_followers_async(
+        return self._run(self._user_followers_async(
             username, limit, verified_only, progress_callback
         ))
 

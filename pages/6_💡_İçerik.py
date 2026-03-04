@@ -100,9 +100,9 @@ with tab1:
     col1, col2 = st.columns([3, 1])
     with col1:
         focus_area = st.text_input(
-            "Odak Alanı",
-            value="AI ve teknoloji",
-            placeholder="Örn: yapay zeka, SaaS, girişimcilik...",
+            "Odak Alanı (opsiyonel)",
+            value="",
+            placeholder="Boş bırakırsan genel AI/teknoloji gelişmeleri bulunur",
             key="topic_focus"
         )
     with col2:
@@ -133,7 +133,7 @@ with tab1:
             st.session_state["discovered_topics"] = topics
             st.success(f"{len(topics)} konu önerisi bulundu!")
         else:
-            st.warning("Konu önerisi bulunamadı. Farklı bir odak alanı deneyin.")
+            st.warning("Konu önerisi bulunamadı. Tekrar deneyin veya farklı bir odak alanı yazın.")
 
     # Display discovered topics
     if "discovered_topics" in st.session_state and st.session_state["discovered_topics"]:

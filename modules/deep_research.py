@@ -2642,39 +2642,30 @@ def _compile_topic_research_summary(r: TopicResearchResult) -> str:
 def discover_topics(ai_client=None, ai_model: str = None,
                     ai_provider: str = "minimax",
                     scanner=None,
-                    focus_area: str = "AI ve teknoloji",
+                    focus_area: str = "",
                     progress_callback=None,
                     engine: str = "standard") -> list[dict]:
     """
-    AI discovers interesting content topics by searching X and web.
+    Discover specific, tweetable AI/tech developments from X and web.
+    Searches ENGLISH sources only (Turkish accounts mostly translate from these).
 
-    Returns a list of topic suggestions:
-    [
-        {
-            "title": "Claude Code ile içerik üretimi",
-            "description": "Neden Claude diğer AI'lardan iyi...",
-            "angle": "Kişisel deneyim paylaşımı",
-            "potential": "Yüksek — herkes AI içerik üretimi arıyor",
-        },
-        ...
-    ]
+    Returns list of topic dicts with title, description, angle, potential.
     """
     if not ai_client:
         return []
 
-    # Grok shortcut: use Grok's native X search for topic discovery
+    # Grok shortcut: use Grok's native X + web search for topic discovery
     if engine == "grok":
         try:
             from modules.grok_client import grok_discover_topics
             if progress_callback:
-                progress_callback("🧠 Grok ile X'te trend konular keşfediliyor...")
+                progress_callback("🧠 Grok ile güncel gelişmeler keşfediliyor...")
             topics = grok_discover_topics(
                 focus_area=focus_area,
                 progress_callback=progress_callback,
             )
             if topics:
                 return topics
-            # Fallback to standard if Grok returns empty
             if progress_callback:
                 progress_callback("Grok sonuç bulamadı, standart modla devam ediliyor...")
         except Exception as e:
@@ -2682,26 +2673,36 @@ def discover_topics(ai_client=None, ai_model: str = None,
             if progress_callback:
                 progress_callback("⚠️ Grok hata verdi, standart modla devam ediliyor...")
 
-    # Step 1: Search X for trending conversations
+    # Step 1: Search X for trending conversations (ENGLISH ONLY)
     x_tweets = []
     if scanner:
         if progress_callback:
-            progress_callback("X'te trend konular araştırılıyor...")
+            progress_callback("X'te güncel gelişmeler araştırılıyor (İngilizce)...")
 
         import datetime as _dt
         start = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=24)
 
-        trend_queries = [
-            f"({focus_area}) lang:tr min_faves:50 -is:retweet -is:reply",
-            f"({focus_area}) lang:tr min_faves:20 -is:retweet -is:reply",
-            "AI lang:tr min_faves:30 -is:retweet -is:reply",
-            "(yapay zeka OR ChatGPT OR Claude OR GPT) lang:tr min_faves:20 -is:retweet -is:reply",
-        ]
+        # Build targeted queries — English only, high engagement
+        if focus_area and focus_area.strip():
+            focus_words = focus_area.strip()
+            trend_queries = [
+                f"({focus_words}) -is:retweet -is:reply lang:en min_faves:50",
+                f"({focus_words}) -is:retweet -is:reply lang:en min_faves:20",
+                f"({focus_words}) launched OR released OR announced -is:retweet -is:reply lang:en",
+            ]
+        else:
+            trend_queries = [
+                "(AI OR LLM OR GPT OR Claude OR Gemini) launched OR released OR announced -is:retweet -is:reply lang:en min_faves:100",
+                "(AI coding OR agentic OR AI tool) -is:retweet -is:reply lang:en min_faves:50",
+                "(benchmark OR open-source OR new model) AI -is:retweet -is:reply lang:en min_faves:50",
+                "(OpenAI OR Anthropic OR Google OR Meta OR xAI) -is:retweet -is:reply lang:en min_faves:100",
+                "(Cursor OR Windsurf OR Copilot OR Devin) -is:retweet -is:reply lang:en min_faves:30",
+            ]
 
         seen_ids = set()
         for q in trend_queries:
             try:
-                results = scanner._search_tweets(q, start, 15)
+                results = scanner._search_tweets(q, start, 20)
                 for t in results:
                     if t.id not in seen_ids and len(t.text) > 60:
                         seen_ids.add(t.id)
@@ -2715,43 +2716,50 @@ def discover_topics(ai_client=None, ai_model: str = None,
                 print(f"Topic discovery X search error: {e}")
 
         x_tweets.sort(key=lambda x: x.get("likes", 0) + x.get("retweets", 0) * 2, reverse=True)
-        x_tweets = x_tweets[:20]
+        x_tweets = x_tweets[:25]
 
-    # Step 2: Search web for recent news/trends
+    # Step 2: Search web for recent news (English)
     web_results = []
     if progress_callback:
-        progress_callback("Web'de güncel konular araştırılıyor...")
+        progress_callback("Web'de güncel haberler araştırılıyor...")
 
     current_year = str(datetime.datetime.now().year)
-    web_queries = [
-        f"AI news {current_year}",
-        f"artificial intelligence trends {current_year}",
-        f"yapay zeka güncel gelişmeler {current_year}",
-    ]
 
-    for q in web_queries[:2]:
+    if focus_area and focus_area.strip():
+        web_queries = [
+            f"{focus_area} news {current_year}",
+            f"{focus_area} launch release announcement {current_year}",
+        ]
+    else:
+        web_queries = [
+            f"AI launch release announcement today {current_year}",
+            f"AI new model benchmark results {current_year}",
+            f"AI startup funding news {current_year}",
+        ]
+
+    for q in web_queries:
         try:
-            results = web_search_news(q, max_results=5, timelimit="d")
+            results = web_search_news(q, max_results=6, timelimit="d")
             if not results:
-                results = web_search_news(q, max_results=5, timelimit="w")
+                results = web_search_news(q, max_results=6, timelimit="w")
             for r in results:
                 web_results.append({
                     "title": r.get("title", ""),
-                    "body": r.get("body", "")[:200],
+                    "body": r.get("body", "")[:300],
                     "source": r.get("source", ""),
                 })
         except Exception:
             pass
 
-    # Step 3: AI analyzes and suggests topics
+    # Step 3: AI analyzes and picks specific developments
     if progress_callback:
-        progress_callback("AI konu önerileri oluşturuyor...")
+        progress_callback("AI spesifik konu önerileri oluşturuyor...")
 
     x_context = ""
     if x_tweets:
         x_items = []
-        for tw in x_tweets[:15]:
-            x_items.append(f"- @{tw['author']} ({tw['likes']} beğeni): {tw['text'][:500]}")
+        for tw in x_tweets[:20]:
+            x_items.append(f"- @{tw['author']} ({tw['likes']}❤️ {tw['retweets']}RT): {tw['text'][:500]}")
         x_context = "\n".join(x_items)
 
     web_context = ""
@@ -2759,28 +2767,38 @@ def discover_topics(ai_client=None, ai_model: str = None,
         web_items = []
         for wr in web_results[:10]:
             src = f" ({wr['source']})" if wr.get('source') else ""
-            web_items.append(f"- {wr['title']}{src}: {wr['body'][:150]}")
+            web_items.append(f"- {wr['title']}{src}: {wr['body'][:200]}")
         web_context = "\n".join(web_items)
 
-    prompt = f"""Sen bir Türk teknoloji/AI içerik üreticisisin. X'te (Twitter) Türkçe içerik üretiyorsun.
+    focus_text = f"ODAK ALANI: {focus_area}" if focus_area else "ODAK ALANI: AI ve teknoloji genel"
 
-Aşağıda X'te şu an konuşulan konular ve güncel haberler var. Bunlara bakarak bana 5-7 içerik konusu öner.
+    prompt = f"""Sen bir Türk teknoloji/AI içerik üreticisisin. X'te Türkçe içerik üretiyorsun.
 
-## X'TE GÜNCEL KONUŞMALAR:
+Aşağıda X'te şu an konuşulan konular ve güncel haberler var. Bunlardan SPESİFİK, tweet yazılabilir
+gelişmeleri çıkar.
+
+## X'TE GÜNCEL PAYLAŞIMLAR (İngilizce, orijinal kaynak):
 {x_context or "(X verisi yok)"}
 
 ## GÜNCEL HABERLER:
 {web_context or "(Haber verisi yok)"}
 
-## ODAK ALANI: {focus_area}
+## {focus_text}
 
-Her konu için şunu ver:
-1. title: Kısa başlık (Türkçe)
-2. description: 1-2 cümle açıklama — ne hakkında yazılacak
-3. angle: Hangi açıdan yazılmalı (deneyim paylaşımı, karşılaştırma, analiz, tutorial, vs.)
-4. potential: Neden bu konu iyi? (engagement potansiyeli)
+⚠️ KRİTİK: Genel kategori isimleri YASAK. Her konu SPESİFİK bir gelişme olmalı.
 
-JSON formatında cevap ver:
+KÖTÜ (YAPMA): "AI in healthcare", "Ethical AI debates", "AI coding tools trend"
+İYİ (BÖYLE YAP): "Dvina Code çıktı: GUI-first platform, Claude Opus 4.6 free plana geldi"
+İYİ: "OpenAI 110 milyar dolar topladı — 730 milyar değerleme"
+İYİ: "Qwen 3.5 400B açık kaynak: GPT-4o'yu coding'de geçti"
+
+Her gelişme için şunu ver:
+1. title: Kısa, spesifik Türkçe başlık — NE OLDU?
+2. description: 2-3 cümle detay — ne oldu, kim yaptı, önemli rakamlar (tweet'lerden ve haberlerden çıkar)
+3. angle: Bu konuya hangi açıdan tweet yazılmalı (analiz/karşılaştırma/deneyim/haber)
+4. potential: Neden bu konu iyi? Engagement potansiyeli
+
+JSON formatında 5-8 konu ver:
 [
   {{"title": "...", "description": "...", "angle": "...", "potential": "..."}},
   ...
@@ -2792,17 +2810,17 @@ SADECE JSON ver, başka bir şey yazma."""
         if ai_provider == "anthropic":
             response = ai_client.messages.create(
                 model=ai_model or "claude-haiku-4-5-20251001",
-                max_tokens=2000,
+                max_tokens=2500,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.7,
+                temperature=0.5,
             )
             text = response.content[0].text
         else:
             response = ai_client.chat.completions.create(
                 model=ai_model or "MiniMax-M2.5",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=2000,
-                temperature=0.7,
+                max_tokens=2500,
+                temperature=0.5,
             )
             text = response.choices[0].message.content
 

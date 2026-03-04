@@ -430,106 +430,212 @@ Hem X'te hem web'de araştır. Önce X'te bu konuda ne konuşulduğunu bul, sonr
 # TOPIC DISCOVERY — Grok finds trending topics on X
 # ========================================================================
 
-def grok_discover_topics(focus_area: str = "AI ve teknoloji",
+def grok_discover_topics(focus_area: str = "",
                          api_key: str = None,
                          progress_callback=None) -> list[dict]:
     """
-    Grok ile X'te trend konuları keşfet.
-    X verilerine erişimi sayesinde gerçek zamanlı trend tespiti yapabilir.
+    Grok ile X ve web'de spesifik, güncel AI/teknoloji gelişmelerini keşfet.
+    Multi-turn agentic: Grok kendi x_search + web_search ile otonom gezinir.
     """
     client = _get_grok_client(api_key)
     if not client:
         return []
 
     if progress_callback:
-        progress_callback("🧠 Grok X'te trend konuları araştırıyor...")
+        progress_callback("🧠 Grok X ve web'de güncel gelişmeleri araştırıyor...")
 
-    try:
-        response = client.chat.completions.create(
-            model=GROK_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a trend analyst. Use X search to find trending topics."},
-                {"role": "user", "content": f"""X'te (Twitter) "{focus_area}" alanında son 24 saatte en çok konuşulan konuları bul.
+    current_year = str(datetime.datetime.now().year)
 
-Gerçek trendleri ve tartışmaları araştır. Sonuçları şu JSON formatında ver:
+    focus_instruction = ""
+    if focus_area and focus_area.strip():
+        focus_instruction = f"""
+ODAK ALANI: "{focus_area}"
+Bu alana özel gelişmeleri bul. Ama yine de SPESİFİK gelişmeler olsun, genel kategori değil."""
+    else:
+        focus_instruction = """
+ODAK ALANI: AI, yapay zeka, yazılım ve teknoloji (genel)
+En güncel ve ilgi çekici gelişmeleri bul."""
 
+    system_prompt = f"""Sen bir teknoloji trend analisti ve içerik keşifçisisin.
+Görevin: X (Twitter) ve web'de SON 24 SAATTEKİ en önemli, spesifik gelişmeleri bulmak.
+
+⚠️ KRİTİK: Genel kategori isimleri YASAK. Her konu SPESİFİK bir gelişme olmalı.
+
+KÖTÜ ÖRNEK (YAPMA):
+- "AI in healthcare" ← çok genel, tweet yazılamaz
+- "Ethical implications of AI" ← kategori ismi
+- "Debates on government AI policies" ← sıkıcı, spesifik değil
+
+İYİ ÖRNEK (BÖYLE YAP):
+- "Dvina Code launched: GUI-first agentic coding with Claude Opus 4.6 free" ← spesifik ürün + detay
+- "OpenAI raised $110B at $730B valuation — biggest AI round ever" ← spesifik olay + rakam
+- "Qwen 3.5 400B MoE beats GPT-4o on coding benchmarks, fully open-source" ← spesifik model + sonuç
+- "Cursor vs Windsurf: developers comparing after Windsurf's new agent mode" ← spesifik karşılaştırma
+
+{focus_instruction}
+
+ARAŞTIRMA STRATEJİN:
+1. X'te "{current_year}" yılına ait en güncel AI/teknoloji paylaşımlarını ara
+2. Yüksek etkileşimli (çok beğeni/RT) tweet'leri bul — bunlar önemli gelişmelere işaret eder
+3. Web'de son haberleri kontrol et — yeni çıkan ürünler, güncellemeler, duyurular
+4. Her gelişme için: ne oldu, kim yaptı, neden önemli, hangi rakamlar var
+
+⚠️ SADECE İNGİLİZCE İÇERİK ARA. Türkçe hesaplar/tweet'ler ARAMA — onlar zaten
+yabancı kaynaklardan çeviri yapıyor, biz doğrudan kaynağa gidelim.
+
+TAMAMLADIĞINDA şu JSON formatında 5-8 konu ver:
 [
-    {{
-        "title": "Konu başlığı",
-        "description": "Kısa açıklama (1-2 cümle)",
-        "angle": "Bu konuya hangi açıdan yaklaşılabilir",
-        "potential": "yüksek/orta/düşük — viral potansiyeli"
-    }}
+  {{
+    "title": "Kısa, spesifik Türkçe başlık (ne oldu?)",
+    "description": "2-3 cümle: ne oldu, kim yaptı, önemli detaylar/rakamlar",
+    "angle": "Bu konuya hangi açıdan tweet yazılabilir (deneyim/analiz/karşılaştırma/haber)",
+    "potential": "Neden bu konu iyi? Engagement potansiyeli nedir?",
+    "source_tweets": "Bu konuda gördüğün en önemli 1-2 tweet'in özeti"
+  }}
 ]
 
-5-8 konu öner. Gerçek, güncel konular olsun. Sadece JSON döndür."""}
-            ],
-            tools=[{
-                "type": "function",
-                "function": {
-                    "name": "x_search",
-                    "description": "Search X for trending topics",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {"type": "string"}
-                        },
-                        "required": ["query"]
-                    }
+SADECE JSON döndür, başka bir şey yazma."""
+
+    user_message = f"""X'te ve web'de son 24 saatteki en önemli AI/teknoloji gelişmelerini bul.
+
+Önce X'te ara — hangi konular çok konuşuluyor, hangi ürünler/şirketler gündemde?
+Sonra web'de ara — hangi yeni ürünler çıktı, hangi duyurular yapıldı?
+
+SPESİFİK gelişmeler istiyorum: ürün lansmanları, benchmark sonuçları, büyük yatırımlar,
+yeni model çıkışları, önemli güncellemeler. Genel kategori isimleri DEĞİL.
+
+{"Özellikle şu alana odaklan: " + focus_area if focus_area else "Genel AI ve teknoloji alanı."}"""
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "x_search",
+                "description": "Search X (Twitter) for recent posts, discussions, and trending topics",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query in English"}
+                    },
+                    "required": ["query"]
                 }
-            }],
-            tool_choice="auto",
-            max_tokens=2000,
-            temperature=0.3,
-        )
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "web_search",
+                "description": "Search the web for news, articles, and announcements",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query in English"}
+                    },
+                    "required": ["query"]
+                }
+            }
+        },
+    ]
 
-        inp, out = _extract_usage(response)
-        tool_count = 0
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message},
+    ]
 
-        choice = response.choices[0]
-        messages = [
-            {"role": "system", "content": "You are a trend analyst. Return results as JSON."},
-            {"role": "user", "content": f'Find trending topics about "{focus_area}" on X. Return as JSON array.'},
-            choice.message,
-        ]
+    total_inp, total_out, total_tools = 0, 0, 0
+    search_count = 0
+    max_iterations = 6
 
-        if choice.message.tool_calls:
-            for tc in choice.message.tool_calls:
-                tool_count += 1
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": "Search completed. Format the trending topics as JSON.",
-                })
+    for iteration in range(max_iterations):
+        if progress_callback:
+            progress_callback(f"🧠 Grok gelişmeleri araştırıyor... (adım {iteration + 1}, {search_count} arama)")
 
-            response2 = client.chat.completions.create(
+        try:
+            response = client.chat.completions.create(
                 model=GROK_MODEL,
                 messages=messages,
-                max_tokens=2000,
+                tools=tools,
+                tool_choice="auto",
+                max_tokens=3000,
                 temperature=0.3,
             )
-            inp2, out2 = _extract_usage(response2)
-            inp += inp2
-            out += out2
-            raw = response2.choices[0].message.content or ""
-        else:
-            raw = choice.message.content or ""
+        except Exception as e:
+            print(f"Grok discover topics error: {e}")
+            break
 
-        _track_cost(inp, out, tool_count)
+        inp, out = _extract_usage(response)
+        total_inp += inp
+        total_out += out
 
-        if progress_callback:
-            progress_callback("🧠 Grok trend analizi tamamlandı")
+        choice = response.choices[0]
+        assistant_msg = choice.message
+        messages.append(assistant_msg)
 
-        raw = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
-        json_match = re.search(r'\[.*\]', raw, re.DOTALL)
-        if json_match:
+        # Check if model is done
+        if choice.finish_reason == "stop" or not assistant_msg.tool_calls:
+            _track_cost(total_inp, total_out, total_tools)
+            raw = assistant_msg.content or ""
+            break
+
+        # Execute tool calls (Grok handles them internally via API)
+        for tc in assistant_msg.tool_calls:
+            fn_name = tc.function.name
+            try:
+                fn_args = json.loads(tc.function.arguments)
+            except json.JSONDecodeError:
+                fn_args = {}
+
+            total_tools += 1
+            search_count += 1
+
+            if progress_callback:
+                query = fn_args.get("query", "")[:50]
+                if fn_name == "x_search":
+                    progress_callback(f"🐦 X'te arıyor: {query}...")
+                elif fn_name == "web_search":
+                    progress_callback(f"🌐 Web'de arıyor: {query}...")
+
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": "Search completed successfully. Analyze the results and continue researching or provide your final JSON response.",
+            })
+    else:
+        # Hit max iterations — ask for final JSON
+        messages.append({
+            "role": "user",
+            "content": "Araştırmayı bitir. Bulduğun spesifik gelişmeleri JSON formatında ver. SADECE JSON döndür."
+        })
+        try:
+            final = client.chat.completions.create(
+                model=GROK_MODEL,
+                messages=messages,
+                max_tokens=3000,
+                temperature=0.2,
+            )
+            inp, out = _extract_usage(final)
+            total_inp += inp
+            total_out += out
+            _track_cost(total_inp, total_out, total_tools)
+            raw = final.choices[0].message.content or ""
+        except Exception as e:
+            print(f"Grok discover final error: {e}")
+            _track_cost(total_inp, total_out, total_tools)
+            return []
+
+    if progress_callback:
+        progress_callback(f"🧠 Grok {search_count} arama yaptı, konular derleniyor...")
+
+    # Parse JSON response
+    raw = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
+    json_match = re.search(r'\[.*\]', raw, re.DOTALL)
+    if json_match:
+        try:
             return json.loads(json_match.group())
+        except json.JSONDecodeError:
+            pass
 
-        return []
-
-    except Exception as e:
-        print(f"Grok discover topics error: {e}")
-        return []
+    return []
 
 
 # ========================================================================

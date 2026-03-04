@@ -126,18 +126,6 @@ class TwikitSearchClient:
         """Authenticate with Twitter. Returns True on success."""
         return self._run(self._auth_async())
 
-    async def _verify_cookies(self, client) -> bool:
-        """Verify loaded cookies actually work by making a simple API call."""
-        try:
-            user = await client.user()
-            return user is not None
-        except Exception:
-            try:
-                user = await client.get_user_by_screen_name("x")
-                return user is not None
-            except Exception:
-                return False
-
     async def _auth_async(self) -> bool:
         client = await self._get_client()
         self.last_error = ""
@@ -152,12 +140,8 @@ class TwikitSearchClient:
                     "auth_token": secret_auth,
                     "ct0": secret_ct0,
                 })
-                if await self._verify_cookies(client):
-                    self._authenticated = True
-                    print("Twikit auth: secrets cookies verified OK")
-                    return True
-                else:
-                    print("Twikit auth: secrets cookies expired/invalid, trying other methods...")
+                self._authenticated = True
+                return True
         except Exception:
             pass
 
@@ -165,13 +149,8 @@ class TwikitSearchClient:
         if COOKIES_PATH.exists():
             try:
                 client.load_cookies(str(COOKIES_PATH))
-                if await self._verify_cookies(client):
-                    self._authenticated = True
-                    print("Twikit auth: file cookies verified OK")
-                    return True
-                else:
-                    print("Twikit auth: file cookies expired/invalid, will try login...")
-                    self.last_error = "Cookie'ler süresi dolmuş, yeniden giriş yapılıyor..."
+                self._authenticated = True
+                return True
             except Exception as e:
                 self.last_error = f"Cookie yükleme hatası: {e}"
                 try:

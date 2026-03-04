@@ -311,6 +311,8 @@ def is_turkish_account(text: str, author_name: str = "") -> bool:
 
 def generate_content_summary(text: str, category: str) -> str:
     """Generate a brief Turkish summary of what the tweet is about"""
+    if not text:
+        return ""
     text_lower = text.lower()
     summaries = []
 
@@ -383,6 +385,8 @@ CATEGORY_KEYWORDS = {
 
 def is_spam(text: str) -> bool:
     """Check if a tweet is likely spam or irrelevant"""
+    if not text:
+        return True
     # Too short to be meaningful AI content
     if len(text.strip()) < MIN_TWEET_LENGTH:
         return True
@@ -433,6 +437,8 @@ def is_ai_relevant(text: str) -> bool:
 
 def categorize_topic(text: str) -> str:
     """Categorize a tweet into an AI topic category"""
+    if not text:
+        return "general"
     text_lower = text.lower()
     best_category = "Genel"
     best_score = 0

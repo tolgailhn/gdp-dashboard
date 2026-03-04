@@ -4,15 +4,10 @@ Sync wrapper for twikit's async API for free Twitter search operations.
 Uses cookie-based auth to avoid Twitter API costs.
 """
 import asyncio
+import concurrent.futures
 import datetime
 import re
 from pathlib import Path
-
-try:
-    import nest_asyncio
-    nest_asyncio.apply()
-except ImportError:
-    pass
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 COOKIES_PATH = DATA_DIR / "twikit_cookies.json"
@@ -29,16 +24,13 @@ def _safe_int(val) -> int:
 
 
 def _run_async(coro):
-    """Run an async coroutine synchronously, compatible with Streamlit."""
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coro)
+    """Run an async coroutine synchronously.
+
+    Uses a separate thread with its own event loop to avoid
+    nest_asyncio issues on Python 3.14+ and Streamlit compatibility.
+    """
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro).result()
 
 
 def adapt_query_for_web(query: str, since_date: str = None) -> str:

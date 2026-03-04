@@ -70,6 +70,9 @@ def inject_custom_css():
     /* --- Hide Streamlit chrome --- */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    /* Hide default Streamlit page navigation in sidebar */
+    [data-testid="stSidebarNav"] { display: none !important; }
+    div[data-testid="stSidebarNav"] { display: none !important; }
     header[data-testid="stHeader"] {
         background: rgba(10, 14, 26, 0.9) !important;
         backdrop-filter: blur(20px);
@@ -702,95 +705,6 @@ def inject_custom_css():
     }
 
     /* ==========================================
-       MOBILE BOTTOM NAV - Ultra Premium
-       ========================================== */
-    .mobile-bottom-nav {
-        display: none;
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        z-index: 99999;
-        background: rgba(6, 8, 18, 0.88);
-        backdrop-filter: blur(40px) saturate(180%);
-        -webkit-backdrop-filter: blur(40px) saturate(180%);
-        border-top: 1px solid rgba(99, 102, 241, 0.1);
-        padding: 2px 4px max(6px, env(safe-area-inset-bottom));
-        box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.5),
-                    0 -1px 0 rgba(99, 102, 241, 0.08);
-    }
-    .mobile-bottom-nav .nav-items {
-        display: flex;
-        justify-content: space-around;
-        align-items: center;
-        max-width: 520px;
-        margin: 0 auto;
-        padding: 0 2px;
-    }
-    .mobile-bottom-nav .nav-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-decoration: none !important;
-        color: rgba(148, 163, 184, 0.5);
-        font-size: 9px;
-        font-weight: 600;
-        letter-spacing: 0.02em;
-        padding: 8px 4px 6px;
-        border-radius: 14px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        min-width: 44px;
-        position: relative;
-        -webkit-tap-highlight-color: transparent;
-        user-select: none;
-        -webkit-user-select: none;
-    }
-    .mobile-bottom-nav .nav-item .nav-icon {
-        font-size: 22px;
-        margin-bottom: 3px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        line-height: 1;
-    }
-    .mobile-bottom-nav .nav-item .nav-label {
-        transition: all 0.3s ease;
-        line-height: 1;
-        opacity: 0.7;
-    }
-    /* Active state - glow + pill indicator */
-    .mobile-bottom-nav .nav-item.active {
-        color: #c4b5fd;
-    }
-    .mobile-bottom-nav .nav-item.active .nav-icon {
-        transform: scale(1.18) translateY(-1px);
-        filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.6));
-    }
-    .mobile-bottom-nav .nav-item.active .nav-label {
-        opacity: 1;
-        color: #a5b4fc;
-        font-weight: 700;
-    }
-    .mobile-bottom-nav .nav-item.active::after {
-        content: '';
-        position: absolute;
-        bottom: 2px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 18px;
-        height: 3px;
-        background: linear-gradient(135deg, #6366f1, #a855f7);
-        border-radius: 3px;
-        box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);
-    }
-    /* Touch feedback */
-    .mobile-bottom-nav .nav-item:active {
-        transform: scale(0.88);
-        transition-duration: 0.1s;
-    }
-    .mobile-bottom-nav .nav-item:not(.active):hover {
-        color: rgba(165, 180, 252, 0.7);
-    }
-
-    /* ==========================================
        EMPTY STATE
        ========================================== */
     .empty-state {
@@ -885,14 +799,23 @@ def inject_custom_css():
             -webkit-overflow-scrolling: touch;
         }
 
-        /* Show bottom nav */
-        .mobile-bottom-nav { display: block; }
-
-        /* Sidebar as slide-over overlay (not hidden!) */
+        /* Sidebar as slide-over overlay */
         section[data-testid="stSidebar"] {
             z-index: 99998 !important;
             box-shadow: 4px 0 40px rgba(0, 0, 0, 0.6) !important;
             border-right: 1px solid rgba(99, 102, 241, 0.15) !important;
+            min-width: 260px !important;
+            width: 75vw !important;
+            max-width: 320px !important;
+        }
+
+        /* Sidebar buttons - bigger touch targets on mobile */
+        section[data-testid="stSidebar"] .stButton > button {
+            min-height: 52px !important;
+            font-size: 16px !important;
+            padding: 12px 16px !important;
+            border-radius: 12px !important;
+            margin-bottom: 6px !important;
         }
 
         /* Sidebar toggle - floating glass button */
@@ -903,8 +826,8 @@ def inject_custom_css():
             -webkit-backdrop-filter: blur(20px) !important;
             border: 1px solid rgba(99, 102, 241, 0.2) !important;
             border-radius: 12px !important;
-            width: 42px !important;
-            height: 42px !important;
+            width: 46px !important;
+            height: 46px !important;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35),
                         0 0 0 1px rgba(99, 102, 241, 0.1) !important;
             transition: all 0.3s ease !important;
@@ -917,9 +840,9 @@ def inject_custom_css():
         /* Hide redundant header buttons */
         button[kind="header"] { display: none !important; }
 
-        /* Content padding with bottom nav space */
+        /* Content padding */
         .block-container {
-            padding: 0.5rem 0.75rem 90px 0.75rem !important;
+            padding: 0.5rem 0.75rem 1.5rem 0.75rem !important;
         }
 
         /* Full width buttons with better touch targets */
@@ -1047,15 +970,6 @@ def inject_custom_css():
         .hero-section { padding: 20px 12px 16px; }
         .stTabs [data-baseweb="tab"] { font-size: 11px; padding: 8px 6px; }
         .stat-number { font-size: 20px; }
-        .mobile-bottom-nav .nav-item .nav-icon { font-size: 20px; }
-        .mobile-bottom-nav .nav-item .nav-label { font-size: 8px; }
-        .mobile-bottom-nav .nav-item { min-width: 38px; padding: 6px 2px 4px; }
-    }
-
-    /* Larger phones (iPhone Pro Max, etc.) */
-    @media (min-width: 390px) and (max-width: 639px) {
-        .mobile-bottom-nav .nav-item .nav-icon { font-size: 24px; }
-        .mobile-bottom-nav .nav-item .nav-label { font-size: 10px; }
     }
 
     /* ==========================================
@@ -1220,7 +1134,7 @@ def render_grok_cost_indicator():
 
 
 def render_sidebar_nav(current_page: str = ""):
-    """Render sidebar nav (desktop) + bottom nav (mobile)."""
+    """Render sidebar navigation."""
     # --- Desktop sidebar ---
     with st.sidebar:
         st.markdown("""
@@ -1272,33 +1186,6 @@ def render_sidebar_nav(current_page: str = ""):
             st.success("Grok API ✓", icon="🧠")
             render_grok_cost_indicator()
 
-    # --- Mobile bottom nav (proper Streamlit URL paths) ---
-    mobile_nav_items = [
-        ("🏠", "Ana", "/", "home"),
-        ("🔍", "Tara", "/1_🔍_Tara", "tara"),
-        ("✍️", "Yaz", "/2_✍️_Yaz", "yaz"),
-        ("💡", "İçerik", "/6_💡_İçerik", "icerik"),
-        ("📊", "Analiz", "/4_📊_Analiz", "analiz"),
-        ("⚙️", "Ayar", "/3_⚙️_Ayarlar", "ayarlar"),
-        ("📅", "Takvim", "/7_📅_Takvim", "takvim"),
-    ]
-
-    nav_links = ""
-    for icon, label, url, key in mobile_nav_items:
-        active = "active" if key == current_page else ""
-        nav_links += (
-            f'<a href="{url}" class="nav-item {active}" target="_self">'
-            f'<span class="nav-icon">{icon}</span>'
-            f'<span class="nav-label">{label}</span></a>\n'
-        )
-
-    st.markdown(f"""
-    <div class="mobile-bottom-nav">
-        <div class="nav-items">
-            {nav_links}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
 
 
 def _format_number(n: int) -> str:

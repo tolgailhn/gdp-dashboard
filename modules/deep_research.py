@@ -11,9 +11,11 @@ Key principles:
 """
 import re
 import json
+import time
 import datetime
 import requests
 from dataclasses import dataclass, field
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from duckduckgo_search import DDGS
 from bs4 import BeautifulSoup
 
@@ -23,8 +25,9 @@ USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
-FETCH_TIMEOUT = 10
-MAX_ARTICLE_CHARS = 3000
+FETCH_TIMEOUT = 15
+MAX_ARTICLE_CHARS = 5000
+SEARCH_DELAY = 0.3  # Delay between sequential DuckDuckGo calls to avoid IP blocking
 SKIP_DOMAINS = {
     "twitter.com", "x.com", "t.co", "youtube.com", "youtu.be",
     "facebook.com", "instagram.com", "tiktok.com",
@@ -62,7 +65,7 @@ def extract_tweet_id(url_or_id: str) -> str | None:
 # ========================================================================
 
 def web_search(query: str, max_results: int = 8, timelimit: str = "w") -> list[dict]:
-    """Search the web using DuckDuckGo with time filter.
+    """Search the web using DuckDuckGo with time filter and automatic fallback.
 
     Args:
         query: Search query
@@ -79,24 +82,27 @@ def web_search(query: str, max_results: int = 8, timelimit: str = "w") -> list[d
                     "body": r.get("body", ""),
                 })
     except Exception as e:
-        print(f"Web search error: {e}")
-    # If time-limited search returned nothing, retry without time filter
+        print(f"[DDG] Web search error for '{query[:40]}': {e}")
+    # Fallback chain: if time-limited search returned nothing, broaden the time range
     if not results and timelimit:
+        fallback_chain = {"d": "w", "w": "m", "m": None}
+        next_limit = fallback_chain.get(timelimit)
+        time.sleep(SEARCH_DELAY)
         try:
             with DDGS() as ddgs:
-                for r in ddgs.text(query, max_results=max_results):
+                for r in ddgs.text(query, max_results=max_results, timelimit=next_limit):
                     results.append({
                         "title": r.get("title", ""),
                         "url": r.get("href", ""),
                         "body": r.get("body", ""),
                     })
         except Exception as e:
-            print(f"Web search fallback error: {e}")
+            print(f"[DDG] Web search fallback error for '{query[:40]}': {e}")
     return results
 
 
 def web_search_news(query: str, max_results: int = 6, timelimit: str = "w") -> list[dict]:
-    """Search recent news with time filter.
+    """Search recent news with time filter and automatic fallback chain.
 
     Args:
         query: Search query
@@ -104,18 +110,112 @@ def web_search_news(query: str, max_results: int = 6, timelimit: str = "w") -> l
         timelimit: Time filter - "d" (day), "w" (week), "m" (month), None (all time)
     """
     results = []
-    try:
-        with DDGS() as ddgs:
-            for r in ddgs.news(query, max_results=max_results, timelimit=timelimit):
-                results.append({
-                    "title": r.get("title", ""),
-                    "url": r.get("url", ""),
-                    "body": r.get("body", ""),
-                    "source": r.get("source", ""),
-                })
-    except Exception as e:
-        print(f"News search error: {e}")
+    # Fallback chain: day → week → month
+    time_chain = [timelimit] if timelimit else [None]
+    if timelimit == "d":
+        time_chain = ["d", "w", "m"]
+    elif timelimit == "w":
+        time_chain = ["w", "m"]
+
+    for tl in time_chain:
+        try:
+            with DDGS() as ddgs:
+                for r in ddgs.news(query, max_results=max_results, timelimit=tl):
+                    results.append({
+                        "title": r.get("title", ""),
+                        "url": r.get("url", ""),
+                        "body": r.get("body", ""),
+                        "source": r.get("source", ""),
+                    })
+        except Exception as e:
+            print(f"[DDG] News search error for '{query[:40]}' (timelimit={tl}): {e}")
+        if results:
+            break
+        time.sleep(SEARCH_DELAY)
     return results
+
+
+def _parallel_web_search(queries: list[tuple[str, int, str]]) -> list[list[dict]]:
+    """Run multiple web searches in parallel using ThreadPoolExecutor.
+
+    Args:
+        queries: List of (query, max_results, timelimit) tuples
+
+    Returns:
+        List of result lists, in the same order as input queries.
+    """
+    results = [[] for _ in range(len(queries))]
+
+    def _do_search(idx_query_args):
+        idx, (query, max_results, timelimit) = idx_query_args
+        # Small stagger to avoid burst requests
+        time.sleep(idx * 0.15)
+        return idx, web_search(query, max_results=max_results, timelimit=timelimit)
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(_do_search, (i, q)) for i, q in enumerate(queries)]
+        for future in as_completed(futures):
+            try:
+                idx, res = future.result()
+                results[idx] = res
+            except Exception as e:
+                print(f"[DDG] Parallel search error: {e}")
+    return results
+
+
+def _parallel_news_search(queries: list[tuple[str, int, str]]) -> list[list[dict]]:
+    """Run multiple news searches in parallel using ThreadPoolExecutor.
+
+    Args:
+        queries: List of (query, max_results, timelimit) tuples
+
+    Returns:
+        List of result lists, in the same order as input queries.
+    """
+    results = [[] for _ in range(len(queries))]
+
+    def _do_search(idx_query_args):
+        idx, (query, max_results, timelimit) = idx_query_args
+        time.sleep(idx * 0.15)
+        return idx, web_search_news(query, max_results=max_results, timelimit=timelimit)
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = [executor.submit(_do_search, (i, q)) for i, q in enumerate(queries)]
+        for future in as_completed(futures):
+            try:
+                idx, res = future.result()
+                results[idx] = res
+            except Exception as e:
+                print(f"[DDG] Parallel news search error: {e}")
+    return results
+
+
+def _parallel_fetch_articles(urls: list[str], max_articles: int = 5,
+                              progress_callback=None) -> list[dict]:
+    """Fetch multiple articles in parallel.
+
+    Returns list of successfully fetched article dicts.
+    """
+    articles = []
+
+    def _do_fetch(idx_url):
+        idx, url = idx_url
+        time.sleep(idx * 0.1)
+        return fetch_article_content(url)
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {executor.submit(_do_fetch, (i, url)): url
+                   for i, url in enumerate(urls[:max_articles + 3])}  # fetch a few extra in case some fail
+        for future in as_completed(futures):
+            if len(articles) >= max_articles:
+                break
+            try:
+                article = future.result()
+                if article and article.get("content") and len(article["content"]) > 200:
+                    articles.append(article)
+            except Exception as e:
+                print(f"[DDG] Parallel article fetch error: {e}")
+    return articles[:max_articles]
 
 
 # ========================================================================
@@ -259,13 +359,25 @@ def fetch_article_content(url: str) -> dict | None:
         return None
 
     try:
-        resp = requests.get(
-            url,
-            headers={"User-Agent": USER_AGENT},
-            timeout=FETCH_TIMEOUT,
-            allow_redirects=True,
-        )
-        resp.raise_for_status()
+        # Fetch with retry on timeout
+        resp = None
+        for attempt in range(2):
+            try:
+                resp = requests.get(
+                    url,
+                    headers={"User-Agent": USER_AGENT},
+                    timeout=FETCH_TIMEOUT,
+                    allow_redirects=True,
+                )
+                resp.raise_for_status()
+                break
+            except requests.exceptions.Timeout:
+                if attempt == 0:
+                    time.sleep(1)
+                    continue
+                raise
+        if resp is None:
+            return None
 
         # Only parse HTML
         content_type = resp.headers.get("Content-Type", "")
@@ -752,7 +864,7 @@ def _execute_tool(tool_name: str, args: dict) -> str:
             for i, r in enumerate(results, 1):
                 output.append(f"{i}. {r['title']}")
                 output.append(f"   URL: {r['url']}")
-                output.append(f"   {r['body'][:300]}")
+                output.append(f"   {r['body'][:500]}")
             return "\n".join(output)
 
         elif tool_name == "read_article":
@@ -760,13 +872,12 @@ def _execute_tool(tool_name: str, args: dict) -> str:
             article = fetch_article_content(url)
             if not article or not article.get("content"):
                 return "Could not read article content from this URL."
-            return f"Title: {article['title']}\n\n{article['content'][:3000]}"
+            return f"Title: {article['title']}\n\n{article['content'][:4000]}"
 
         elif tool_name == "search_news":
             query = args.get("query", "")
-            results = web_search_news(query, max_results=5, timelimit="w")
-            if not results:
-                results = web_search_news(query, max_results=5, timelimit="m")
+            # News search with built-in fallback chain (day → week → month)
+            results = web_search_news(query, max_results=5, timelimit="d")
             if not results:
                 return "No recent news found for this query."
             output = []
@@ -774,7 +885,7 @@ def _execute_tool(tool_name: str, args: dict) -> str:
                 src = f" ({r.get('source', '')})" if r.get('source') else ""
                 output.append(f"{i}. {r['title']}{src}")
                 output.append(f"   URL: {r['url']}")
-                output.append(f"   {r['body'][:250]}")
+                output.append(f"   {r['body'][:400]}")
             return "\n".join(output)
 
         else:
@@ -939,7 +1050,7 @@ def _agentic_research_openai(ai_client, ai_model: str, system_prompt: str,
             messages.append({
                 "role": "tool",
                 "tool_call_id": tool_call.id,
-                "content": result[:3000],  # Cap tool output to prevent token overflow
+                "content": result[:4000],  # Cap tool output to prevent token overflow
             })
 
     # If we hit max iterations, ask model to summarize what it has
@@ -1027,7 +1138,7 @@ def _agentic_research_anthropic(ai_client, ai_model: str, system_prompt: str,
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": block.id,
-                    "content": result[:3000],
+                    "content": result[:4000],
                 })
 
         if tool_results:
@@ -1316,27 +1427,47 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                 engine = "standard"  # Fallback
         if engine == "standard":
             if progress_callback:
-                progress_callback("Web'de araştırma yapılıyor...")
+                progress_callback("Web, teknik detaylar ve Reddit paralel araştırılıyor...")
+
+            # Build all web search queries for parallel execution
+            parallel_queries = []
+            query_types = []  # Track which type each query belongs to
 
             for query in search_queries.get("general", [])[:3]:
-                results = web_search(query, max_results=6, timelimit="w")
+                parallel_queries.append((query, 6, "w"))
+                query_types.append("general")
+
+            for query in search_queries.get("technical", [])[:2]:
+                parallel_queries.append((query, 5, "m"))
+                query_types.append("technical")
+
+            # Include Reddit queries in the same parallel batch
+            if "reddit" in research_sources:
+                for query in search_queries.get("reddit", [])[:2]:
+                    parallel_queries.append((query, 4, "w"))
+                    query_types.append("reddit")
+
+            # Execute all searches in parallel
+            all_results = _parallel_web_search(parallel_queries)
+
+            for i, results in enumerate(all_results):
+                qtype = query_types[i]
                 for r in results:
                     if r["url"] not in all_urls:
                         all_urls.add(r["url"])
-                        result.web_results.append(r)
+                        if qtype == "technical":
+                            r["title"] = f"[TEKNİK] {r['title']}"
+                            result.web_results.append(r)
+                        elif qtype == "reddit":
+                            result.reddit_results.append(r)
+                        else:
+                            result.web_results.append(r)
 
             if progress_callback:
-                progress_callback("Teknik detaylar araştırılıyor...")
-            for query in search_queries.get("technical", [])[:2]:
-                results = web_search(query, max_results=5, timelimit="m")
-                for r in results:
-                    if r["url"] not in all_urls:
-                        all_urls.add(r["url"])
-                        r["title"] = f"[TEKNİK] {r['title']}"
-                        result.web_results.append(r)
+                progress_callback(f"Web araması tamamlandı: {len(result.web_results)} sonuç, {len(result.reddit_results)} Reddit")
 
-    # === STEP 4: Reddit search (only if "reddit" in sources) ===
-    if "reddit" in research_sources:
+    # === STEP 4: Reddit search (only if "reddit" in sources and not already done in parallel) ===
+    if "reddit" in research_sources and engine != "standard" and not result.reddit_results:
         if progress_callback:
             progress_callback("Reddit araştırılıyor...")
         for query in search_queries.get("reddit", [])[:2]:
@@ -1369,13 +1500,14 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                 print(f"Grok news search error: {e}")
         else:
             if progress_callback:
-                progress_callback("Son haberler aranıyor...")
+                progress_callback("Son haberler paralel aranıyor...")
 
-            for query in search_queries.get("news", [])[:2]:
-                news = web_search_news(query, max_results=5, timelimit="d")
-                if not news:
-                    news = web_search_news(query, max_results=5, timelimit="w")
-                for n in news:
+            # Parallel news search with built-in fallback chain (d → w → m)
+            news_queries = [(q, 5, "d") for q in search_queries.get("news", [])[:2]]
+            all_news = _parallel_news_search(news_queries)
+
+            for news_list in all_news:
+                for n in news_list:
                     if n["url"] not in all_urls:
                         all_urls.add(n["url"])
                         result.web_results.append({
@@ -1385,23 +1517,19 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                             "source": n.get("source", ""),
                         })
 
-    # === STEP 6: DEEP FETCH (only if web or reddit or news selected) ===
+    # === STEP 6: DEEP FETCH — parallel article fetching ===
     if any(s in research_sources for s in ["web", "reddit", "news"]):
         if progress_callback:
-            progress_callback("Makaleler okunuyor (derin araştırma)...")
+            progress_callback("Makaleler paralel okunuyor (derin araştırma)...")
 
         urls_to_fetch = _pick_best_urls(result.web_results + result.reddit_results)
 
-        fetched_count = 0
-        for url in urls_to_fetch:
-            if fetched_count >= 5:
-                break
-            if progress_callback:
-                progress_callback(f"Makale okunuyor ({fetched_count + 1}/5)...")
-            article = fetch_article_content(url)
-            if article and article["content"] and len(article["content"]) > 200:
-                result.deep_articles.append(article)
-                fetched_count += 1
+        articles = _parallel_fetch_articles(urls_to_fetch, max_articles=5,
+                                             progress_callback=progress_callback)
+        result.deep_articles.extend(articles)
+
+        if progress_callback:
+            progress_callback(f"{len(articles)} makale okundu")
 
     # === STEP 7: X/Twitter search (only if "x" in sources) ===
     # When X is selected, do a DEEP search (40-50 tweets, not just 10)

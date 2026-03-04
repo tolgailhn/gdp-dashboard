@@ -6,6 +6,11 @@ data/custom_persona.txt
 data/monitored_accounts.json
 data/post_history.json
 data/drafts.json
+data/posting_log.json
+data/daily_checklist.json
+
+# Service logs
+logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

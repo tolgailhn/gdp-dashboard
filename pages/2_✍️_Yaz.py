@@ -905,17 +905,8 @@ if generate_clicked or regenerate_clicked:
             additional = st.session_state.get("additional_instructions", "")
             max_length = 0 if st.session_state.get("use_premium", True) else 280
 
-            # Get selected content format
+            # Get selected content format (passed via content_format param, not additional)
             sel_format = st.session_state.get("selected_format", "spark")
-            fmt_info = get_format_info(sel_format)
-            if fmt_info:
-                format_instruction = fmt_info["prompt_instructions"]
-            else:
-                format_instruction = CONTENT_FORMATS["spark"]["prompt_instructions"]
-            if additional:
-                additional = f"{format_instruction}\n{additional}"
-            else:
-                additional = format_instruction
 
             # Clear edit widget state so text_area picks up the new value
             if "edit_tweet" in st.session_state:

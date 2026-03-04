@@ -349,6 +349,124 @@ def fetch_article_content(url: str) -> dict | None:
         return None
 
 
+def _resolve_url(url: str, timeout: int = 5) -> str:
+    """Resolve shortened URLs (t.co etc.) to their final destination."""
+    try:
+        resp = requests.head(
+            url, allow_redirects=True, timeout=timeout,
+            headers={"User-Agent": USER_AGENT},
+        )
+        return resp.url
+    except Exception:
+        return url
+
+
+def _extract_urls_from_tweets(tweets: list[dict]) -> list[str]:
+    """Extract unique, non-social-media URLs from a list of tweet dicts."""
+    from urllib.parse import urlparse
+    urls = []
+    seen = set()
+    for tw in tweets:
+        text = tw.get("text", "")
+        found = re.findall(r'https?://\S+', text)
+        for raw_url in found:
+            # Clean trailing punctuation
+            raw_url = raw_url.rstrip('.,;:!?)]\'"')
+            if raw_url in seen:
+                continue
+            seen.add(raw_url)
+            # Resolve shortened URLs
+            resolved = _resolve_url(raw_url) if "t.co/" in raw_url else raw_url
+            try:
+                domain = urlparse(resolved).netloc.replace("www.", "")
+            except Exception:
+                continue
+            if domain in SKIP_DOMAINS or not domain:
+                continue
+            urls.append(resolved)
+    return urls
+
+
+def _follow_tweet_links(
+    tweets: list[dict],
+    max_articles: int = 5,
+    progress_callback=None,
+) -> list[dict]:
+    """
+    Extract URLs from tweet texts, fetch article content, return articles.
+    This enables the system to 'follow links' shared in tweets.
+    """
+    urls = _extract_urls_from_tweets(tweets)
+    if not urls:
+        return []
+
+    articles = []
+    for i, url in enumerate(urls[:max_articles]):
+        if progress_callback:
+            progress_callback(f"Tweet'teki link okunuyor ({i + 1}/{min(len(urls), max_articles)})...")
+        article = fetch_article_content(url)
+        if article and article.get("content") and len(article["content"]) > 200:
+            article["source"] = "tweet_link"
+            articles.append(article)
+    return articles
+
+
+def _follow_threads_from_search(
+    tweets: list[dict],
+    scanner,
+    max_threads: int = 5,
+    progress_callback=None,
+) -> list[dict]:
+    """
+    For high-engagement tweets from search results, fetch their full threads.
+    Returns list of dicts with thread_tweets (list of texts) and links found in threads.
+    """
+    if not scanner or not hasattr(scanner, 'get_thread'):
+        return []
+
+    # Pick top tweets by engagement that might be thread starters
+    sorted_tweets = sorted(
+        tweets,
+        key=lambda x: x.get("likes", 0) + x.get("retweets", 0) * 3,
+        reverse=True,
+    )
+
+    threads_data = []
+    fetched_count = 0
+    for tw in sorted_tweets:
+        if fetched_count >= max_threads:
+            break
+        # Only follow threads for tweets with decent engagement
+        engagement = tw.get("likes", 0) + tw.get("retweets", 0) * 2
+        if engagement < 10:
+            continue
+        # Extract tweet ID from URL or text
+        tw_url = tw.get("url", "")
+        tw_id = None
+        if tw_url:
+            match = re.search(r'/status/(\d+)', tw_url)
+            if match:
+                tw_id = match.group(1)
+        if not tw_id:
+            continue
+
+        if progress_callback:
+            progress_callback(f"Thread takip ediliyor ({fetched_count + 1}/{max_threads})...")
+        try:
+            thread_texts = scanner.get_thread(tw_id)
+            if thread_texts and len(thread_texts) > 1:
+                threads_data.append({
+                    "author": tw.get("author", ""),
+                    "thread_texts": thread_texts,
+                    "likes": tw.get("likes", 0),
+                })
+                fetched_count += 1
+        except Exception as e:
+            print(f"Thread fetch error ({tw_id}): {e}")
+
+    return threads_data
+
+
 # ========================================================================
 # TOPIC EXTRACTION
 # ========================================================================
@@ -1059,10 +1177,10 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                         parts = topic_info["products"][:2] + topic_info["companies"][:1]
                         x_queries = []
                         if parts:
-                            x_queries.append(f"({' OR '.join(parts)}) -is:retweet lang:en")
+                            x_queries.append(f"({' OR '.join(parts)}) -is:retweet -is:reply lang:en")
                         else:
                             general_q = (result.topic or tweet_text[:50])
-                            x_queries.append(f"({general_q}) -is:retweet")
+                            x_queries.append(f"({general_q}) -is:retweet -is:reply")
 
                         start = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=72)
                         seen_ids = set()
@@ -1126,12 +1244,12 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                     parts = topic_info["products"][:2] + topic_info["companies"][:1]
                     x_queries = []
                     if parts:
-                        x_queries.append(f"({' OR '.join(parts)}) -is:retweet lang:en")
+                        x_queries.append(f"({' OR '.join(parts)}) -is:retweet -is:reply lang:en")
                         if len(parts) > 1:
-                            x_queries.append(f"({parts[0]}) -is:retweet lang:en min_faves:10")
+                            x_queries.append(f"({parts[0]}) -is:retweet -is:reply lang:en min_faves:10")
                     else:
                         general_q = (result.topic or tweet_text[:50])
-                        x_queries.append(f"({general_q}) -is:retweet")
+                        x_queries.append(f"({general_q}) -is:retweet -is:reply")
 
                     start = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=72)
                     seen_ids = set()
@@ -1153,6 +1271,7 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                                         "likes": t.like_count,
                                         "retweets": getattr(t, 'retweet_count', 0),
                                         "followers": getattr(t, 'author_followers_count', 0),
+                                        "url": f"https://x.com/{t.author_username}/status/{t.id}",
                                     })
                         except Exception as e:
                             print(f"X search error in agentic mode: {e}")
@@ -1297,31 +1416,31 @@ def research_topic(tweet_text: str, tweet_author: str = "",
             # Build multiple search queries for thorough X coverage
             x_queries = []
             if parts:
-                x_queries.append(f"({' OR '.join(parts)}) -is:retweet lang:en")
+                x_queries.append(f"({' OR '.join(parts)}) -is:retweet -is:reply lang:en")
                 if len(parts) > 1:
-                    x_queries.append(f"({parts[0]}) -is:retweet lang:en min_faves:10")
-                    x_queries.append(f"({parts[1]}) -is:retweet lang:en")
+                    x_queries.append(f"({parts[0]}) -is:retweet -is:reply lang:en min_faves:10")
+                    x_queries.append(f"({parts[1]}) -is:retweet -is:reply lang:en")
                 # Add action-based query
                 action = topic_info.get("action", "")
                 if action:
-                    x_queries.append(f"({parts[0]}) ({action}) -is:retweet lang:en")
+                    x_queries.append(f"({parts[0]}) ({action}) -is:retweet -is:reply lang:en")
             else:
                 general_q = search_queries.get("general", ["AI"])[0][:50]
-                x_queries.append(f"({general_q}) -is:retweet")
+                x_queries.append(f"({general_q}) -is:retweet -is:reply")
 
             # In X-only mode, add more query variations
             if x_only_mode:
                 # Use AI-generated queries if available
                 if ai_topic and ai_topic.get("search_queries"):
                     for gq in ai_topic["search_queries"].get("general", [])[:2]:
-                        x_queries.append(f"({gq[:50]}) -is:retweet lang:en")
+                        x_queries.append(f"({gq[:50]}) -is:retweet -is:reply lang:en")
                 # Add topic-based variations
                 if topic_info["products"]:
                     for prod in topic_info["products"][:3]:
-                        x_queries.append(f"{prod} -is:retweet lang:en min_faves:5")
+                        x_queries.append(f"{prod} -is:retweet -is:reply lang:en min_faves:5")
                 if topic_info["companies"]:
                     for comp in topic_info["companies"][:2]:
-                        x_queries.append(f"{comp} {topic_info.get('action', 'AI')} -is:retweet lang:en")
+                        x_queries.append(f"{comp} {topic_info.get('action', 'AI')} -is:retweet -is:reply lang:en")
 
             start = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=72)
             seen_ids = set()
@@ -1343,6 +1462,7 @@ def research_topic(tweet_text: str, tweet_author: str = "",
                                 "likes": t.like_count,
                                 "retweets": getattr(t, 'retweet_count', 0),
                                 "followers": getattr(t, 'author_followers_count', 0),
+                                "url": f"https://x.com/{t.author_username}/status/{t.id}",
                             })
                 except Exception as e:
                     print(f"X search error ({q[:40]}): {e}")
@@ -1352,6 +1472,42 @@ def research_topic(tweet_text: str, tweet_author: str = "",
 
             if progress_callback:
                 progress_callback(f"X'te {len(result.related_tweets)} tweet bulundu")
+
+            # === STEP 7b: Follow links found in tweets ===
+            if result.related_tweets:
+                if progress_callback:
+                    progress_callback("Tweet'lerdeki linkler takip ediliyor...")
+                tweet_articles = _follow_tweet_links(
+                    result.related_tweets, max_articles=5,
+                    progress_callback=progress_callback,
+                )
+                if tweet_articles:
+                    result.deep_articles.extend(tweet_articles)
+                    if progress_callback:
+                        progress_callback(f"Tweet linklerinden {len(tweet_articles)} makale okundu")
+
+            # === STEP 7c: Follow threads from high-engagement search results ===
+            if x_only_mode and result.related_tweets and scanner:
+                if progress_callback:
+                    progress_callback("Yüksek etkileşimli tweet thread'leri takip ediliyor...")
+                threads = _follow_threads_from_search(
+                    result.related_tweets, scanner, max_threads=3,
+                    progress_callback=progress_callback,
+                )
+                for td in threads:
+                    # Add thread content to related_tweets context
+                    thread_combined = " | ".join(td["thread_texts"])
+                    result.related_tweets.append({
+                        "text": f"[THREAD by @{td['author']}] {thread_combined}",
+                        "author": td["author"],
+                        "likes": td.get("likes", 0),
+                        "retweets": 0,
+                        "followers": 0,
+                        "url": "",
+                    })
+                if threads and progress_callback:
+                    progress_callback(f"{len(threads)} thread bulundu ve eklendi")
+
         except Exception as e:
             print(f"Twitter search error: {e}")
 
@@ -1984,15 +2140,15 @@ def research_topic_from_text(
         action = topic_info.get("action", "")
         if entities:
             x_queries_en = [
-                f"({' OR '.join(entities)}) {action or ''} -is:retweet lang:en".strip(),
-                f"({' OR '.join(entities)}) -is:retweet",
+                f"({' OR '.join(entities)}) {action or ''} -is:retweet -is:reply lang:en".strip(),
+                f"({' OR '.join(entities)}) -is:retweet -is:reply",
             ]
-            x_queries_tr = [f"({' OR '.join(entities)}) -is:retweet lang:tr"]
+            x_queries_tr = [f"({' OR '.join(entities)}) -is:retweet -is:reply lang:tr"]
         else:
             words = topic_input.split()[:5]
             q = " ".join(words)
-            x_queries_en = [f"({q}) -is:retweet lang:en", f"({q}) -is:retweet"]
-            x_queries_tr = [f"({q}) -is:retweet lang:tr"]
+            x_queries_en = [f"({q}) -is:retweet -is:reply lang:en", f"({q}) -is:retweet -is:reply"]
+            x_queries_tr = [f"({q}) -is:retweet -is:reply lang:tr"]
 
     if progress_callback:
         progress_callback(f"Konu: {result.topic}")
@@ -2067,6 +2223,43 @@ def research_topic_from_text(
 
         if progress_callback:
             progress_callback(f"X'te {len(result.x_tweets)} tweet bulundu")
+
+        # === STEP 2b: Follow links found in tweets ===
+        if result.x_tweets:
+            if progress_callback:
+                progress_callback("Tweet'lerdeki linkler takip ediliyor...")
+            tweet_articles = _follow_tweet_links(
+                result.x_tweets, max_articles=5,
+                progress_callback=progress_callback,
+            )
+            if tweet_articles:
+                # Store in result for summary compilation
+                if not hasattr(result, 'deep_articles'):
+                    result.deep_articles = []
+                result.deep_articles = tweet_articles
+                if progress_callback:
+                    progress_callback(f"Tweet linklerinden {len(tweet_articles)} makale okundu")
+
+        # === STEP 2c: Follow threads from high-engagement tweets ===
+        if result.x_tweets and scanner:
+            if progress_callback:
+                progress_callback("Yüksek etkileşimli tweet thread'leri takip ediliyor...")
+            threads = _follow_threads_from_search(
+                result.x_tweets, scanner, max_threads=3,
+                progress_callback=progress_callback,
+            )
+            for td in threads:
+                thread_combined = " | ".join(td["thread_texts"])
+                result.x_tweets.append({
+                    "text": f"[THREAD by @{td['author']}] {thread_combined}",
+                    "author": td["author"],
+                    "likes": td.get("likes", 0),
+                    "retweets": 0,
+                    "url": "",
+                    "created_at": "",
+                })
+            if threads and progress_callback:
+                progress_callback(f"{len(threads)} thread bulundu ve eklendi")
 
     # === STEP 2b-GROK: Grok agentic mode ===
     if use_grok_agentic:
@@ -2256,14 +2449,14 @@ def _build_x_query_variations(topic_input: str, topic_en: str, ai_topic: dict | 
         # Pairs of keywords
         for i in range(min(len(tr_words), 4)):
             for j in range(i + 1, min(len(tr_words), 4)):
-                q = f"{tr_words[i]} {tr_words[j]} -is:retweet"
+                q = f"{tr_words[i]} {tr_words[j]} -is:retweet -is:reply"
                 extra.append(q)
 
     # Build variations from English keywords
     if len(en_words) >= 2:
         for i in range(min(len(en_words), 4)):
             for j in range(i + 1, min(len(en_words), 4)):
-                q = f"{en_words[i]} {en_words[j]} -is:retweet lang:en"
+                q = f"{en_words[i]} {en_words[j]} -is:retweet -is:reply lang:en"
                 extra.append(q)
 
     # Use AI-provided keywords if available
@@ -2274,14 +2467,14 @@ def _build_x_query_variations(topic_input: str, topic_en: str, ai_topic: dict | 
         # Build OR queries from keyword groups
         if len(kw_en) >= 2:
             # Top keywords combined
-            extra.append(f"({' '.join(kw_en[:3])}) -is:retweet lang:en")
+            extra.append(f"({' '.join(kw_en[:3])}) -is:retweet -is:reply lang:en")
             # Individual important keywords with min engagement
             for kw in kw_en[:3]:
                 if len(kw) > 3:
-                    extra.append(f"{kw} -is:retweet lang:en min_faves:5")
+                    extra.append(f"{kw} -is:retweet -is:reply lang:en min_faves:5")
 
         if len(kw_tr) >= 2:
-            extra.append(f"({' '.join(kw_tr[:3])}) -is:retweet lang:tr")
+            extra.append(f"({' '.join(kw_tr[:3])}) -is:retweet -is:reply lang:tr")
 
     # Limit total extra queries to prevent rate limiting
     return extra[:8]
@@ -2304,18 +2497,18 @@ SADECE şu JSON formatında yanıt ver:
     "keywords_tr": ["türkçe", "anahtar", "kelimeler", "max 6"],
     "keywords_en": ["english", "keywords", "max 6"],
     "x_queries_tr": [
-        "X'te Türkçe arama sorgusu 1 -is:retweet lang:tr",
-        "X'te Türkçe arama sorgusu 2 -is:retweet lang:tr",
-        "X'te Türkçe arama sorgusu 3 -is:retweet lang:tr",
-        "X'te Türkçe arama sorgusu 4 -is:retweet lang:tr"
+        "X'te Türkçe arama sorgusu 1 -is:retweet -is:reply lang:tr",
+        "X'te Türkçe arama sorgusu 2 -is:retweet -is:reply lang:tr",
+        "X'te Türkçe arama sorgusu 3 -is:retweet -is:reply lang:tr",
+        "X'te Türkçe arama sorgusu 4 -is:retweet -is:reply lang:tr"
     ],
     "x_queries_en": [
-        "X English search query 1 (genel) -is:retweet lang:en",
-        "X English search query 2 (teknik detay) -is:retweet lang:en",
-        "X English search query 3 (kullanıcı deneyimi) -is:retweet lang:en",
-        "X English search query 4 (karşılaştırma/alternifler) -is:retweet lang:en",
-        "X English search query 5 (eleştiri/sorunlar) -is:retweet lang:en",
-        "X English search query 6 (özellikler/nasıl çalışır) -is:retweet lang:en"
+        "X English search query 1 (genel) -is:retweet -is:reply lang:en",
+        "X English search query 2 (teknik detay) -is:retweet -is:reply lang:en",
+        "X English search query 3 (kullanıcı deneyimi) -is:retweet -is:reply lang:en",
+        "X English search query 4 (karşılaştırma/alternifler) -is:retweet -is:reply lang:en",
+        "X English search query 5 (eleştiri/sorunlar) -is:retweet -is:reply lang:en",
+        "X English search query 6 (özellikler/nasıl çalışır) -is:retweet -is:reply lang:en"
     ],
     "general_queries": [
         "kapsamlı web araması 1 {current_year}",
@@ -2403,11 +2596,21 @@ def _compile_topic_research_summary(r: TopicResearchResult) -> str:
         for i, tw in enumerate(r.x_tweets[:show_count], 1):
             parts.append(f"  {i}. @{tw['author']} ({tw['likes']}L {tw['retweets']}RT): {tw['text'][:300]}")
 
+    # Tweet link articles (from link-following, always show)
+    tweet_link_articles = [a for a in r.deep_articles if a.get("source") == "tweet_link"]
+    if tweet_link_articles:
+        parts.append(f"\n## TWEET LİNKLERİNDEN OKUNAN İÇERİKLER ({len(tweet_link_articles)} kaynak):")
+        for i, article in enumerate(tweet_link_articles, 1):
+            parts.append(f"### Kaynak {i}: {article['title']}")
+            parts.append(f"{article['content'][:2000]}")
+            parts.append("")
+
     # Web content only if search_mode was x_and_web
     if r.search_mode == "x_and_web":
-        if r.deep_articles:
-            parts.append(f"\n## OKUNAN MAKALELER ({len(r.deep_articles)} kaynak):")
-            for i, article in enumerate(r.deep_articles, 1):
+        web_articles = [a for a in r.deep_articles if a.get("source") != "tweet_link"]
+        if web_articles:
+            parts.append(f"\n## OKUNAN MAKALELER ({len(web_articles)} kaynak):")
+            for i, article in enumerate(web_articles, 1):
                 parts.append(f"### Kaynak {i}: {article['title']}")
                 parts.append(f"URL: {article['url']}")
                 parts.append(f"{article['content']}")
@@ -2489,10 +2692,10 @@ def discover_topics(ai_client=None, ai_model: str = None,
         start = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=24)
 
         trend_queries = [
-            f"({focus_area}) lang:tr min_faves:50 -is:retweet",
-            f"({focus_area}) lang:tr min_faves:20 -is:retweet",
-            "AI lang:tr min_faves:30 -is:retweet",
-            "(yapay zeka OR ChatGPT OR Claude OR GPT) lang:tr min_faves:20 -is:retweet",
+            f"({focus_area}) lang:tr min_faves:50 -is:retweet -is:reply",
+            f"({focus_area}) lang:tr min_faves:20 -is:retweet -is:reply",
+            "AI lang:tr min_faves:30 -is:retweet -is:reply",
+            "(yapay zeka OR ChatGPT OR Claude OR GPT) lang:tr min_faves:20 -is:retweet -is:reply",
         ]
 
         seen_ids = set()

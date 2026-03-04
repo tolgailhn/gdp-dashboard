@@ -74,6 +74,20 @@ class TwikitSearchClient:
         """Authenticate with Twitter. Returns True on success."""
         return _run_async(self._auth_async())
 
+    async def _verify_cookies(self, client) -> bool:
+        """Verify loaded cookies actually work by making a simple API call."""
+        try:
+            # Try to get own user info — lightweight check
+            user = await client.user()
+            return user is not None
+        except Exception:
+            try:
+                # Fallback: try getting a known user
+                user = await client.get_user_by_screen_name("x")
+                return user is not None
+            except Exception:
+                return False
+
     async def _auth_async(self) -> bool:
         client = self._get_client()
         self.last_error = ""
@@ -88,8 +102,12 @@ class TwikitSearchClient:
                     "auth_token": secret_auth,
                     "ct0": secret_ct0,
                 })
-                self._authenticated = True
-                return True
+                if await self._verify_cookies(client):
+                    self._authenticated = True
+                    print("Twikit auth: secrets cookies verified OK")
+                    return True
+                else:
+                    print("Twikit auth: secrets cookies expired/invalid, trying other methods...")
         except Exception:
             pass
 
@@ -97,8 +115,14 @@ class TwikitSearchClient:
         if COOKIES_PATH.exists():
             try:
                 client.load_cookies(str(COOKIES_PATH))
-                self._authenticated = True
-                return True
+                if await self._verify_cookies(client):
+                    self._authenticated = True
+                    print("Twikit auth: file cookies verified OK")
+                    return True
+                else:
+                    print("Twikit auth: file cookies expired/invalid, will try login...")
+                    self.last_error = "Cookie'ler süresi dolmuş, yeniden giriş yapılıyor..."
+                    # Don't delete cookies yet — try login first
             except Exception as e:
                 self.last_error = f"Cookie yükleme hatası: {e}"
                 try:
@@ -236,6 +260,7 @@ class TwikitSearchClient:
             client = self._get_client()
             user = await client.get_user_by_screen_name(username)
             if not user:
+                self.last_error = f"@{username} kullanıcısı bulunamadı"
                 return results
 
             cursor = None
@@ -290,11 +315,28 @@ class TwikitSearchClient:
                     if err_name in ("StopIteration", "StopAsyncIteration"):
                         break  # No more pages
                     print(f"Twikit pagination error (page {page + 1}): {page_err}")
+                    self.last_error = f"Sayfa {page + 1} hatası: {err_name}: {page_err}"
                     break
 
         except Exception as e:
-            self.last_error = f"Kullanıcı tweet hatası (@{username}): {type(e).__name__}: {e}"
-            print(f"Twikit user tweets error ({username}): {e}")
+            err_name = type(e).__name__
+            self.last_error = f"Kullanıcı tweet hatası (@{username}): {err_name}: {e}"
+            print(f"Twikit user tweets error ({username}): {err_name}: {e}")
+
+            # 401/404 usually means cookies expired — try re-auth once
+            if err_name in ("NotFound", "Unauthorized", "Forbidden",
+                            "TwitterException") and self.username and self.password:
+                print(f"Twikit user tweets {err_name}, attempting re-auth...")
+                self._authenticated = False
+                self._client = None  # Reset client
+                if await self._auth_async():
+                    try:
+                        return await self._user_tweets_async(username, count, progress_callback)
+                    except Exception as e2:
+                        self.last_error = f"Yeniden deneme hatası: {type(e2).__name__}: {e2}"
+                else:
+                    self.last_error = f"Cookie'ler geçersiz, yeniden giriş başarısız: {self.last_error}"
+
         return results
 
     def _tweet_to_dict(self, tweet) -> dict:

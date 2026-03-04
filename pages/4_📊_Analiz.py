@@ -415,7 +415,8 @@ with tab1:
         with st.spinner("Twikit ile giris yapiliyor..."):
             twikit = TwikitSearchClient(twikit_user, twikit_pass, twikit_email)
             if not twikit.authenticate():
-                st.error("Twikit giris basarisiz! Ayarlar sayfasindan kontrol edin.")
+                err = twikit.last_error or "Bilinmeyen hata"
+                st.error(f"Twikit giris basarisiz! {err}")
                 st.stop()
 
         # Build AI client for report generation
@@ -457,7 +458,11 @@ with tab1:
                 )
 
                 if not tweets:
-                    status.warning(f"@{username} icin tweet bulunamadi. Hesap adi dogru mu?")
+                    err_detail = twikit.last_error
+                    if err_detail:
+                        status.warning(f"@{username} icin tweet bulunamadi: {err_detail}")
+                    else:
+                        status.warning(f"@{username} icin tweet bulunamadi. Hesap adi dogru mu?")
                     continue
 
                 progress.caption(f"@{username}: {len(tweets)} tweet cekildi. Analiz yapiliyor...")
@@ -583,7 +588,8 @@ with tab3:
             with st.spinner("Twikit ile giris yapiliyor..."):
                 _twikit = TwikitSearchClient(_tw_user, _tw_pass, _tw_email)
                 if not _twikit.authenticate():
-                    st.error("Twikit giris basarisiz!")
+                    err = _twikit.last_error or "Bilinmeyen hata"
+                    st.error(f"Twikit giris basarisiz! {err}")
                     st.stop()
 
             progress = st.empty()
@@ -750,7 +756,8 @@ with tab4:
                         )
 
                         if not tc.authenticate():
-                            st.error("Twikit giriş başarısız! Cookie veya şifre kontrol edin.")
+                            err = tc.last_error or "Bilinmeyen hata"
+                            st.error(f"Twikit giriş başarısız! {err}")
                         else:
                             results = bulk_fetch_accounts(
                                 twikit_client=tc,

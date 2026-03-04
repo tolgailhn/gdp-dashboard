@@ -702,7 +702,7 @@ def inject_custom_css():
     }
 
     /* ==========================================
-       MOBILE BOTTOM NAV - Premium glass
+       MOBILE BOTTOM NAV - Ultra Premium
        ========================================== */
     .mobile-bottom-nav {
         display: none;
@@ -710,41 +710,85 @@ def inject_custom_css():
         bottom: 0;
         left: 0;
         right: 0;
-        z-index: 9999;
-        background: rgba(8, 12, 24, 0.95);
-        backdrop-filter: blur(24px);
-        -webkit-backdrop-filter: blur(24px);
-        border-top: 1px solid rgba(99, 102, 241, 0.15);
-        padding: 6px 0 max(6px, env(safe-area-inset-bottom));
+        z-index: 99999;
+        background: rgba(6, 8, 18, 0.88);
+        backdrop-filter: blur(40px) saturate(180%);
+        -webkit-backdrop-filter: blur(40px) saturate(180%);
+        border-top: 1px solid rgba(99, 102, 241, 0.1);
+        padding: 2px 4px max(6px, env(safe-area-inset-bottom));
+        box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.5),
+                    0 -1px 0 rgba(99, 102, 241, 0.08);
     }
     .mobile-bottom-nav .nav-items {
         display: flex;
         justify-content: space-around;
         align-items: center;
-        max-width: 500px;
+        max-width: 520px;
         margin: 0 auto;
+        padding: 0 2px;
     }
-    .mobile-bottom-nav a {
+    .mobile-bottom-nav .nav-item {
         display: flex;
         flex-direction: column;
         align-items: center;
-        text-decoration: none;
-        color: var(--text-muted);
-        font-size: 10px;
-        font-weight: 500;
-        padding: 4px 8px;
-        border-radius: var(--radius-sm);
-        transition: all 0.25s ease;
-        min-width: 48px;
-        min-height: 48px;
-        justify-content: center;
+        text-decoration: none !important;
+        color: rgba(148, 163, 184, 0.5);
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        padding: 8px 4px 6px;
+        border-radius: 14px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        min-width: 44px;
+        position: relative;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        -webkit-user-select: none;
     }
-    .mobile-bottom-nav a .nav-icon { font-size: 20px; margin-bottom: 2px; }
-    .mobile-bottom-nav a.active {
+    .mobile-bottom-nav .nav-item .nav-icon {
+        font-size: 22px;
+        margin-bottom: 3px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        line-height: 1;
+    }
+    .mobile-bottom-nav .nav-item .nav-label {
+        transition: all 0.3s ease;
+        line-height: 1;
+        opacity: 0.7;
+    }
+    /* Active state - glow + pill indicator */
+    .mobile-bottom-nav .nav-item.active {
+        color: #c4b5fd;
+    }
+    .mobile-bottom-nav .nav-item.active .nav-icon {
+        transform: scale(1.18) translateY(-1px);
+        filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.6));
+    }
+    .mobile-bottom-nav .nav-item.active .nav-label {
+        opacity: 1;
         color: #a5b4fc;
-        background: rgba(99, 102, 241, 0.15);
+        font-weight: 700;
     }
-    .mobile-bottom-nav a:hover { color: #a5b4fc; }
+    .mobile-bottom-nav .nav-item.active::after {
+        content: '';
+        position: absolute;
+        bottom: 2px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 18px;
+        height: 3px;
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        border-radius: 3px;
+        box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);
+    }
+    /* Touch feedback */
+    .mobile-bottom-nav .nav-item:active {
+        transform: scale(0.88);
+        transition-duration: 0.1s;
+    }
+    .mobile-bottom-nav .nav-item:not(.active):hover {
+        color: rgba(165, 180, 252, 0.7);
+    }
 
     /* ==========================================
        EMPTY STATE
@@ -829,70 +873,189 @@ def inject_custom_css():
         .main-header h1 { font-size: 32px; }
     }
 
-    /* Mobile only */
+    /* ==========================================
+       MOBILE EXPERIENCE - Premium App Feel
+       ========================================== */
+
+    /* Global mobile touch optimizations */
     @media (max-width: 639px) {
+        /* Smooth scrolling everywhere */
+        html, body, [data-testid="stAppViewContainer"] {
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+
         /* Show bottom nav */
         .mobile-bottom-nav { display: block; }
 
-        /* Hide sidebar completely on mobile */
-        section[data-testid="stSidebar"] { display: none !important; }
-        button[data-testid="stSidebarCollapsedControl"],
+        /* Sidebar as slide-over overlay (not hidden!) */
+        section[data-testid="stSidebar"] {
+            z-index: 99998 !important;
+            box-shadow: 4px 0 40px rgba(0, 0, 0, 0.6) !important;
+            border-right: 1px solid rgba(99, 102, 241, 0.15) !important;
+        }
+
+        /* Sidebar toggle - floating glass button */
+        button[data-testid="stSidebarCollapsedControl"] {
+            z-index: 99997 !important;
+            background: rgba(15, 20, 35, 0.85) !important;
+            backdrop-filter: blur(20px) !important;
+            -webkit-backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(99, 102, 241, 0.2) !important;
+            border-radius: 12px !important;
+            width: 42px !important;
+            height: 42px !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35),
+                        0 0 0 1px rgba(99, 102, 241, 0.1) !important;
+            transition: all 0.3s ease !important;
+        }
+        button[data-testid="stSidebarCollapsedControl"]:active {
+            transform: scale(0.9) !important;
+            background: rgba(99, 102, 241, 0.2) !important;
+        }
+
+        /* Hide redundant header buttons */
         button[kind="header"] { display: none !important; }
 
         /* Content padding with bottom nav space */
         .block-container {
-            padding: 0.5rem 0.75rem 80px 0.75rem !important;
+            padding: 0.5rem 0.75rem 90px 0.75rem !important;
         }
 
-        /* Full width buttons */
-        .stButton > button { width: 100%; margin-bottom: 4px; }
+        /* Full width buttons with better touch targets */
+        .stButton > button {
+            width: 100%;
+            margin-bottom: 4px;
+            min-height: 48px;
+            font-size: 14px !important;
+        }
 
-        /* Smaller header on mobile */
+        /* Premium header on mobile */
         .main-header { padding: 4px 0 12px 0; }
-        .main-header h1 { font-size: 22px; }
+        .main-header h1 { font-size: 22px; letter-spacing: -0.02em; }
 
-        /* Hero compact */
+        /* Hero section - compact but impactful */
         .hero-section {
-            padding: 20px 12px 18px;
-            margin: -4px -4px 14px -4px;
+            padding: 24px 16px 20px;
+            margin: -4px -4px 16px -4px;
+            border-radius: 0 0 24px 24px;
         }
-        .hero-logo { font-size: 42px; }
-        .hero-title { font-size: 24px; }
-        .hero-subtitle { font-size: 11px; letter-spacing: 0.12em; }
+        .hero-logo { font-size: 44px; }
+        .hero-title { font-size: 24px; letter-spacing: -0.03em; }
+        .hero-subtitle { font-size: 11px; letter-spacing: 0.15em; }
 
-        /* Stack columns better */
-        [data-testid="column"] { padding: 0 2px !important; }
+        /* Better column stacking */
+        [data-testid="column"] { padding: 0 3px !important; }
 
-        /* Tab text */
-        .stTabs [data-baseweb="tab"] { font-size: 12px; padding: 8px 10px; }
+        /* Tabs - pill style refined */
+        .stTabs [data-baseweb="tab-list"] {
+            border-radius: 12px;
+            padding: 3px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            font-size: 12px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            min-height: 40px;
+        }
 
-        /* Stat boxes compact */
-        .stat-box { padding: 14px 8px; }
-        .stat-number { font-size: 22px; }
-        .stat-label { font-size: 10px; }
+        /* Stat boxes - refined mobile */
+        .stat-box {
+            padding: 16px 10px;
+            border-radius: 16px;
+        }
+        .stat-number { font-size: 24px; font-weight: 800; }
+        .stat-label { font-size: 10px; letter-spacing: 0.05em; }
 
-        /* Action cards compact */
-        .action-card { padding: 16px 10px 12px; min-height: 100px; }
-        .action-icon { font-size: 28px; margin-bottom: 6px; }
-        .action-title { font-size: 13px; }
-        .action-desc { font-size: 11px; }
+        /* Action cards - mobile app feel */
+        .action-card {
+            padding: 18px 12px 14px;
+            min-height: 105px;
+            border-radius: 16px;
+        }
+        .action-card:active {
+            transform: scale(0.97);
+            transition-duration: 0.1s;
+        }
+        .action-icon { font-size: 30px; margin-bottom: 8px; }
+        .action-title { font-size: 13px; font-weight: 700; }
+        .action-desc { font-size: 11px; line-height: 1.4; }
 
-        /* Tweet card compact */
-        .tweet-card { padding: 14px; margin: 6px 0; }
-        .tweet-metrics { gap: 10px; font-size: 12px; }
+        /* Tweet cards - mobile refined */
+        .tweet-card {
+            padding: 16px;
+            margin: 8px 0;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .tweet-card:active {
+            background: rgba(20, 28, 50, 0.9);
+        }
+        .tweet-metrics { gap: 12px; font-size: 12px; }
 
-        /* Generated tweet */
-        .generated-tweet { padding: 16px; font-size: 14px; }
+        /* Generated tweet - premium mobile */
+        .generated-tweet {
+            padding: 18px;
+            font-size: 15px;
+            line-height: 1.6;
+            border-radius: 16px;
+        }
 
-        /* Activity compact */
-        .activity-item { padding: 12px; }
+        /* Activity items */
+        .activity-item {
+            padding: 14px;
+            border-radius: 12px;
+        }
+
+        /* Text inputs - larger touch targets */
+        .stTextInput input, .stTextArea textarea {
+            font-size: 16px !important; /* Prevents iOS zoom on focus */
+            border-radius: 12px !important;
+            min-height: 48px;
+        }
+
+        /* Select boxes */
+        .stSelectbox > div > div {
+            min-height: 48px !important;
+        }
+
+        /* Info/warning banners mobile */
+        .info-banner { border-radius: 16px; padding: 16px; }
+        .setup-warning { border-radius: 16px; }
+
+        /* Better spacing between elements */
+        .element-container { margin-bottom: 4px; }
+
+        /* Expander mobile */
+        .streamlit-expanderHeader {
+            font-size: 14px;
+            padding: 14px 16px;
+            border-radius: 14px;
+        }
+
+        /* Login mobile */
+        .login-container {
+            margin: 30px auto 0;
+            border-radius: 24px;
+        }
     }
 
-    /* Small phones */
+    /* Small phones (iPhone SE, etc.) */
     @media (max-width: 380px) {
-        .block-container { padding: 0.5rem 0.5rem 80px 0.5rem !important; }
+        .block-container { padding: 0.5rem 0.5rem 90px 0.5rem !important; }
         .hero-title { font-size: 20px; }
+        .hero-section { padding: 20px 12px 16px; }
         .stTabs [data-baseweb="tab"] { font-size: 11px; padding: 8px 6px; }
+        .stat-number { font-size: 20px; }
+        .mobile-bottom-nav .nav-item .nav-icon { font-size: 20px; }
+        .mobile-bottom-nav .nav-item .nav-label { font-size: 8px; }
+        .mobile-bottom-nav .nav-item { min-width: 38px; padding: 6px 2px 4px; }
+    }
+
+    /* Larger phones (iPhone Pro Max, etc.) */
+    @media (min-width: 390px) and (max-width: 639px) {
+        .mobile-bottom-nav .nav-item .nav-icon { font-size: 24px; }
+        .mobile-bottom-nav .nav-item .nav-label { font-size: 10px; }
     }
 
     /* ==========================================
@@ -906,6 +1069,11 @@ def inject_custom_css():
     }
     ::-webkit-scrollbar-thumb:hover {
         background: rgba(99, 102, 241, 0.35);
+    }
+
+    /* --- Global touch & interaction polish --- */
+    * {
+        -webkit-tap-highlight-color: transparent;
     }
 
     /* --- Alerts/Info boxes --- */
@@ -1104,21 +1272,25 @@ def render_sidebar_nav(current_page: str = ""):
             st.success("Grok API ✓", icon="🧠")
             render_grok_cost_indicator()
 
-    # --- Mobile bottom nav ---
+    # --- Mobile bottom nav (proper Streamlit URL paths) ---
     mobile_nav_items = [
-        ("🏠", "Ana", "streamlit_app.py", "home"),
-        ("🔍", "Tara", "pages/1_🔍_Tara.py", "tara"),
-        ("✍️", "Yaz", "pages/2_✍️_Yaz.py", "yaz"),
-        ("💡", "İçerik", "pages/6_💡_İçerik.py", "icerik"),
-        ("📊", "Analiz", "pages/4_📊_Analiz.py", "analiz"),
-        ("⚙️", "Ayar", "pages/3_⚙️_Ayarlar.py", "ayarlar"),
-        ("📅", "Takvim", "pages/7_📅_Takvim.py", "takvim"),
+        ("🏠", "Ana", "/", "home"),
+        ("🔍", "Tara", "/1_🔍_Tara", "tara"),
+        ("✍️", "Yaz", "/2_✍️_Yaz", "yaz"),
+        ("💡", "İçerik", "/6_💡_İçerik", "icerik"),
+        ("📊", "Analiz", "/4_📊_Analiz", "analiz"),
+        ("⚙️", "Ayar", "/3_⚙️_Ayarlar", "ayarlar"),
+        ("📅", "Takvim", "/7_📅_Takvim", "takvim"),
     ]
 
     nav_links = ""
-    for icon, label, path, key in mobile_nav_items:
+    for icon, label, url, key in mobile_nav_items:
         active = "active" if key == current_page else ""
-        nav_links += f'<a href="/{path}" class="{active}" target="_self"><span class="nav-icon">{icon}</span>{label}</a>\n'
+        nav_links += (
+            f'<a href="{url}" class="nav-item {active}" target="_self">'
+            f'<span class="nav-icon">{icon}</span>'
+            f'<span class="nav-label">{label}</span></a>\n'
+        )
 
     st.markdown(f"""
     <div class="mobile-bottom-nav">

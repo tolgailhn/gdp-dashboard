@@ -10,7 +10,9 @@ from modules.ui_components import (inject_custom_css, check_password,
                                    render_generated_tweet, render_thread_preview,
                                    get_secret, render_sidebar_nav,
                                    render_research_engine_toggle, render_agentic_mode_toggle)
-from modules.content_generator import ContentGenerator, get_available_styles, get_style_info
+from modules.content_generator import (ContentGenerator, get_available_styles, get_style_info,
+                                       get_available_formats, get_format_info, score_tweet,
+                                       CONTENT_FORMATS)
 from modules.tweet_publisher import TweetPublisher
 from modules.deep_research import (
     extract_tweet_id, research_topic, research_topic_from_text,
@@ -717,38 +719,40 @@ for i, (key, label) in enumerate(zip(style_options, style_labels)):
             st.session_state.selected_style = key
             st.rerun()
 
-# --- Tweet Length ---
-st.markdown("### 📏 Uzunluk")
+# --- Tweet Format ---
+st.markdown("### 📐 Format")
 
-length_options = {
-    "kisa": {"label": "Kısa", "range": "100-280", "desc": "Tek tweet, vurucu", "icon": "📝"},
-    "orta": {"label": "Orta", "range": "281-500", "desc": "Detaylı tek tweet", "icon": "📄"},
-    "uzun": {"label": "Uzun", "range": "501-1000", "desc": "Derinlemesine analiz", "icon": "📑"},
-}
+_format_options = get_available_formats("tweet")
+selected_format = st.session_state.get("selected_format", "spark")
 
-selected_length = st.session_state.get("selected_length", "orta")
+# Show formats in 2 rows of 3
+_fmt_keys = list(_format_options.keys())
+_row1_keys = _fmt_keys[:3]
+_row2_keys = _fmt_keys[3:]
 
-len_cols = st.columns(len(length_options))
-for i, (lkey, linfo) in enumerate(length_options.items()):
-    with len_cols[i]:
-        is_sel = selected_length == lkey
-        border = "2px solid #6366f1" if is_sel else "1px solid rgba(255,255,255,0.06)"
-        bg = "rgba(99,102,241,0.06)" if is_sel else "rgba(15,20,35,0.7)"
+for row_keys in [_row1_keys, _row2_keys]:
+    fmt_cols = st.columns(len(row_keys))
+    for i, fkey in enumerate(row_keys):
+        finfo = _format_options[fkey]
+        with fmt_cols[i]:
+            is_sel = selected_format == fkey
+            border = "2px solid #6366f1" if is_sel else "1px solid rgba(255,255,255,0.06)"
+            bg = "rgba(99,102,241,0.06)" if is_sel else "rgba(15,20,35,0.7)"
 
-        st.markdown(f"""
-        <div style="background:{bg}; border:{border}; border-radius:12px;
-                    padding:12px; text-align:center; min-height:70px;">
-            <div style="color:#f1f5f9; font-weight:bold; font-size:14px;">{linfo['icon']} {linfo['label']}</div>
-            <div style="color:#a5b4fc; font-size:13px;">{linfo['range']} karakter</div>
-            <div style="color:#94a3b8; font-size:11px; margin-top:2px;">{linfo['desc']}</div>
-        </div>
-        """, unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background:{bg}; border:{border}; border-radius:12px;
+                        padding:10px; text-align:center; min-height:78px;">
+                <div style="color:#f1f5f9; font-weight:bold; font-size:13px;">{finfo['icon']} {finfo['name']}</div>
+                <div style="color:#a5b4fc; font-size:12px;">{finfo['range']}</div>
+                <div style="color:#94a3b8; font-size:11px; margin-top:2px;">{finfo['description']}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        if st.button("Seç" if not is_sel else "✓ Seçili",
-                     key=f"length_{lkey}", use_container_width=True,
-                     type="primary" if is_sel else "secondary"):
-            st.session_state.selected_length = lkey
-            st.rerun()
+            if st.button("Seç" if not is_sel else "✓ Seçili",
+                         key=f"format_{fkey}", use_container_width=True,
+                         type="primary" if is_sel else "secondary"):
+                st.session_state.selected_format = fkey
+                st.rerun()
 
 st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
 
@@ -901,18 +905,17 @@ if generate_clicked or regenerate_clicked:
             additional = st.session_state.get("additional_instructions", "")
             max_length = 0 if st.session_state.get("use_premium", True) else 280
 
-            # Add length preference to additional context
-            sel_len = st.session_state.get("selected_length", "orta")
-            length_map = {
-                "kisa": "UZUNLUK: 100-280 karakter arası yaz. Kısa, vurucu, tek tweet.",
-                "orta": "UZUNLUK: 281-500 karakter arası yaz. Detaylı ama öz.",
-                "uzun": "UZUNLUK: 501-1000 karakter arası yaz. Derinlemesine analiz, birden fazla paragraf.",
-            }
-            length_instruction = length_map.get(sel_len, length_map["orta"])
-            if additional:
-                additional = f"{length_instruction}\n{additional}"
+            # Get selected content format
+            sel_format = st.session_state.get("selected_format", "spark")
+            fmt_info = get_format_info(sel_format)
+            if fmt_info:
+                format_instruction = fmt_info["prompt_instructions"]
             else:
-                additional = length_instruction
+                format_instruction = CONTENT_FORMATS["spark"]["prompt_instructions"]
+            if additional:
+                additional = f"{format_instruction}\n{additional}"
+            else:
+                additional = format_instruction
 
             # Clear edit widget state so text_area picks up the new value
             if "edit_tweet" in st.session_state:
@@ -932,7 +935,7 @@ if generate_clicked or regenerate_clicked:
                     additional_context=additional,
                     user_samples=user_samples if user_samples else None,
                     research_summary=research_summary,
-                    length_preference=sel_len,
+                    length_preference=sel_format,
                 )
 
                 # === DEEP VERIFY: Fact-check draft and refine ===
@@ -996,7 +999,7 @@ if generate_clicked or regenerate_clicked:
                                             verification_context=verification_ctx,
                                             style=selected_style,
                                             user_samples=user_samples if user_samples else None,
-                                            length_preference=sel_len,
+                                            length_preference=sel_format,
                                         )
                                     if refined:
                                         result = refined
@@ -1034,6 +1037,7 @@ if generate_clicked or regenerate_clicked:
                     additional_context=additional,
                     max_length=max_length,
                     user_samples=user_samples if user_samples else None,
+                    content_format=sel_format,
                 )
 
                 # === DEEP VERIFY for normal tweets ===
@@ -1095,7 +1099,7 @@ if generate_clicked or regenerate_clicked:
                                             verification_context=verification_ctx,
                                             style=selected_style,
                                             user_samples=user_samples if user_samples else None,
-                                            length_preference=sel_len,
+                                            length_preference=sel_format,
                                         )
                                     if refined:
                                         result = refined
@@ -1115,6 +1119,39 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
     tweet_text = st.session_state.generated_tweet
 
     render_generated_tweet(tweet_text)
+
+    # Quality score
+    _sel_fmt = st.session_state.get("selected_format", "spark")
+    _score = score_tweet(tweet_text, content_format=_sel_fmt)
+    _fmt_name = CONTENT_FORMATS.get(_sel_fmt, {}).get("name", _sel_fmt)
+
+    st.markdown(f"""
+    <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.08);
+                border-radius:10px; padding:12px 16px; margin:8px 0;">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div>
+                <span style="font-size:20px; font-weight:bold; color:#f1f5f9;">
+                    {_score['quality_emoji']} {_score['overall']}/100
+                </span>
+                <span style="color:#94a3b8; font-size:13px; margin-left:8px;">{_score['quality_label']}</span>
+            </div>
+            <div style="color:#94a3b8; font-size:12px;">
+                📐 {_fmt_name} &nbsp;|&nbsp; {_score['char_count']} karakter
+            </div>
+        </div>
+        <div style="display:flex; gap:16px; margin-top:8px;">
+            <span style="color:#a5b4fc; font-size:12px;">🎯 Hook: {_score['hook_score']}/25</span>
+            <span style="color:#a5b4fc; font-size:12px;">📊 Veri: {_score['data_score']}/25</span>
+            <span style="color:#a5b4fc; font-size:12px;">🗣️ Doğallık: {_score['naturalness_score']}/25</span>
+            <span style="color:#a5b4fc; font-size:12px;">📐 Format: {_score['format_score']}/25</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if _score['suggestions']:
+        with st.expander("💡 İyileştirme Önerileri"):
+            for _sug in _score['suggestions']:
+                st.markdown(f"- {_sug}")
 
     # Edit option
     edited_text = st.text_area(

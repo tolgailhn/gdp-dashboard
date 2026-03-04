@@ -8,7 +8,7 @@ from urllib.parse import quote as url_quote
 from modules.ui_components import (inject_custom_css, check_password,
                                    get_secret, render_sidebar_nav,
                                    render_research_engine_toggle, render_agentic_mode_toggle)
-from modules.content_generator import ContentGenerator
+from modules.content_generator import ContentGenerator, get_available_formats, score_tweet, CONTENT_FORMATS
 from modules.deep_research import discover_topics, research_topic_from_text
 from modules.style_manager import load_user_samples, load_custom_persona, add_draft
 from modules.tweet_analyzer import load_all_analyses, build_training_context
@@ -206,15 +206,12 @@ with tab1:
                 key="discover_style",
             )
         with d_col_len:
-            d_length_options = {
-                "kisa": "📏 Kısa (300-500 karakter)",
-                "orta": "📐 Orta (500-1000 karakter)",
-                "uzun": "📏 Uzun (1000-2000 karakter)",
-            }
+            _d_fmt_options = get_available_formats("long_content")
+            _d_fmt_labels = {k: f"{v['icon']} {v['name']}" for k, v in _d_fmt_options.items()}
             d_length = st.selectbox(
-                "Uzunluk",
-                options=list(d_length_options.keys()),
-                format_func=lambda x: d_length_options[x],
+                "Format",
+                options=list(_d_fmt_labels.keys()),
+                format_func=lambda x: _d_fmt_labels[x],
                 index=1,
                 key="discover_length",
             )
@@ -343,10 +340,20 @@ with tab1:
                         color:#e2e8f0; white-space:pre-wrap;">{d_content}</div>
             """, unsafe_allow_html=True)
 
-            char_count = len(d_content)
-            st.caption(f"📊 {char_count} karakter")
-            if char_count > 280:
-                st.info(f"Bu içerik {char_count} karakter — X'te uzun post olarak paylaşılabilir.")
+            _d_sel_fmt = st.session_state.get("discover_length", "storm")
+            _d_score = score_tweet(d_content, content_format=_d_sel_fmt)
+            _d_fmt_name = CONTENT_FORMATS.get(_d_sel_fmt, {}).get("name", _d_sel_fmt)
+            st.markdown(f"""
+            <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.08);
+                        border-radius:10px; padding:10px 14px; margin:6px 0;">
+                <span style="font-size:18px; font-weight:bold; color:#f1f5f9;">
+                    {_d_score['quality_emoji']} {_d_score['overall']}/100
+                </span>
+                <span style="color:#94a3b8; font-size:12px; margin-left:8px;">
+                    {_d_score['quality_label']} &nbsp;|&nbsp; 📐 {_d_fmt_name} &nbsp;|&nbsp; {_d_score['char_count']} karakter
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
 
             d_col_a, d_col_b, d_col_c, d_col_d = st.columns(4)
             with d_col_a:
@@ -431,15 +438,12 @@ with tab2:
         )
 
     with col_len:
-        length_options = {
-            "kisa": "📏 Kısa (300-500 karakter)",
-            "orta": "📐 Orta (500-1000 karakter)",
-            "uzun": "📏 Uzun (1000-2000 karakter)",
-        }
+        _fmt_options = get_available_formats("long_content")
+        _fmt_labels = {k: f"{v['icon']} {v['name']}" for k, v in _fmt_options.items()}
         length = st.selectbox(
-            "Uzunluk",
-            options=list(length_options.keys()),
-            format_func=lambda x: length_options[x],
+            "Format",
+            options=list(_fmt_labels.keys()),
+            format_func=lambda x: _fmt_labels[x],
             index=1,
             key="content_length",
         )
@@ -577,10 +581,20 @@ with tab2:
                     color:#e2e8f0; white-space:pre-wrap;">{content}</div>
         """, unsafe_allow_html=True)
 
-        char_count = len(content)
-        st.caption(f"📊 {char_count} karakter")
-        if char_count > 280:
-            st.info(f"Bu içerik {char_count} karakter — X'te uzun post olarak paylaşılabilir (X Premium).")
+        _c_sel_fmt = st.session_state.get("content_length", "storm")
+        _c_score = score_tweet(content, content_format=_c_sel_fmt)
+        _c_fmt_name = CONTENT_FORMATS.get(_c_sel_fmt, {}).get("name", _c_sel_fmt)
+        st.markdown(f"""
+        <div style="background:rgba(15,20,35,0.7); border:1px solid rgba(255,255,255,0.08);
+                    border-radius:10px; padding:10px 14px; margin:6px 0;">
+            <span style="font-size:18px; font-weight:bold; color:#f1f5f9;">
+                {_c_score['quality_emoji']} {_c_score['overall']}/100
+            </span>
+            <span style="color:#94a3b8; font-size:12px; margin-left:8px;">
+                {_c_score['quality_label']} &nbsp;|&nbsp; 📐 {_c_fmt_name} &nbsp;|&nbsp; {_c_score['char_count']} karakter
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
 
         # Actions
         col_a, col_b, col_c, col_d = st.columns(4)

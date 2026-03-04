@@ -360,6 +360,211 @@ tweet'teki verileri kullanarak kendi bakış açını ekle.
     },
 }
 
+# ============================================================================
+# CONTENT FORMATS — Named format system with specific writing strategies
+# ============================================================================
+
+CONTENT_FORMATS = {
+    "micro": {
+        "name": "Micro — Tek Satır",
+        "label": "⚡ Micro (Tek Satır)",
+        "description": "Tek cümle, vurucu fikir. Quote tweet için ideal.",
+        "range": "0-140 karakter",
+        "char_min": 0,
+        "char_max": 140,
+        "icon": "⚡",
+        "prompt_instructions": """## FORMAT: MICRO (0-140 karakter)
+
+STRATEJİ: Tweet'in tamamı TEK BİR VURUCU CÜMLE. Bunu bir manşet ya da punchline gibi düşün.
+
+KURALLAR:
+- Maksimum 1-2 cümle. Paragraf YOK.
+- Tüm tweet = HOOK. Her kelime kritik, gereksiz kelime YASAK.
+- Cesur iddia, şok edici rakam veya paradoks ile vur.
+- Araştırmadan sadece EN ÇARPICI tek bir veriyi seç ve onu kullan.
+- Açıklama yapma, sadece VUR ve bırak.
+- Sona 1 hashtag yeter.
+
+KÖTÜ ÖRNEK: "OpenAI yeni bir model çıkardı ve bu model çok iyi sonuçlar aldı benchmarklarda." ← çok uzun, açıklayıcı
+İYİ ÖRNEK: "openai'ın yeni modeli coding'de insanların %92'sini geçti. geriye kalan %8 de zamanla erir." ← vurucu, tek fikir""",
+    },
+
+    "punch": {
+        "name": "Punch — Standart Tweet",
+        "label": "🥊 Punch (Standart Tweet)",
+        "description": "Standart tweet uzunluğu. En çok kullanılan format.",
+        "range": "140-280 karakter",
+        "char_min": 140,
+        "char_max": 280,
+        "icon": "🥊",
+        "prompt_instructions": """## FORMAT: PUNCH (140-280 karakter)
+
+STRATEJİ: Twitter'ın ekmek-tereyağı formatı. HOOK + TEK İNSIGHT + KAPANIŞ.
+
+YAPI:
+1. İLK CÜMLE = HOOK: Scroll'u durdur. Cesur, spesifik, merak uyandırıcı.
+2. 1-2 CÜMLE = ANA FİKİR: Tek bir bakış açısı veya veri noktası. Derine inme, vurucu ol.
+3. SON CÜMLE = KAPANIŞ: Güçlü tahmin veya kesin görüş.
+
+KURALLAR:
+- 1-2 kısa paragraf, aralarında boş satır.
+- Araştırmadan en çarpıcı 1 veri/rakam kullan.
+- Her kelime önemli — gereksiz açıklama ve dolgu kelime YOK.
+- Tek bir fikri vur, her şeyi anlatmaya çalışma.
+- Sona 1-2 hashtag.
+
+KÖTÜ: Hook + 3 farklı konu + CTA sorusu ← dağınık
+İYİ: Hook + tek spesifik insight + cesur kapanış ← odaklı""",
+    },
+
+    "spark": {
+        "name": "Spark — Kısa Hikaye",
+        "label": "✨ Spark (Kısa Hikaye)",
+        "description": "Kısa hikayeler, açıklamalar. Detaylı ama öz.",
+        "range": "400-600 karakter",
+        "char_min": 400,
+        "char_max": 600,
+        "icon": "✨",
+        "prompt_instructions": """## FORMAT: SPARK (400-600 karakter)
+
+STRATEJİ: Mini hikaye formatı. Yeterince alan var ama hala öz. Okuyucu "aa ilginçmiş" desin.
+
+YAPI:
+1. HOOK PARAGRAFI (1-2 cümle): Dikkat çekici giriş, konuyu tanıt.
+2. BAĞLAM PARAGRAFI (2-3 cümle): Rakamlar, detaylar, somut bilgiler. Araştırmadan 2-3 veri noktası kullan.
+3. ANALİZ PARAGRAFI (1-2 cümle): Kendi yorumun — "bence", "gördüğüm kadarıyla", paradoks yakala.
+4. KAPANIŞ (1 cümle): Cesur tahmin veya güçlü görüş. SORU SORMA.
+
+KURALLAR:
+- 3-4 paragraf, her biri 1-3 cümle. Aralarında BOŞ SATIR.
+- Araştırmadan 2-3 spesifik veri/rakam dahil et.
+- Kişisel bakış açısı ŞART — sadece bilgi verme, YORUM KAT.
+- Her paragraf farklı bir açıdan baksın (hook → veri → yorum → kapanış).
+- Sona 1-2 hashtag.""",
+    },
+
+    "storm": {
+        "name": "Storm — Derin Analiz",
+        "label": "🌩️ Storm (Derin Analiz)",
+        "description": "Derin analizler, uzun hikayeler. Çok detaylı.",
+        "range": "700-1000 karakter",
+        "char_min": 700,
+        "char_max": 1000,
+        "icon": "🌩️",
+        "prompt_instructions": """## FORMAT: STORM (700-1000 karakter)
+
+STRATEJİ: Derinlemesine analiz. Birden fazla açıdan konuyu ele al. Okuyucu "bu adamı takip etmeliyim" desin.
+
+YAPI:
+1. HOOK (1-2 cümle): Güçlü giriş — şok edici rakam, paradoks veya cesur iddia.
+2. ANA BİLGİ (2-3 cümle): Ne oldu? Kim yaptı? Rakamlar, detaylar, spesifik veriler.
+3. DERİN ANALİZ (2-3 cümle): Neden önemli? Piyasa etkisi, stratejik boyut. Paradoksları yakala.
+4. FARKLI AÇI (2-3 cümle): Kimsenin bahsetmediği bir detay, karşıt görüş veya bağlantı.
+5. KAPANIŞ (1-2 cümle): Cesur tahmin — "6 ay içinde...", "bu treni kaçıranlar..." SORU SORMA.
+
+KURALLAR:
+- Minimum 4-5 paragraf, her paragraf 1-3 cümle, aralarında BOŞ SATIR.
+- Araştırmadan 3-5 spesifik veri/rakam dahil et — genel ifade değil, somut bilgi.
+- Her paragraf farklı bir perspektif sunmalı.
+- Kısa yazma — bu format DERİNLİK istiyor. Yüzeysel yorum YASAK.
+- Kişisel deneyim ve güçlü görüşler ekle.
+- Sona 1-2 hashtag.""",
+    },
+
+    "thread": {
+        "name": "Thread — Seri Anlatım",
+        "label": "🧵 Thread (Seri Anlatım)",
+        "description": "3-5 tweet serisi halinde konu anlatımı.",
+        "range": "3-5 tweet (her biri max 280 karakter)",
+        "char_min": 0,
+        "char_max": 280,
+        "tweet_count": 5,
+        "icon": "🧵",
+        "prompt_instructions": """## FORMAT: THREAD (3-5 tweet serisi, her biri max 280 karakter)
+
+STRATEJİ: Konuyu parçalara böl, her tweet bağımsız ama bütünün parçası. Takipçi kazanımı için en etkili format.
+
+YAPI:
+1. TWEET 1 = HOOK: En güçlü açılış. Okuyucu thread'in geri kalanını okumalı ZORUNDA hissetmeli.
+2. TWEET 2-3-4 = DEĞER: Her tweet tek bir fikir/veri/insight. Araştırmadan spesifik veriler kullan.
+3. SON TWEET = KAPANIŞ: Güçlü görüş, cesur tahmin. Thread'i bağla.
+
+KURALLAR:
+- Her tweet MAX 280 karakter.
+- Tweet'leri 1/, 2/, 3/ şeklinde numaralandır.
+- Her tweet kendi başına da anlam ifade etmeli.
+- Doğal geçişler — ama "devam edersek" gibi klişe geçiş YASAK.
+- Araştırmadan farklı verileri farklı tweet'lere dağıt.
+- Tweet'leri --- ile ayır.""",
+    },
+
+    "thunder": {
+        "name": "Thunder — En Derin Format",
+        "label": "⛈️ Thunder (En Derin)",
+        "description": "En uzun ve en detaylı format. Kapsamlı analiz.",
+        "range": "1200-1500 karakter",
+        "char_min": 1200,
+        "char_max": 1500,
+        "icon": "⛈️",
+        "prompt_instructions": """## FORMAT: THUNDER (1200-1500 karakter)
+
+STRATEJİ: En kapsamlı single-post format. Bir blog yazısının Twitter versiyonu. Otorite göster.
+
+YAPI:
+1. HOOK (1-2 cümle): Scroll durdurucu açılış — en güçlü hook tipini seç.
+2. BAĞLAM (2-3 cümle): Konunun arka planı. Ne oldu, neden şimdi önemli?
+3. VERİ ZENGİNİ ANALİZ (3-4 cümle): Rakamlar, benchmark'lar, karşılaştırmalar. Araştırmadan 4+ veri.
+4. PARADOKS / ÇELİŞKİ (2-3 cümle): İlginç çelişkiler, kimsenin görmediği açı.
+5. KARŞIT GÖRÜŞ (2-3 cümle): Olası itirazları ele al veya farklı perspektif sun.
+6. GELECEĞİ GÖZLE (2-3 cümle): Stratejik tahminler — "6 ay içinde...", "bu sektörü..."
+7. KAPANIŞ (1-2 cümle): En güçlü cümlen. SORU SORMA. Cesur tahmin veya kesin görüş.
+
+KURALLAR:
+- Minimum 5-7 paragraf, her paragraf 1-3 cümle, aralarında BOŞ SATIR.
+- Araştırmadan 4-6 spesifik veri/rakam dahil et.
+- Her paragraf farklı bir perspektif veya boyut sunmalı.
+- Bu formatta DERİNLİK ve GENİŞLİK birlikte olmalı.
+- Kendi kişisel deneyimlerini ekle — "test ettim", "gördüğüm kadarıyla".
+- Karşıt görüşleri de ele al — tek taraflı olma.
+- Sona 1-2 hashtag.""",
+    },
+}
+
+# Content format mapping for long-form content (İçerik page)
+# Long-form uses Spark, Storm, Thunder (Micro/Punch too short)
+LONG_CONTENT_FORMAT_MAP = {
+    "spark": {"range": "300-500 karakter", "char_min": 300, "char_max": 500},
+    "storm": {"range": "500-1000 karakter", "char_min": 500, "char_max": 1000},
+    "thunder": {"range": "1000-2000 karakter", "char_min": 1000, "char_max": 2000},
+}
+
+# Backward compatibility: old length keys → new format keys
+_LENGTH_TO_FORMAT = {
+    "kisa": "punch",
+    "orta": "spark",
+    "uzun": "storm",
+}
+
+
+def get_available_formats(context: str = "tweet") -> dict:
+    """
+    Return available formats for a given context.
+
+    Args:
+        context: "tweet" for Yaz page (all 6 formats),
+                 "long_content" for İçerik page (Spark, Storm, Thunder only)
+    """
+    if context == "long_content":
+        return {k: v for k, v in CONTENT_FORMATS.items()
+                if k in ("spark", "storm", "thunder")}
+    return CONTENT_FORMATS
+
+
+def get_format_info(format_key: str) -> dict | None:
+    """Get info for a specific format, with backward compatibility."""
+    mapped = _LENGTH_TO_FORMAT.get(format_key, format_key)
+    return CONTENT_FORMATS.get(mapped)
+
 
 class ContentGenerator:
     """AI-powered content generator for natural tweet writing"""
@@ -400,7 +605,8 @@ class ContentGenerator:
     def generate_tweet(self, topic_text: str, topic_source: str = "",
                        style: str = "samimi", additional_context: str = "",
                        max_length: int = 0, thread_mode: bool = False,
-                       user_samples: list = None) -> str:
+                       user_samples: list = None,
+                       content_format: str = "") -> str:
         """
         Generate a natural tweet about a topic
 
@@ -412,6 +618,7 @@ class ContentGenerator:
             max_length: Max character limit (0 = no limit / premium)
             thread_mode: Whether to generate a thread
             user_samples: Sample tweets from user for style matching
+            content_format: Named format (micro/punch/spark/storm/thunder)
 
         Returns:
             Generated tweet text
@@ -422,7 +629,7 @@ class ContentGenerator:
         system_prompt = self._build_system_prompt(style, user_samples)
         user_prompt = self._build_user_prompt(
             topic_text, topic_source, style, additional_context,
-            max_length, thread_mode
+            max_length, thread_mode, content_format=content_format
         )
 
         if self.provider == "anthropic":
@@ -678,32 +885,19 @@ Sadece yeni tweet metnini yaz."""
             return self._generate_openai(system_prompt, user_prompt)
 
     def _get_length_instructions(self, length_preference: str) -> str:
-        """Return length-specific instructions for the prompt"""
-        if length_preference == "kisa":
-            return """## UZUNLUK: KISA (100-280 karakter)
-- 1-2 kısa paragraf, aralarında boş satır
-- En önemli 1 insight'ı seç ve onu vur
-- Araştırmadan en çarpıcı tek bir veriyi kullan
-- Güçlü ifade veya cesur tahminle bitir (SORU SORMA)
-- Sona 1-2 hashtag ekle"""
-        elif length_preference == "uzun":
-            return """## UZUNLUK: UZUN (501-1000 karakter)
-- Minimum 4-5 paragraf yaz, her paragraf arasında BOŞ SATIR bırak
-- Her paragraf 1-3 cümle, farklı bir açıdan konuyu ele alsın
-- İlk paragraf = hook (dikkat çekici giriş)
-- Ortadaki paragraflar = analiz, rakamlar, paradokslar
-- Son paragraf = güçlü görüş veya cesur tahmin (SORU SORMA)
-- Araştırmadan bulduğun SPESİFİK rakamları, isimleri, tarihleri bol bol kullan
-- KISA YAZMA - yüzeysel yorum değil, DERİNLEMESİNE analiz yaz
-- En sona konuyla ilgili 1-2 hashtag ekle"""
-        else:  # orta
-            return """## UZUNLUK: ORTA (281-500 karakter)
-- 2-3 paragraf yaz, aralarında BOŞ SATIR bırak
-- İlk paragraf = hook + ana bilgi
-- İkinci paragraf = analiz/yorum
-- Son paragraf = güçlü görüş veya cesur tahmin (SORU SORMA)
-- Araştırmadan en önemli 2-3 veriyi kullan
-- Sona 1-2 hashtag ekle"""
+        """Return format-specific instructions for the prompt.
+        Supports both new format keys (micro, punch, spark, storm, thunder)
+        and legacy length keys (kisa, orta, uzun) via backward compatibility.
+        """
+        # Map legacy keys to new format keys
+        format_key = _LENGTH_TO_FORMAT.get(length_preference, length_preference)
+        format_info = CONTENT_FORMATS.get(format_key)
+
+        if format_info:
+            return format_info["prompt_instructions"]
+
+        # Fallback to spark if unknown key
+        return CONTENT_FORMATS["spark"]["prompt_instructions"]
 
     def _build_research_system_prompt(self, user_samples: list = None,
                                       length_preference: str = "orta",
@@ -711,11 +905,10 @@ Sadece yeni tweet metnini yaz."""
         """Build system prompt optimized for research-based detailed analysis"""
         persona = self.custom_persona or BASE_SYSTEM_PROMPT
 
-        length_desc = {
-            "kisa": "KISA ve vurucu bir tweet (100-280 karakter)",
-            "orta": "ORTA uzunlukta detaylı bir tweet (281-500 karakter)",
-            "uzun": "UZUN ve DERİNLEMESİNE bir analiz (501-1000 karakter)",
-        }
+        # Resolve format key (supports both legacy and new keys)
+        format_key = _LENGTH_TO_FORMAT.get(length_preference, length_preference)
+        format_info = CONTENT_FORMATS.get(format_key, CONTENT_FORMATS["spark"])
+        length_desc_text = f"{format_info['name']} — {format_info['range']}"
 
         # Get style-specific instructions
         style_info = WRITING_STYLES.get(style, WRITING_STYLES["quote_tweet"])
@@ -727,7 +920,7 @@ Sadece yeni tweet metnini yaz."""
 {style_info['prompt']}
 
 ## ARAŞTIRMA MODU:
-Araştırma verilerini kullanarak {length_desc.get(length_preference, length_desc['orta'])} yazıyorsun.
+Araştırma verilerini kullanarak {length_desc_text} formatında yazıyorsun.
 
 ## ARAŞTIRMAYI TWEET'E ÇEVİRME REHBERİ:
 
@@ -832,10 +1025,19 @@ Kendi orijinal cümlelerini kur ama aynı doğallık ve samimiyet olsun.
 
     def _build_user_prompt(self, topic_text: str, topic_source: str,
                            style: str, additional_context: str,
-                           max_length: int, thread_mode: bool) -> str:
-        """Build the user prompt"""
+                           max_length: int, thread_mode: bool,
+                           content_format: str = "") -> str:
+        """Build the user prompt with optional format-specific instructions"""
         # Cap topic text to prevent token overflow (research summaries can be huge)
         safe_topic = topic_text[:5000] if len(topic_text) > 5000 else topic_text
+
+        # Resolve format instructions
+        format_block = ""
+        if content_format:
+            format_key = _LENGTH_TO_FORMAT.get(content_format, content_format)
+            fmt = CONTENT_FORMATS.get(format_key)
+            if fmt:
+                format_block = f"\n{fmt['prompt_instructions']}\n"
 
         prompt = f"""Aşağıdaki AI gelişmesi/konusu hakkında bir tweet yaz.
 
@@ -844,7 +1046,7 @@ KONU:
 
 {f"KAYNAK: {topic_source}" if topic_source else ""}
 {f"EK TALİMATLAR: {additional_context}" if additional_context else ""}
-{f"MAKSİMUM KARAKTER: {max_length}" if max_length > 0 else "Karakter sınırı yok (X Premium)"}
+{format_block if format_block else (f"MAKSİMUM KARAKTER: {max_length}" if max_length > 0 else "Karakter sınırı yok (X Premium)")}
 
 KURALLAR:
 - %100 doğal, insan yazısı olmalı
@@ -938,13 +1140,19 @@ Sadece tweet metnini yaz, başka bir şey yazma. Tırnak işareti kullanma."""
 
         style_prompt = content_styles.get(style, content_styles["deneyim"])
 
-        # Length instructions
-        length_map = {
-            "kisa": "UZUNLUK: 300-500 karakter. Kısa ama etkili. 3-5 paragraf, her paragraf 1-2 cümle.",
-            "orta": "UZUNLUK: 500-1000 karakter. Detaylı anlatım. 5-8 paragraf, her paragraf 2-3 cümle.",
-            "uzun": "UZUNLUK: 1000-2000 karakter. Derinlemesine içerik. 8-12 paragraf, detaylı anlatım.",
-        }
-        length_inst = length_map.get(length, length_map["orta"])
+        # Length instructions — support both legacy (kisa/orta/uzun) and new format keys
+        format_key = _LENGTH_TO_FORMAT.get(length, length)
+        long_fmt = LONG_CONTENT_FORMAT_MAP.get(format_key)
+        if long_fmt:
+            length_inst = f"UZUNLUK: {long_fmt['range']}. {long_fmt['char_min']}-{long_fmt['char_max']} karakter arası yaz."
+        else:
+            # Fallback for any remaining legacy values
+            length_map = {
+                "kisa": "UZUNLUK: 300-500 karakter. Kısa ama etkili.",
+                "orta": "UZUNLUK: 500-1000 karakter. Detaylı anlatım.",
+                "uzun": "UZUNLUK: 1000-2000 karakter. Derinlemesine içerik.",
+            }
+            length_inst = length_map.get(length, length_map["orta"])
 
         # Build system prompt
         persona = self.custom_persona or BASE_SYSTEM_PROMPT
@@ -1074,6 +1282,177 @@ Bu analizi, AI'ın aynı tarzda tweet yazabilmesi için bir "yazım profili" ola
             return self._generate_anthropic(system, prompt)
         else:
             return self._generate_openai(system, prompt)
+
+
+def score_tweet(tweet_text: str, content_format: str = "spark",
+                research_summary: str = "") -> dict:
+    """
+    Rule-based quality scoring for generated tweets.
+    Returns a dict with overall score (0-100) and dimension breakdowns.
+
+    Dimensions:
+    - hook_score: How strong is the opening line? (0-25)
+    - data_score: Does it contain specific data/numbers? (0-25)
+    - naturalness_score: Does it avoid AI clichés? (0-25)
+    - format_score: Does it match the target format? (0-25)
+    """
+    import re as _re
+
+    text = tweet_text.strip()
+    char_count = len(text)
+
+    # ===== 1. HOOK SCORE (0-25) =====
+    hook_score = 15  # base score
+    first_line = text.split("\n")[0].strip()
+
+    # Good hooks: start with lowercase (natural), specific names/numbers
+    if first_line and first_line[0].islower():
+        hook_score += 3  # lowercase start = more natural
+    if _re.search(r'\d+', first_line):
+        hook_score += 4  # numbers in hook = strong
+    if any(word in first_line.lower() for word in ["milyar", "milyon", "billion", "$", "%"]):
+        hook_score += 3  # financial/big numbers = very strong
+
+    # Bad hooks: cliché openings
+    bad_hooks = [
+        "heyecan verici", "dikkat çekici", "yapay zeka dünyasında",
+        "önemli bir gelişme", "son dakika", "işte neden", "gelin bakalım",
+        "bugün çok önemli", "çığır açan", "devrim niteliğinde",
+    ]
+    for bh in bad_hooks:
+        if bh in first_line.lower():
+            hook_score = max(0, hook_score - 10)
+            break
+
+    hook_score = min(25, max(0, hook_score))
+
+    # ===== 2. DATA SCORE (0-25) =====
+    data_score = 5  # base
+
+    # Count specific data points
+    numbers = _re.findall(r'\d+[\.,]?\d*', text)
+    percentages = _re.findall(r'\d+(?:\.\d+)?%', text)
+    dollar_amounts = _re.findall(r'\$[\d,.]+', text)
+    proper_names = _re.findall(r'\b[A-Z][a-zA-Z]+(?:\s[A-Z][a-zA-Z]+)*\b', text)
+
+    data_points = len(numbers) + len(percentages) * 2 + len(dollar_amounts) * 2
+    data_score += min(15, data_points * 3)
+
+    # Bonus for specific tech names
+    tech_names = ["openai", "claude", "gpt", "gemini", "llama", "qwen", "nvidia",
+                  "anthropic", "google", "meta", "microsoft", "deepseek", "grok"]
+    found_tech = sum(1 for t in tech_names if t in text.lower())
+    data_score += min(5, found_tech * 2)
+
+    data_score = min(25, max(0, data_score))
+
+    # ===== 3. NATURALNESS SCORE (0-25) =====
+    naturalness_score = 20  # start high, penalize for issues
+
+    # AI cliché detection
+    ai_cliches = [
+        "heyecan verici", "dikkat çekici", "çığır açan", "devrim niteliğinde",
+        "oyun değiştirici", "bu bağlamda", "bu doğrultuda", "son olarak",
+        "sonuç olarak", "özetlemek gerekirse", "gelin birlikte bakalım",
+        "işte detaylar", "önemle belirtmek gerekir", "sizce ne düşünüyorsunuz",
+        "siz ne düşünüyorsunuz", "denediniz mi", "game changer",
+        "revolutionary", "groundbreaking",
+    ]
+    cliche_count = sum(1 for c in ai_cliches if c in text.lower())
+    naturalness_score -= cliche_count * 5
+
+    # Check for natural Turkish markers (good sign)
+    natural_markers = ["ya ", "yani", "aslında", "bence", "bi baktım",
+                       "harbiden", "cidden", "valla", "test ettim",
+                       "gördüğüm kadarıyla", "denedim"]
+    natural_count = sum(1 for m in natural_markers if m in text.lower())
+    naturalness_score += min(5, natural_count * 2)
+
+    # Penalize ending with question (CTA)
+    last_line = text.rstrip().split("\n")[-1].strip()
+    if last_line.endswith("?"):
+        naturalness_score -= 5
+
+    # Penalize bullet points / numbered lists
+    if _re.search(r'^\s*[-•]\s', text, _re.MULTILINE):
+        naturalness_score -= 5
+    if _re.search(r'^\s*\d+[\.\)]\s', text, _re.MULTILINE):
+        naturalness_score -= 3
+
+    naturalness_score = min(25, max(0, naturalness_score))
+
+    # ===== 4. FORMAT SCORE (0-25) =====
+    format_key = _LENGTH_TO_FORMAT.get(content_format, content_format)
+    fmt = CONTENT_FORMATS.get(format_key, CONTENT_FORMATS["spark"])
+    format_score = 15  # base
+
+    char_min = fmt.get("char_min", 0)
+    char_max = fmt.get("char_max", 9999)
+
+    # Character count compliance
+    if char_min <= char_count <= char_max:
+        format_score += 10  # perfect range
+    elif char_count < char_min:
+        deficit_pct = (char_min - char_count) / max(char_min, 1)
+        format_score -= min(10, int(deficit_pct * 15))
+    else:  # too long
+        excess_pct = (char_count - char_max) / max(char_max, 1)
+        format_score -= min(10, int(excess_pct * 15))
+
+    # Paragraph structure
+    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+    if format_key in ("storm", "thunder") and len(paragraphs) < 3:
+        format_score -= 5  # long formats need multiple paragraphs
+    if format_key == "micro" and len(paragraphs) > 2:
+        format_score -= 5  # micro should be very short
+
+    format_score = min(25, max(0, format_score))
+
+    # ===== OVERALL =====
+    overall = hook_score + data_score + naturalness_score + format_score
+
+    # Quality level
+    if overall >= 80:
+        quality_level = "excellent"
+        quality_label = "Mükemmel"
+        quality_emoji = "🟢"
+    elif overall >= 60:
+        quality_level = "good"
+        quality_label = "İyi"
+        quality_emoji = "🟡"
+    elif overall >= 40:
+        quality_level = "fair"
+        quality_label = "Orta"
+        quality_emoji = "🟠"
+    else:
+        quality_level = "poor"
+        quality_label = "Düşük"
+        quality_emoji = "🔴"
+
+    # Build improvement suggestions
+    suggestions = []
+    if hook_score < 15:
+        suggestions.append("Hook daha güçlü olabilir — şok edici rakam veya cesur iddia ile başla")
+    if data_score < 12:
+        suggestions.append("Daha fazla spesifik veri/rakam ekle")
+    if naturalness_score < 15:
+        suggestions.append("AI klişelerinden kaçın, daha doğal yaz")
+    if format_score < 15:
+        target_range = f"{char_min}-{char_max}"
+        suggestions.append(f"Format uyumu düşük — hedef: {target_range} karakter (şu an: {char_count})")
+
+    return {
+        "overall": overall,
+        "quality_level": quality_level,
+        "quality_label": quality_label,
+        "quality_emoji": quality_emoji,
+        "hook_score": hook_score,
+        "data_score": data_score,
+        "naturalness_score": naturalness_score,
+        "format_score": format_score,
+        "char_count": char_count,
+        "suggestions": suggestions,
+    }
 
 
 def get_available_styles() -> dict:

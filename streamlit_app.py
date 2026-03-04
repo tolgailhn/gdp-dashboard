@@ -1,151 +1,295 @@
+"""
+X AI Otomasyon Dashboard - Ana Sayfa
+Twitter/X üzerinde AI gelişmelerini tarayıp doğal tweet üreten otomasyon sistemi
+"""
 import streamlit as st
-import pandas as pd
-import math
+import datetime
+import subprocess
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
-# Set the title and favicon that appear in the Browser's tab bar.
+TZ_TR = ZoneInfo("Europe/Istanbul")
+from modules.ui_components import inject_custom_css, check_password, render_stat_box, get_secret, render_sidebar_nav
+from modules.style_manager import load_post_history, load_draft_tweets, load_posting_log
+
+# --- Auto-update: Her baslatmada GitHub'dan son halini cek ---
+# Bu ozellik sadece ENABLE_AUTO_UPDATE=true ise calisir (Streamlit Cloud icin)
+if "auto_updated" not in st.session_state:
+    st.session_state.auto_updated = True
+    import os
+    if os.environ.get("ENABLE_AUTO_UPDATE", "").lower() == "true":
+        try:
+            project_dir = str(Path(__file__).parent)
+            result = subprocess.run(
+                ["git", "pull", "origin", "main"],
+                cwd=project_dir,
+                capture_output=True, text=True, timeout=15,
+            )
+            if "Already up to date" not in result.stdout:
+                subprocess.run(
+                    ["pip", "install", "-r", "requirements.txt", "--quiet"],
+                    cwd=project_dir,
+                    capture_output=True, timeout=60,
+                )
+        except Exception:
+            pass  # Offline veya git yoksa sessizce gec
+
+# Page config
 st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
+    page_title="X AI Otomasyon",
+    page_icon="🤖",
+    layout="wide",
+    initial_sidebar_state="auto",
 )
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+# Custom CSS
+inject_custom_css()
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+# Authentication
+if not check_password():
+    st.stop()
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+# --- Sidebar Navigation ---
+render_sidebar_nav(current_page="home")
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
+has_twitter = bool(get_secret("twitter_bearer_token", ""))
+has_ai = bool(get_secret("minimax_api_key", "") or get_secret("anthropic_api_key", "") or get_secret("openai_api_key", ""))
 
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
+# --- Data ---
+post_history = load_post_history()
+drafts = load_draft_tweets()
+today_posts = len([p for p in post_history
+                   if p.get("posted_at", "").startswith(datetime.datetime.now(TZ_TR).strftime("%Y-%m-%d"))])
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
+# --- Hero Section ---
+api_dot = "🟢" if (has_twitter and has_ai) else "🟡"
+api_label = "Aktif" if (has_twitter and has_ai) else "Kurulum Gerekli"
 
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
+st.markdown(f"""
+<div class="hero-section">
+    <span class="hero-logo">🤖</span>
+    <div class="hero-title">X AI Otomasyon</div>
+    <div class="hero-subtitle">Tara &middot; Yaz &middot; Paylaş</div>
+</div>
+""", unsafe_allow_html=True)
 
-    return gdp_df
+# --- Quick Stats ---
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    render_stat_box(str(len(post_history)), "Paylaşılan")
+with col2:
+    render_stat_box(str(len(drafts)), "Taslak")
+with col3:
+    render_stat_box(str(today_posts), "Bugün")
+with col4:
+    render_stat_box(f"{api_dot}", api_label)
 
-gdp_df = get_gdp_data()
+# --- Today's Schedule Mini ---
+posting_log = load_posting_log()
+today_str = datetime.datetime.now(TZ_TR).strftime("%Y-%m-%d")
+today_schedule_logs = [e for e in posting_log if e.get("date") == today_str]
+posted_slots = {e["slot_time"] for e in today_schedule_logs}
 
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
+is_weekend = datetime.datetime.now(TZ_TR).weekday() >= 5
+slots_today = [
+    ("10:00" if is_weekend else "09:00", "☀️"),
+    ("13:30" if is_weekend else "13:00", "🍽️"),
+    ("17:30" if is_weekend else "17:00", "🚶"),
+    ("21:30" if is_weekend else "21:00", "🌙"),
 ]
 
-st.header('GDP over time', divider='gray')
+# Find next slot
+now = datetime.datetime.now(TZ_TR)
+next_slot_info = ""
+for slot_time, _ in slots_today:
+    h, m = map(int, slot_time.split(":"))
+    slot_dt = now.replace(hour=h, minute=m, second=0)
+    if slot_dt > now and slot_time not in posted_slots:
+        diff = slot_dt - now
+        hours = diff.seconds // 3600
+        mins = (diff.seconds % 3600) // 60
+        next_slot_info = f"Sonraki: {slot_time} ({hours}s {mins}dk)" if hours > 0 else f"Sonraki: {slot_time} ({mins}dk)"
+        break
 
-''
+slot_indicators = ""
+for slot_time, icon in slots_today:
+    if slot_time in posted_slots:
+        slot_indicators += f'<span style="margin-right:8px;">{icon} <span style="color:#22c55e;">✅</span></span>'
+    else:
+        slot_indicators += f'<span style="margin-right:8px;">{icon} <span style="color:#64748b;">⏳</span></span>'
 
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
+st.markdown(f"""
+<div class="glass-card" style="border-left: 4px solid #6366f1; cursor: pointer;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div>
+            <span style="font-size: 20px;">📅</span>
+            <strong style="margin-left: 8px;">Bugünkü Plan</strong>
+            <span style="color: var(--text-secondary); margin-left: 12px;">{len(today_schedule_logs)}/4 post</span>
+        </div>
+        <div style="font-size: 13px; color: #a5b4fc;">{next_slot_info}</div>
+    </div>
+    <div style="margin-top: 10px; font-size: 16px;">
+        {slot_indicators}
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-''
-''
+if st.button("📅 Takvime Git", key="schedule_btn", use_container_width=True):
+    st.switch_page("pages/7_📅_Takvim.py")
 
+# --- Section: Quick Actions ---
+st.markdown("""
+<div class="section-header">
+    <h3>Hızlı İşlemler</h3>
+</div>
+""", unsafe_allow_html=True)
 
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
+# Row 1: Primary actions
+col1, col2, col3 = st.columns(3)
 
-st.header(f'GDP in {to_year}', divider='gray')
+with col1:
+    st.markdown("""
+    <div class="action-card">
+        <div class="action-icon">🔍</div>
+        <div class="action-title">AI Gündem Tara</div>
+        <div class="action-desc">X'te AI gelişmelerini keşfet</div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Tara", key="scan_btn", use_container_width=True, type="primary"):
+        st.switch_page("pages/1_🔍_Tara.py")
 
-''
+with col2:
+    st.markdown("""
+    <div class="action-card">
+        <div class="action-icon">✍️</div>
+        <div class="action-title">Tweet Yaz</div>
+        <div class="action-desc">AI ile doğal tweet üret</div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Yaz", key="write_btn", use_container_width=True, type="primary"):
+        st.switch_page("pages/2_✍️_Yaz.py")
 
-cols = st.columns(4)
+with col3:
+    st.markdown("""
+    <div class="action-card">
+        <div class="action-icon">💡</div>
+        <div class="action-title">İçerik Üret</div>
+        <div class="action-desc">Konu keşfet, uzun içerik yaz</div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("İçerik", key="content_btn", use_container_width=True, type="primary"):
+        st.switch_page("pages/6_💡_İçerik.py")
 
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
+# Row 2: Secondary actions
+col4, col5, col6 = st.columns(3)
 
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
+with col4:
+    st.markdown("""
+    <div class="action-card">
+        <div class="action-icon">📊</div>
+        <div class="action-title">Tweet Analizi</div>
+        <div class="action-desc">Analiz et, AI'ı eğit</div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Analiz", key="analysis_btn", use_container_width=True):
+        st.switch_page("pages/4_📊_Analiz.py")
 
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
+with col5:
+    st.markdown("""
+    <div class="action-card">
+        <div class="action-icon">👥</div>
+        <div class="action-title">Takipçi Keşfet</div>
+        <div class="action-desc">Nişindeki hesapları bul</div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Takipçi", key="followers_btn", use_container_width=True):
+        st.switch_page("pages/5_👥_Takipçiler.py")
 
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+with col6:
+    st.markdown("""
+    <div class="action-card">
+        <div class="action-icon">⚙️</div>
+        <div class="action-title">Ayarlar</div>
+        <div class="action-desc">API ve yazım tarzı</div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Ayarlar", key="settings_btn", use_container_width=True):
+        st.switch_page("pages/3_⚙️_Ayarlar.py")
+
+# --- Section: Recent Activity ---
+st.markdown(f"""
+<div class="section-header">
+    <h3>Son Aktiviteler</h3>
+    <span class="section-badge">{len(post_history)} toplam</span>
+</div>
+""", unsafe_allow_html=True)
+
+if post_history:
+    for entry in post_history[:5]:
+        text_preview = entry.get("text", "")[:140]
+        if len(entry.get("text", "")) > 140:
+            text_preview += "..."
+        url = entry.get("url", "")
+        url_html = f'<a href="{url}" target="_blank" class="activity-link">Görüntüle →</a>' if url else ""
+
+        posted_at = entry.get('posted_at', '')
+        style = entry.get('style', '')
+        meta_parts = []
+        if posted_at:
+            meta_parts.append(posted_at[:16])
+        if style:
+            meta_parts.append(style)
+
+        st.markdown(f"""
+        <div class="activity-item">
+            <div class="activity-dot"></div>
+            <div class="activity-content">
+                <div class="activity-text">{text_preview}</div>
+                <div class="activity-meta">
+                    <span class="activity-time">{' · '.join(meta_parts)}</span>
+                    {url_html}
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+    <div class="empty-state">
+        <div class="empty-icon">📝</div>
+        <p>Henüz paylaşım yapılmamış.<br>
+        <strong>Tara</strong> sayfasından başlayarak ilk tweet'ini oluştur!</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# How to use guide
+with st.expander("📖 Nasıl Kullanılır?"):
+    st.markdown("""
+    **1. API Anahtarlarını Ayarla** (⚙️ Ayarlar)
+    - AI API anahtarını girin (MiniMax, Anthropic veya OpenAI)
+    - X çerezlerini girin (tweet okuma/yazma için)
+
+    **2. AI Gündem Tara** (🔍 Tara)
+    - Zaman aralığını seçin, "Tara" butonuna tıklayın
+    - AI gelişmelerini inceleyin, konuyu seçin
+
+    **3. Tweet / İçerik Yaz** (✍️ Yaz / 💡 İçerik)
+    - Konu girin veya keşfedilen konuyu seçin
+    - Yazım tarzı ve uzunluk seçin, AI üretsin
+    - Beğendiyseniz direkt paylaşın
+
+    **4. Tweet Analizi** (📊 Analiz)
+    - Hesap tweet'lerini çekip analiz edin
+    - AI bu verilerle daha iyi tweet yazar
+
+    **5. Takipçi Keşfi** (👥 Takipçiler)
+    - Nişinizdeki hesapların takipçilerini keşfedin
+    """)
+
+# Setup check
+if not has_twitter or not has_ai:
+    st.markdown(f"""
+    <div class="setup-warning">
+        <span class="setup-warning-icon">⚠️</span>
+        <span class="setup-warning-text">API anahtarlarınızı ⚙️ Ayarlar sayfasından yapılandırın.</span>
+    </div>
+    """, unsafe_allow_html=True)

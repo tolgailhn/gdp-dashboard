@@ -1111,9 +1111,24 @@ def _agentic_research_anthropic(ai_client, ai_model: str, system_prompt: str,
                     return block.text
             return ""
 
-        # Process tool use blocks
+        # Process tool use blocks — convert to plain dicts to avoid
+        # SDK serialization issues that can cause duplicate tool_use IDs
         assistant_content = response.content
-        messages.append({"role": "assistant", "content": assistant_content})
+        assistant_content_dicts = []
+        for block in assistant_content:
+            if block.type == "tool_use":
+                assistant_content_dicts.append({
+                    "type": "tool_use",
+                    "id": block.id,
+                    "name": block.name,
+                    "input": block.input,
+                })
+            elif hasattr(block, 'text'):
+                assistant_content_dicts.append({
+                    "type": "text",
+                    "text": block.text,
+                })
+        messages.append({"role": "assistant", "content": assistant_content_dicts})
 
         tool_results = []
         for block in assistant_content:

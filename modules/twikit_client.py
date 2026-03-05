@@ -171,8 +171,13 @@ class TwikitSearchClient:
                         self._cookie_source = "secrets"
                         return True
                     else:
-                        print(f"Twikit: ClientTransaction init failed with secrets cookies")
-                        # Fall through to try other methods
+                        # ClientTransaction failed but cookies might still work
+                        # for some operations — proceed with warning
+                        print("Twikit: ClientTransaction init failed with secrets cookies, proceeding anyway")
+                        self._authenticated = True
+                        self._cookie_source = "secrets"
+                        self.last_error = ""  # Clear error — will surface on actual API call if needed
+                        return True
             except Exception as e:
                 print(f"Twikit: secrets.toml cookie error: {e}")
 
@@ -186,7 +191,12 @@ class TwikitSearchClient:
                         self._cookie_source = "file"
                         return True
                     else:
-                        print(f"Twikit: ClientTransaction init failed with file cookies")
+                        # ClientTransaction failed but cookies might still work
+                        print("Twikit: ClientTransaction init failed with file cookies, proceeding anyway")
+                        self._authenticated = True
+                        self._cookie_source = "file"
+                        self.last_error = ""
+                        return True
                 except Exception as e:
                     self.last_error = f"Cookie yükleme hatası: {e}"
                     print(f"Twikit: cookie file error: {e}")

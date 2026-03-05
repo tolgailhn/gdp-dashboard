@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { generateTweet, researchTopic } from "@/lib/api";
+import { generateTweet, researchTopic, publishTweet } from "@/lib/api";
 
 export default function YazPage() {
   return (
@@ -23,6 +23,8 @@ function YazContent() {
   const [researchContext, setResearchContext] = useState("");
   const [loading, setLoading] = useState(false);
   const [researching, setResearching] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishResult, setPublishResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -71,6 +73,27 @@ function YazContent() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const handlePublish = async () => {
+    if (!generatedText) return;
+    setPublishing(true);
+    setPublishResult(null);
+    try {
+      const result = (await publishTweet({
+        text: generatedText,
+        thread_parts: threadParts.length > 0 ? threadParts : undefined,
+      })) as { success: boolean; url: string; error: string };
+      if (result.success) {
+        setPublishResult(result.url);
+      } else {
+        setError(result.error || "Paylasim hatasi");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Paylasim hatasi");
+    } finally {
+      setPublishing(false);
+    }
   };
 
   return (
@@ -214,11 +237,33 @@ function YazContent() {
             </div>
           )}
 
+          {publishResult && (
+            <div className="bg-[var(--accent-green)]/10 border border-[var(--accent-green)]/30 rounded-lg p-3">
+              <span className="text-sm text-[var(--accent-green)]">
+                Paylasildi!{" "}
+                <a
+                  href={publishResult}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  Goruntule →
+                </a>
+              </span>
+            </div>
+          )}
+
           <div className="flex gap-3">
             <button onClick={handleGenerate} className="btn-secondary text-sm">
               Yeniden Uret
             </button>
-            <button className="btn-primary text-sm">Paylas</button>
+            <button
+              onClick={handlePublish}
+              disabled={publishing}
+              className="btn-primary text-sm"
+            >
+              {publishing ? "Paylasiliyor..." : "Paylas"}
+            </button>
           </div>
         </div>
       )}

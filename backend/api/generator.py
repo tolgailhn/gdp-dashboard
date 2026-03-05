@@ -1,5 +1,5 @@
 """
-Generator API - Tweet/thread uretimi
+Generator API - Tweet/thread uretimi ve arastirma
 """
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -9,17 +9,17 @@ router = APIRouter()
 
 class GenerateRequest(BaseModel):
     topic: str
-    style: str = "default"
-    length: str = "medium"  # short, medium, long
+    style: str = "samimi"
+    length: str = "orta"  # kisa, orta, uzun
     thread: bool = False
     research_context: str = ""
     media_urls: list[str] = []
+    content_format: str = ""  # micro/punch/spark/storm/thunder
 
 
 class GenerateResponse(BaseModel):
     text: str
     thread_parts: list[str] = []
-    hook_type: str = ""
 
 
 class ResearchRequest(BaseModel):
@@ -36,44 +36,89 @@ class ResearchResponse(BaseModel):
 
 @router.post("/tweet", response_model=GenerateResponse)
 async def generate_tweet(request: GenerateRequest):
-    """Tweet uret"""
-    from backend.modules.content_generator import ContentGenerator
+    """Tweet veya thread uret"""
+    from backend.api.helpers import create_generator
 
     try:
-        generator = ContentGenerator()
-        result = generator.generate(
+        generator = create_generator(topic=request.topic)
+
+        if request.thread:
+            parts = generator.generate_thread(
+                topic_text=request.topic,
+                style=request.style,
+                additional_context=request.research_context,
+            )
+            return GenerateResponse(
+                text="\n\n---\n\n".join(parts) if parts else "",
+                thread_parts=parts or [],
+            )
+        else:
+            text = generator.generate_tweet(
+                topic_text=request.topic,
+                style=request.style,
+                additional_context=request.research_context,
+                content_format=request.content_format,
+            )
+            return GenerateResponse(text=text)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/long-content", response_model=GenerateResponse)
+async def generate_long_content(request: GenerateRequest):
+    """Uzun icerik uret (coklu paragraf X postu)"""
+    from backend.api.helpers import create_generator
+
+    try:
+        generator = create_generator(topic=request.topic)
+        text = generator.generate_long_content(
             topic=request.topic,
+            research_context=request.research_context,
             style=request.style,
             length=request.length,
-            is_thread=request.thread,
-            research_context=request.research_context,
-            media_urls=request.media_urls,
         )
-        return GenerateResponse(
-            text=result.get("text", ""),
-            thread_parts=result.get("thread_parts", []),
-            hook_type=result.get("hook_type", ""),
-        )
+        return GenerateResponse(text=text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/research", response_model=ResearchResponse)
 async def research_topic(request: ResearchRequest):
-    """Konu hakkinda derin arastirma yap"""
-    from backend.modules.deep_research import DeepResearcher
-
+    """Konu hakkinda derin arastirma yap (DuckDuckGo + makale cekme)"""
     try:
-        researcher = DeepResearcher()
-        result = await researcher.research(
+        from backend.modules.deep_research import research_topic as do_research
+        from backend.api.helpers import get_ai_provider
+
+        provider, api_key, _ = get_ai_provider()
+
+        result = await do_research(
             topic=request.topic,
-            depth=request.depth,
+            api_key=api_key,
+            provider=provider,
         )
-        return ResearchResponse(
-            summary=result.get("summary", ""),
-            key_points=result.get("key_points", []),
-            sources=result.get("sources", []),
-            media_urls=result.get("media_urls", []),
-        )
+
+        # Extract from TopicResearchResult or dict
+        if hasattr(result, "summary"):
+            return ResearchResponse(
+                summary=result.summary or "",
+                key_points=result.key_points if hasattr(result, "key_points") else [],
+                sources=result.sources if hasattr(result, "sources") else [],
+                media_urls=result.media_urls if hasattr(result, "media_urls") else [],
+            )
+        elif isinstance(result, dict):
+            return ResearchResponse(
+                summary=result.get("summary", ""),
+                key_points=result.get("key_points", []),
+                sources=result.get("sources", []),
+                media_urls=result.get("media_urls", []),
+            )
+        else:
+            return ResearchResponse(
+                summary=str(result),
+                key_points=[],
+                sources=[],
+            )
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

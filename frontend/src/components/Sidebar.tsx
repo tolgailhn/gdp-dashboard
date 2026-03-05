@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/lib/auth";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: "home" },
@@ -25,6 +26,7 @@ const iconMap: Record<string, string> = {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { logout } = useAuth();
 
   return (
     <>
@@ -91,8 +93,14 @@ export default function Sidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-[var(--border)]">
-          <p className="text-xs text-[var(--text-secondary)]">v2.0 - Next.js</p>
+        <div className="p-4 border-t border-[var(--border)] space-y-2">
+          <button
+            onClick={logout}
+            className="w-full text-left text-xs text-[var(--text-secondary)] hover:text-[var(--accent-red)] transition-colors px-2 py-1"
+          >
+            Cikis Yap
+          </button>
+          <p className="text-xs text-[var(--text-secondary)] px-2">v2.0 - Next.js</p>
         </div>
       </aside>
     </>

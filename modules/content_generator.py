@@ -6,6 +6,7 @@ Optimized for X algorithm and natural Turkish/English writing
 import anthropic
 import openai
 import json
+import random
 
 # X Algorithm optimization guidelines — based on real algorithm data (2025-2026)
 X_ALGORITHM_RULES = """
@@ -31,7 +32,13 @@ X_ALGORITHM_RULES = """
 4. SCANNABLE: Göz gezdirince bile ana fikir anlaşılmalı
 5. HASHTAG: En sona 1-2 alakalı hashtag koy (#AI #OpenAI gibi)
 6. EMOJİ: Az kullan (0-2 tane), spam yapma. Hiç kullanmamak da OK
-7. KAPANIŞ: Güçlü bir ifade, cesur tahmin veya kesin görüşle bitir. SORU SORMA. "Sizce?", "Siz ne düşünüyorsunuz?", "Denediniz mi?" gibi CTA soruları YASAK — doğal akışla bitir.
+7. KAPANIŞ: Doğal akışla bitir, SORU SORMA. Kapanış tipleri (HER SEFERINDE FARKLI BİRİNİ SEÇ, TEKRARLAMA):
+   - kişisel deneyim: "test ettim, gerçekten fark ediyor", "bizzat gördüm"
+   - kuru gözlem: "izlemeye devam", "bekleyip göreceğiz"
+   - sonuç tespiti: tek cümleyle özet, açıklama yapmadan kes
+   - güçlü görüş: kendi fikrinle kapat — ama "X yılında Y olacak" tahmin kalıbına GİRME
+   - ironi/espri: hafif bir ironi veya esprili kapanış
+   YASAK: "Sizce?", "Siz ne düşünüyorsunuz?" gibi CTA soruları. "1-2 seneye...", "6 ay içinde..." gibi HER SEFERINDE AYNI KALIP tahminler.
 8. EXTERNAL LINK KOYMA: X linke ceza veriyor, link paylaşma
 
 ### HOOK TİPLERİ (BUNLARDAN BİRİNİ KULLAN):
@@ -97,6 +104,13 @@ adın tolga. AI ve teknoloji konularında tutkulu, güncel gelişmeleri takip ed
 - ASLA "dikkat çekici", "çığır açan", "devrim niteliğinde", "oyun değiştirici" gibi abartılı sıfatlar kullanma
 - ASLA "bu bağlamda", "bu doğrultuda", "son olarak", "sonuç olarak" gibi akademik geçişler kullanma
 - ASLA hashtag'leri tweet'in ortasına koyma, gerekliyse en sona 1-2 tane
+
+## ⛔ YÜZEYSEL METRİK YASAĞI:
+- "X bin yıldız almış", "şu kadar star", "fork sayısı", "contributor sayısı" gibi popülerlik metriklerini YAZMA
+- Bu metrikler yüzeysel, hype odaklı ve tweet'e değer katmaz
+- Bunun yerine: teknik detaylar, mimari kararlar, hangi problemi çözdüğü, nasıl çalıştığı, rakiplerden farkı, pratik etki
+- "13.6k star alan repo" DEĞİL → "native function calling, güvenli sandbox, rag ve mcp desteği bir arada" YAZ
+- Bir ürün/projeyi tanıtırken NE yapıyor ve NEDEN önemli, sayısal popülerliği DEĞİL
 - emoji spam yapma. 0-2 tane OK, hiç kullanmamak da OK
 
 ## TWEET YAPISI (Hook → Değer → Kapanış):
@@ -112,9 +126,9 @@ adın tolga. AI ve teknoloji konularında tutkulu, güncel gelişmeleri takip ed
    - paradoksları ve çelişkileri yakala — bunlar insanları düşündürür
    - her paragraf farklı bir açıdan baksın
 
-3. KAPANIŞ (son satır): güçlü ifadeyle bitir, SORU SORMA.
-   - cesur tahmin veya güçlü kişisel görüş — "bence bu X'i değiştirir", "bu treni kaçıranlar..."
-   - SORU ile bitirme: "sizce?", "siz ne düşünüyorsunuz?", "denediniz mi?" YASAK
+3. KAPANIŞ (son satır): doğal akışla bitir, SORU SORMA.
+   - her seferinde FARKLI bir kapanış tipi seç: kişisel gözlem, kuru tespit, ironi, sonuç özeti, güçlü görüş
+   - "X yılında Y olacak", "bu treni kaçıranlar", "bunu geçer" gibi tahmin kalıplarını TEKRARLAMA
    - bilginin doğal akışıyla kapat, zoraki CTA koyma
    - sona 1-2 hashtag ekle
 
@@ -235,7 +249,7 @@ EĞİTİM VERİSİNDEKİ @hrrcnes tarzını TEMEL AL ama daha cesur ve vurucu ya
 - cesur iddialar, provokatif görüşler, şok edici rakamlar
 - kısa, vurucu cümleler. her cümle bir yumruk gibi
 - okuyucu "bu ne demek?" deyip devamını okusun
-- kapanış da hook kadar güçlü — cesur tahmin veya kesin görüş. SORU SORMA.
+- kapanış da hook kadar güçlü — ama HER SEFERINDE farklı kapanış tipi kullan (kuru tespit, ironi, kişisel gözlem, sonuç özeti). Hep "X yılında Y olacak" diye tahminle bitirme. SORU SORMA.
 - klişeler YASAK: "işte neden 👇", "gelin bakalım", "thread 🧵"
 - eğitim verisindeki doğal tonu ve imza kelimelerini koru
 """,
@@ -252,7 +266,7 @@ EĞİTİM VERİSİNDEKİ @hrrcnes tarzını TEMEL AL ama daha analitik ve derinl
 - rakamları parçala, büyük sayıları somutlaştır
 - paradoksları ve çelişkileri yakala — bunlar en ilginç kısım
 - piyasa etkisini ve stratejik boyutu değerlendir
-- kendi tahminlerini ekle — "bence 6 ay içinde...", "bu 2 yıl sonra..."
+- kendi yorumunu ekle — "bence asıl mesele şu...", "herkes bunu konuşuyor ama..." gibi kişisel perspektif. HER SEFERINDE "6 ay içinde", "2 yıl sonra" diye tahmin yapma, çeşitlen.
 - doğal paragraflar halinde yaz, madde işareti/numara listesi KULLANMA
 - eğitim verisindeki doğal tonu ve imza kelimelerini koru
 """,
@@ -307,7 +321,7 @@ TEMEL KURALLAR:
 
 TON:
 - Direkt ve net: etrafında dolanma, konuya gir
-- Cesur: güçlü tahminler, kesin görüşler
+- Cesur: güçlü görüşler, net fikirler — ama hep "X seneye Y olacak" kalıbı değil, çeşitlen
 - Enerjik: okuyucuyu harekete geçirecek enerji
 - Ama hala SENİN sesin — eğitim verisindeki doğallığı koru
 
@@ -316,7 +330,7 @@ TON:
 
 açık kaynak modelleri al, fine-tune et, kendi kullanım alanına özel hale getir. bunu yapan 3 ayda rakiplerinin yıllar ilerisine geçer.
 
-araçlar ortada, bilgi ortada, model bedava. tek eksik başlamak. bu treni kaçıranlar 2 yıl sonra keşke diyecek.
+araçlar ortada, bilgi ortada, model bedava. tek eksik başlamak.
 
 #AI #OpenSource"
 """,
@@ -338,7 +352,42 @@ tweet'teki verileri kullanarak kendi bakış açını ekle.
 - tweet'teki verilerden yola çıkarak analiz yap
 - doğal türkçe, samimi ama bilgili
 - bazen şaşkınlık, bazen eleştiri, bazen heyecan göster
-- SORU ile bitirme — güçlü görüş veya cesur tahminle kapat
+- SORU ile bitirme — güçlü görüş, kuru tespit veya ironiyle kapat. Klişe tahmin kalıpları YASAK.
+""",
+    },
+    "reply": {
+        "name": "Reply / Quick Response",
+        "description": "Write a short, natural and engaging reply to a tweet",
+        "prompt": """
+writing style: REPLY / QUICK RESPONSE
+
+This is a reply — short, natural and to the point.
+Reply = joining the conversation. NOT a long analysis, just a sharp comment.
+
+CORE RULES:
+- Write SHORT: 1-3 sentences ideal. NO paragraphs. Max 280 characters.
+- Get straight to the point — say your opinion directly
+- ADD VALUE to the tweet — don't just write "great!" or "I agree"
+- Add your own knowledge or perspective — a detail not mentioned, a counter-view, a practical take
+- Expand on a point in the tweet, question it, or evaluate from a different angle
+- Be casual and natural — conversational English like "honestly", "tbh", "ngl", "actually"
+- lowercase is fine, punctuation optional
+- 0-1 emoji, usually none
+
+REPLY TYPES (pick one):
+1. ADD INFO: Share a relevant detail/fact not mentioned in the tweet
+2. COUNTER-VIEW: Politely but clearly offer a different perspective
+3. EXPERIENCE: "I tested this, here's what I found" style personal take
+4. ADD CONTEXT: Place the tweet in a bigger picture
+5. ASK A QUESTION: Ask something you're genuinely curious about
+6. WIT/OBSERVATION: Short, clever observation or quip
+
+DON'T:
+- Write a long analysis — this is a reply, not a tweet
+- Repeat or summarize the tweet
+- Empty praise ("great post!")
+- Use hashtags
+- Use formal/academic language
 """,
     },
 }
@@ -387,7 +436,7 @@ STRATEJİ: Twitter'ın ekmek-tereyağı formatı. HOOK + TEK İNSIGHT + KAPANIŞ
 YAPI:
 1. İLK CÜMLE = HOOK: Scroll'u durdur. Cesur, spesifik, merak uyandırıcı.
 2. 1-2 CÜMLE = ANA FİKİR: Tek bir bakış açısı veya veri noktası. Derine inme, vurucu ol.
-3. SON CÜMLE = KAPANIŞ: Güçlü tahmin veya kesin görüş.
+3. SON CÜMLE = KAPANIŞ: Güçlü görüş, kuru tespit veya ironi. HER SEFERINDE tahminle bitirme.
 
 KURALLAR:
 - 1-2 kısa paragraf, aralarında boş satır.
@@ -416,7 +465,7 @@ YAPI:
 1. HOOK PARAGRAFI (1-2 cümle): Dikkat çekici giriş, konuyu tanıt.
 2. BAĞLAM PARAGRAFI (2-3 cümle): Rakamlar, detaylar, somut bilgiler. Araştırmadan 2-3 veri noktası kullan.
 3. ANALİZ PARAGRAFI (1-2 cümle): Kendi yorumun — "bence", "gördüğüm kadarıyla", paradoks yakala.
-4. KAPANIŞ (1 cümle): Cesur tahmin veya güçlü görüş. SORU SORMA.
+4. KAPANIŞ (1 cümle): Güçlü görüş, kişisel gözlem veya kuru tespit. Hep tahmin kalıbı kullanma. SORU SORMA.
 
 KURALLAR:
 - 3-4 paragraf, her biri 1-3 cümle. Aralarında BOŞ SATIR.
@@ -443,7 +492,7 @@ YAPI:
 2. ANA BİLGİ (2-3 cümle): Ne oldu? Kim yaptı? Rakamlar, detaylar, spesifik veriler.
 3. DERİN ANALİZ (2-3 cümle): Neden önemli? Piyasa etkisi, stratejik boyut. Paradoksları yakala.
 4. FARKLI AÇI (2-3 cümle): Kimsenin bahsetmediği bir detay, karşıt görüş veya bağlantı.
-5. KAPANIŞ (1-2 cümle): Cesur tahmin — "6 ay içinde...", "bu treni kaçıranlar..." SORU SORMA.
+5. KAPANIŞ (1-2 cümle): Güçlü görüşle bitir. "6 ay içinde...", "bu treni kaçıranlar..." gibi klişe tahmin kalıpları YASAK — çeşitlen. SORU SORMA.
 
 KURALLAR:
 - Minimum 4-5 paragraf, her paragraf 1-3 cümle, aralarında BOŞ SATIR.
@@ -470,7 +519,7 @@ STRATEJİ: Konuyu parçalara böl, her tweet bağımsız ama bütünün parças�
 YAPI:
 1. TWEET 1 = HOOK: En güçlü açılış. Okuyucu thread'in geri kalanını okumalı ZORUNDA hissetmeli.
 2. TWEET 2-3-4 = DEĞER: Her tweet tek bir fikir/veri/insight. Araştırmadan spesifik veriler kullan.
-3. SON TWEET = KAPANIŞ: Güçlü görüş, cesur tahmin. Thread'i bağla.
+3. SON TWEET = KAPANIŞ: Güçlü görüş veya kuru tespit. Klişe tahmin kalıbı kullanma. Thread'i bağla.
 
 KURALLAR:
 - Her tweet MAX 280 karakter.
@@ -499,8 +548,8 @@ YAPI:
 3. VERİ ZENGİNİ ANALİZ (3-4 cümle): Rakamlar, benchmark'lar, karşılaştırmalar. Araştırmadan 4+ veri.
 4. PARADOKS / ÇELİŞKİ (2-3 cümle): İlginç çelişkiler, kimsenin görmediği açı.
 5. KARŞIT GÖRÜŞ (2-3 cümle): Olası itirazları ele al veya farklı perspektif sun.
-6. GELECEĞİ GÖZLE (2-3 cümle): Stratejik tahminler — "6 ay içinde...", "bu sektörü..."
-7. KAPANIŞ (1-2 cümle): En güçlü cümlen. SORU SORMA. Cesur tahmin veya kesin görüş.
+6. GENİŞ PERSPEKTİF (2-3 cümle): Konunun büyük resmi — sektör etkisi, stratejik boyut, kaçırılan nokta.
+7. KAPANIŞ (1-2 cümle): En güçlü cümlen. SORU SORMA. Kuru tespit, ironi veya güçlü görüşle bitir — "6 ay içinde..." gibi kalıp tahminler YASAK.
 
 KURALLAR:
 - Minimum 5-7 paragraf, her paragraf 1-3 cümle, aralarında BOŞ SATIR.
@@ -529,6 +578,99 @@ _LENGTH_TO_FORMAT = {
 }
 
 
+# ============================================================================
+# TWEET ANGLES — Forces different perspectives on the same topic each time
+# ============================================================================
+
+TWEET_ANGLES = [
+    {
+        "id": "technical_deep",
+        "name": "Teknik Derinlik",
+        "instruction": """BAKIS ACISI: TEKNİK DERİNLİK
+- Bu konunun TEKNİK tarafına odaklan: mimari, teknoloji stack'i, API tasarımı, performans
+- Yıldız sayısı, contributor sayısı, "unofficial" gibi meta bilgileri ATLAMA
+- Bunun yerine: hangi dili kullanıyor, nasıl çalışıyor, hangi problemi çözüyor, teknik avantajı ne
+- "rust ile yazmışlar" diyorsan NEDEN rust? performans mı, güvenlik mi, concurrency mi?
+- Rakip teknolojilerle teknik karşılaştırma yap""",
+    },
+    {
+        "id": "business_strategy",
+        "name": "İş Stratejisi",
+        "instruction": """BAKIS ACISI: İŞ STRATEJİSİ
+- Bu konunun PARA ve STRATEJİ tarafına odaklan
+- Yıldız sayısı, teknik detaylar ATLAMA
+- Bunun yerine: kim bundan para kazanır? kimin işine yarar? hangi pazarı hedefliyor?
+- Şirketin büyük stratejisinde bu nereye oturuyor?
+- Rekabet dinamikleri: bu hamle kime karşı yapıldı?""",
+    },
+    {
+        "id": "contrarian",
+        "name": "Karşıt Görüş",
+        "instruction": """BAKIS ACISI: KARŞIT GÖRÜŞ
+- Herkesin heyecanlandığı noktanın TAM TERSİNİ savun
+- "Herkes X diyor ama aslında..." formatında yaz
+- Riskleri, dezavantajları, gözden kaçanları öne çıkar
+- Yıldız sayısı gibi hype metriklerini ELEŞTİR, gerçek değeri sorgula
+- Provokatif ama mantıklı ol — boş muhalefet değil, temelli karşıt görüş""",
+    },
+    {
+        "id": "practical_use",
+        "name": "Pratik Kullanım",
+        "instruction": """BAKIS ACISI: PRATİK KULLANIM
+- "Ben bunu nasıl kullanırım?" sorusuna cevap ver
+- Genel bilgi, yıldız sayısı, tarihçe ATLAMA
+- Bunun yerine: somut kullanım senaryoları, kimler için faydalı, hangi problemi çözer
+- "Mesela şunu yapabilirsin..." formatında somut örnekler ver
+- Günlük iş akışında bu nasıl bir fark yaratır?""",
+    },
+    {
+        "id": "future_prediction",
+        "name": "Gelecek Tahmini",
+        "instruction": """BAKIS ACISI: GELECEK TAHMİNİ
+- Bugünü değil, 6 ay-2 yıl sonrasını yaz
+- Mevcut rakamlar ve detaylar ATLAMA (kısa bahset yeter)
+- Bunun yerine: bu trend nereye gidiyor? sektörü nasıl değiştirir?
+- "6 ay içinde...", "2 yıl sonra..." gibi somut zaman tahminleri yap
+- Hangi iş kolları etkilenir? kim kazanır, kim kaybeder?""",
+    },
+    {
+        "id": "historical_parallel",
+        "name": "Tarihsel Paralel",
+        "instruction": """BAKIS ACISI: TARİHSEL PARALEL
+- Bu gelişmeyi geçmişteki benzer bir olayla KIYASLA
+- Yıldız sayısı, contributor detayları ATLAMA
+- Bunun yerine: "X yılında Y aynı şeyi yapmıştı, sonuç Z oldu"
+- Kalıpları göster: tarih tekerrür mü ediyor, yoksa bu sefer farklı mı?
+- Docker, Kubernetes, Git gibi dönüm noktalarıyla karşılaştır""",
+    },
+    {
+        "id": "ecosystem_impact",
+        "name": "Ekosistem Etkisi",
+        "instruction": """BAKIS ACISI: EKOSİSTEM ETKİSİ
+- Ürünün kendisini değil, EKOSİSTEME etkisini yaz
+- Yıldız sayısı, teknik spec ATLAMA
+- Bunun yerine: bu çıkınca hangi araçlar gereksiz olur? hangi startup'lar tehlikede?
+- Geliştirici topluluğu nasıl etkilenir?
+- Platform savaşlarında bu ne anlama geliyor?""",
+    },
+    {
+        "id": "hidden_detail",
+        "name": "Gizli Detay",
+        "instruction": """BAKIS ACISI: KİMSENİN GÖRMEDİĞİ DETAY
+- Herkesin konuştuğu şeyleri ATLAMA (yıldız, contributor, genel özellikler)
+- Bunun yerine: araştırmadaki EN AZ BİLİNEN, en ilginç tek bir detayı bul
+- O detayı merkeze koy ve etrafında tweet'i kur
+- "Herkes X'i konuşuyor ama asıl ilginç olan Y" formatı
+- Niş ama değerli bir insight ver""",
+    },
+]
+
+
+def _pick_random_angle() -> dict:
+    """Pick a random tweet angle for variety."""
+    return random.choice(TWEET_ANGLES)
+
+
 def get_available_formats(context: str = "tweet") -> dict:
     """
     Return available formats for a given context.
@@ -547,6 +689,19 @@ def get_format_info(format_key: str) -> dict | None:
     """Get info for a specific format, with backward compatibility."""
     mapped = _LENGTH_TO_FORMAT.get(format_key, format_key)
     return CONTENT_FORMATS.get(mapped)
+
+
+# Styles eligible for auto-selection (exclude quote_tweet — it's context-specific)
+_AUTO_STYLE_POOL = [k for k in WRITING_STYLES if k != "quote_tweet"]
+
+
+def _resolve_style(style: str, context: str = "tweet") -> str:
+    """Resolve 'auto' style to a random pick. Pass-through for explicit styles."""
+    if style == "auto":
+        if context == "quote_tweet":
+            return random.choice([k for k in WRITING_STYLES if k != "quote_tweet"] + ["quote_tweet"])
+        return random.choice(_AUTO_STYLE_POOL)
+    return style
 
 
 class ContentGenerator:
@@ -609,11 +764,53 @@ class ContentGenerator:
         if not self.client:
             raise ValueError("API client not initialized. Check your API key.")
 
+        # Resolve "auto" style to a random pick
+        style = _resolve_style(style, context="tweet")
+
         system_prompt = self._build_system_prompt(style, user_samples)
         user_prompt = self._build_user_prompt(
             topic_text, topic_source, style, additional_context,
             max_length, thread_mode, content_format=content_format
         )
+
+        if self.provider == "anthropic":
+            return self._generate_anthropic(system_prompt, user_prompt)
+        else:
+            return self._generate_openai(system_prompt, user_prompt)
+
+    def generate_reply(self, original_tweet: str, original_author: str,
+                       style: str = "reply",
+                       additional_context: str = "",
+                       user_samples: list = None) -> str:
+        """
+        Generate a short reply to a tweet (no web research, just tweet content).
+
+        Args:
+            original_tweet: The tweet text being replied to
+            original_author: Author username
+            style: Writing style (default "reply")
+            additional_context: Extra instructions
+            user_samples: Sample tweets for style matching
+
+        Returns:
+            Generated reply text (short, max ~280 chars)
+        """
+        if not self.client:
+            raise ValueError("API client not initialized. Check your API key.")
+
+        system_prompt = self._build_reply_system_prompt(user_samples)
+
+        user_prompt = f"""@{original_author} tweeted:
+"{original_tweet}"
+
+Write a REPLY to this tweet. Rules:
+- SHORT: 1-3 sentences, max 280 characters
+- ADD VALUE — not empty praise, add insight/opinion/experience
+- Natural casual English, conversational tone
+- NO hashtags
+{f"Note: {additional_context}" if additional_context else ""}
+
+Write ONLY the reply text, nothing else."""
 
         if self.provider == "anthropic":
             return self._generate_anthropic(system_prompt, user_prompt)
@@ -629,6 +826,9 @@ class ContentGenerator:
         """Generate a quote tweet with optional deep research context"""
         if not self.client:
             raise ValueError("API client not initialized. Check your API key.")
+
+        # Resolve "auto" style to a random pick
+        style = _resolve_style(style, context="quote_tweet")
 
         system_prompt = self._build_system_prompt(style, user_samples)
 
@@ -677,6 +877,9 @@ ARAŞTIRMA NASIL KULLANILIR:
 - Araştırmayla tweet konusu UYUŞMUYORSA o bilgiyi GÖRMEZDEN GEL
 - Genel/yüzeysel bilgi yerine spesifik veri ve bulgu tercih et"""
 
+            # Pick a random angle for variety in quote tweets too
+            angle = _pick_random_angle()
+
             user_prompt = f"""## ORİJİNAL TWEET:
 @{original_author} şunu yazmış:
 "{original_tweet}"
@@ -691,14 +894,18 @@ ARAŞTIRMA NASIL KULLANILIR:
 
 ---
 
+{angle['instruction']}
+
+---
+
 ## GÖREV:
 Orijinal tweet'in konusu hakkında KENDİ ANALİZİNİ Türkçe yaz.
 
 ZORUNLU KURALLAR:
 1. Tweet'in KONUSUNA sadık kal — tweet ne anlatıyorsa o konuda yaz
 2. Araştırmadan EN AZ 1 spesifik bilgi/rakam/veri kullan (genel yorum yetmez)
-3. Kendi bakış açını ve analizini ekle — sadece özetleme, YORUM KAT
-4. GÜÇLÜ İFADEYLE BİTİR — cesur tahmin veya kesin görüş. SORU SORMA.
+3. YUKARIDAKI BAKIŞ AÇISINA SADIK KAL — o perspektiften yaz
+4. GÜÇLÜ İFADEYLE BİTİR — güçlü görüş, kuru tespit veya ironi. "6 ay içinde...", "bunu geçer" gibi kalıp tahminlerle bitirme, çeşitlen. SORU SORMA.
 
 {length_instructions}
 
@@ -706,7 +913,7 @@ ZORUNLU KURALLAR:
 - İlk satır = HOOK (merak uyandıran doğal giriş)
 - Her paragraf arası BOŞ SATIR
 - Her paragraf 1-3 cümle
-- Son satır = güçlü görüş/tahmin
+- Son satır = güçlü görüş, kuru tespit veya ironi (klişe tahmin kalıbı YASAK)
 - En sona 1-2 hashtag
 
 ## YAPMA:
@@ -729,7 +936,7 @@ Orijinal tweet'i birebir çevirme veya tekrarlama, ama içindeki bilgilerden yar
 Kendi bakış açını ekle, doğal Türkçe yaz.
 {f"Not: {additional_context}" if additional_context else ""}
 
-FORMAT: İlk satır = hook (konuyu tanıt, merak uyandır). Paragraflar arası boş satır bırak. Son satır güçlü görüş veya cesur tahmin (SORU SORMA). En sona 1-2 hashtag.
+FORMAT: İlk satır = hook (konuyu tanıt, merak uyandır). Paragraflar arası boş satır bırak. Son satır güçlü görüş veya kuru tespit (klişe tahmin kalıbı YASAK, SORU SORMA). En sona 1-2 hashtag.
 
 Sadece tweet metnini yaz."""
 
@@ -845,6 +1052,7 @@ Her tweet'i --- ile ayır. Sadece tweet metinlerini yaz."""
         if not self.client:
             raise ValueError("API client not initialized. Check your API key.")
 
+        style = _resolve_style(style, context="tweet")
         system_prompt = self._build_system_prompt(style)
 
         user_prompt = f"""Aşağıdaki tweet taslağını yeniden yaz. Daha doğal, daha etkileyici yap.
@@ -910,12 +1118,9 @@ Araştırma verilerini kullanarak {length_desc_text} formatında yazıyorsun.
 1. KONU SABİTLEME: Orijinal tweet ne hakkındaysa O KONU hakkında yaz.
    Araştırmada tweet konusuyla alakasız bilgi varsa GÖRMEZDEN GEL.
 
-2. ORİJİNAL TWEET'İN DETAYLARINI KULLAN: Orijinal tweet'te bahsedilen TÜM özellikleri,
-   rakamları ve teknik detayları oku ve yazında kullan. Özellikle:
-   - Ürün özellikleri (model desteği, paralel çalışma, custom agents, GUI vb.)
-   - Fiyatlandırma, lansman teklifleri, ücretsiz plan detayları
-   - Desteklenen platformlar, teknik altyapı bilgileri
-   Bu bilgiler tweet metninde var — MUTLAKA kullan, atla geçme.
+2. SEÇİCİ OL: Orijinal tweet'teki ve araştırmadaki bilgilerden BAKIŞ AÇINA UYGUN olanları seç.
+   Her bilgiyi sıralamaya çalışma — tek bir perspektiften derinlemesine yaz.
+   Farklı üretim denemelerinde farklı veri noktaları öne çıkmalı.
 
 3. VERİ KULLANIMI: Araştırmadaki SPESİFİK rakamları, tarihleri, isimleri ve
    bulguları tweet'e dahil et. "Yapay zeka gelişiyor" gibi genel ifadeler yerine
@@ -1019,6 +1224,65 @@ Kendi orijinal cümlelerini kur ama aynı doğallık ve samimiyet olsun.
 
         return prompt
 
+    def _build_reply_system_prompt(self, user_samples: list = None) -> str:
+        """Build system prompt for English reply generation with style DNA."""
+        style_info = WRITING_STYLES.get("reply", {})
+
+        prompt = f"""You are a tech-savvy AI/ML enthusiast who writes sharp, insightful replies on X (Twitter).
+You write in ENGLISH. You sound like a real person — casual, knowledgeable, opinionated.
+
+{style_info.get('prompt', '')}
+"""
+
+        # Inject training DNA (highest priority for writing personality)
+        if self.training_context:
+            tc = self.training_context
+            max_training_chars = 25000
+            if len(tc) > max_training_chars:
+                tc = tc[:max_training_chars]
+            prompt += f"""
+{tc}
+
+## CRITICAL — STYLE DNA PRIORITY:
+The training data above defines your WRITING PERSONALITY — tone, word choice,
+sentence structure, how you open and close. Absorb the STYLE, not the language.
+Since replies must be in ENGLISH, translate the personality traits:
+- If the DNA shows casual/witty tone → be casual/witty in English
+- If the DNA shows strong opinions → have strong opinions in English
+- If the DNA shows technical depth → show technical depth in English
+- Match the energy, confidence level, and personality — just in English.
+"""
+
+        if user_samples:
+            samples_text = "\n".join([f"- {s}" for s in user_samples[:5]])
+            prompt += f"""
+## USER'S TWEET EXAMPLES (TONE reference only):
+{samples_text}
+
+NOTE: Use the TONE and APPROACH from these examples.
+NEVER copy these tweets. Write original sentences with the same natural voice.
+"""
+
+        # Extra guardrails for non-Claude models
+        if self.provider in ("minimax", "openai"):
+            prompt += """
+## NATURALNESS RULES:
+1. WRITE SHORT — Get to the point. No filler.
+2. NO AI PATTERNS — Don't use "It's worth noting", "Let's dive in", "Here's the thing"
+3. CASUAL ENGLISH — "honestly", "tbh", "ngl", "lowkey", "actually" — sound human
+4. ONE REPLY = ONE IDEA — Don't try to cover everything
+5. PERSONAL TAKE REQUIRED — "I tested this", "imo", "from what I've seen"
+6. NEVER start with "I" — vary your openings
+7. NO quotes around the reply text
+8. NO ending questions like "What do you think?" — end with a strong take
+"""
+
+        MAX_PROMPT_CHARS = 35000
+        if len(prompt) > MAX_PROMPT_CHARS:
+            prompt = prompt[:MAX_PROMPT_CHARS]
+
+        return prompt
+
     def _build_user_prompt(self, topic_text: str, topic_source: str,
                            style: str, additional_context: str,
                            max_length: int, thread_mode: bool,
@@ -1035,6 +1299,10 @@ Kendi orijinal cümlelerini kur ama aynı doğallık ve samimiyet olsun.
             if fmt:
                 format_block = f"\n{fmt['prompt_instructions']}\n"
 
+        # Pick a random angle for variety
+        angle = _pick_random_angle()
+        angle_block = f"\n{angle['instruction']}\n"
+
         prompt = f"""Aşağıdaki AI gelişmesi/konusu hakkında bir tweet yaz.
 
 KONU:
@@ -1043,6 +1311,7 @@ KONU:
 {f"KAYNAK: {topic_source}" if topic_source else ""}
 {f"EK TALİMATLAR: {additional_context}" if additional_context else ""}
 {format_block if format_block else (f"MAKSİMUM KARAKTER: {max_length}" if max_length > 0 else "Karakter sınırı yok (X Premium)")}
+{angle_block}
 
 KURALLAR:
 - %100 doğal, insan yazısı olmalı
@@ -1053,13 +1322,13 @@ KURALLAR:
 - ASLA kaynak belirtme — "@şuhesap diyor ki", "X'te şöyle yazıyorlar", "yorumlarda" gibi ifadeler YASAK
 - Bilgiyi KENDİ DENEYİMİN gibi yaz — "test ettim", "bence", "gördüğüm kadarıyla"
 - ⛔ BİLGİ UYDURMA: "X'te bazıları diyor", "kullanıcılar şüpheli" gibi kaynaksız iddialar YASAK
-- Konudaki TÜM spesifik bilgileri (özellikler, rakamlar, desteklenen modeller vb.) kullan, atlama
+- YUKARIDAKI BAKIŞ AÇISINA SADIK KAL — her konunun birden fazla açısı var, sen sadece belirtilen açıdan yaz
 
 FORMAT:
 - Paragraflar arasında boş satır bırak
 - Her paragraf 1-3 cümle
 - İlk satır dikkat çekici hook olsun
-- Son satır güçlü görüş veya cesur tahmin (SORU SORMA, CTA YASAK)
+- Son satır güçlü görüş, kuru tespit veya ironi (klişe tahmin kalıbı YASAK, SORU SORMA, CTA YASAK)
 - En sona 1-2 hashtag ekle (#AI #model gibi)
 - Metin duvarı YAZMA
 
@@ -1124,7 +1393,7 @@ Sadece tweet metnini yaz, başka bir şey yazma. Tırnak işareti kullanma."""
 - Verilerle destekle: rakamlar, trendler, karşılaştırmalar
 - Kendi yorumunu ekle: "Bence asıl mesele şu:", "Kimse bundan bahsetmiyor ama..."
 - Hem olumlu hem olumsuz tarafları göster (dengeli analiz)
-- Sonda tahmin/öngörü: "6 ay içinde...".""",
+- Sonda güçlü görüş veya kuru tespit. Klişe tahmin kalıbı ("6 ay içinde...", "bunu geçer") kullanma.""",
 
             "hikaye": """İÇERİK TARZI: HİKAYE / STORYTELLING
 - Bir olay/deneyim üzerinden anlat
@@ -1538,9 +1807,18 @@ def score_tweet(tweet_text: str, content_format: str = "spark",
     }
 
 
+_AUTO_STYLE_ENTRY = {
+    "auto": {
+        "name": "Otomatik",
+        "description": "Her seferinde rastgele bir yazım tarzı seçilir — çeşitlilik için",
+        "prompt": "",  # resolved at generation time
+    }
+}
+
+
 def get_available_styles() -> dict:
-    """Get all available writing styles"""
-    return WRITING_STYLES
+    """Get all available writing styles (with 'auto' option first)"""
+    return {**_AUTO_STYLE_ENTRY, **WRITING_STYLES}
 
 
 def get_style_info(style_key: str) -> dict:

@@ -718,6 +718,8 @@ def build_training_context(analyses: list[dict], max_examples: int = 50, topic: 
 
         # --- SECTION 2: CURATED TWEET EXAMPLES (style training) ---
         # Havuz varsa bu bölüm atlanır, havuz örnekleri for döngüsünden sonra eklenir
+        all_originals = analysis.get("all_original_tweets", [])
+
         _pool_used = False
         try:
             from modules.tweet_pool import load_pool, select_examples, build_pool_training_context
@@ -726,8 +728,6 @@ def build_training_context(analyses: list[dict], max_examples: int = 50, topic: 
                 _pool_used = True
         except Exception:
             pass
-
-        all_originals = analysis.get("all_original_tweets", [])
 
         if not _pool_used:
 

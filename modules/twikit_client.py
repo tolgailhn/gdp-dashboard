@@ -77,6 +77,27 @@ def _get_bg_loop() -> asyncio.AbstractEventLoop:
     return _bg_loop
 
 
+async def _ensure_sniffio_asyncio(coro):
+    """Wrap a coroutine so sniffio (if installed) detects asyncio.
+
+    httpcore calls sniffio.current_async_library() to pick its async backend.
+    When coroutines run on a background event loop via run_coroutine_threadsafe,
+    the task inherits the *calling* thread's context where sniffio's cvar is
+    unset → AsyncLibraryNotFoundError.  Setting the cvar inside the task
+    fixes detection for all awaited code within it.
+    """
+    try:
+        import sniffio
+        token = sniffio.current_async_library_cvar.set("asyncio")
+    except (ImportError, AttributeError):
+        token = None
+    try:
+        return await coro
+    finally:
+        if token is not None:
+            sniffio.current_async_library_cvar.reset(token)
+
+
 def adapt_query_for_web(query: str, since_date: str = None) -> str:
     """Adapt Twitter API v2 search operators to web search format."""
     q = query.replace("-is:retweet", "-filter:retweets")
@@ -104,7 +125,9 @@ class TwikitSearchClient:
     def _run(self, coro, timeout=120):
         """Run an async coroutine on the background event loop."""
         loop = _get_bg_loop()
-        future = asyncio.run_coroutine_threadsafe(coro, loop)
+        future = asyncio.run_coroutine_threadsafe(
+            _ensure_sniffio_asyncio(coro), loop
+        )
         return future.result(timeout=timeout)
 
     def _get_client_sync(self):
@@ -445,16 +468,27 @@ class TwikitSearchClient:
             for tweet in tweets:
                 results.append(self._tweet_to_dict(tweet))
         except (NotFound, Unauthorized, Forbidden, TypeError, AttributeError) as e:
-            print(f"Twikit search {type(e).__name__}, attempting re-auth...")
-            self.last_error = f"Arama hatası ({type(e).__name__}): {e}"
-            if self.username and self.password:
-                async def _retry():
-                    c = self._get_client_sync()
-                    tw = await c.search_tweet(query, 'Latest', count=count)
-                    return [self._tweet_to_dict(t) for t in tw]
-                retry_result = await self._retry_after_reauth(_retry)
-                if retry_result is not None:
-                    return retry_result
+            err_str = str(e)
+            err_name = type(e).__name__
+            # Transport/async errors (weak reference, sniffio) are NOT auth
+            # issues — re-auth would just hit the same error again.
+            if "weak reference" in err_str or "async library" in err_str.lower():
+                self.last_error = (
+                    f"Async transport hatası: {err_name}: {e}. "
+                    "Uygulamayı yeniden başlatmayı deneyin."
+                )
+                print(f"Twikit search transport error: {err_name}: {e}")
+            else:
+                print(f"Twikit search {err_name}, attempting re-auth...")
+                self.last_error = f"Arama hatası ({err_name}): {e}"
+                if self.username and self.password:
+                    async def _retry():
+                        c = self._get_client_sync()
+                        tw = await c.search_tweet(query, 'Latest', count=count)
+                        return [self._tweet_to_dict(t) for t in tw]
+                    retry_result = await self._retry_after_reauth(_retry)
+                    if retry_result is not None:
+                        return retry_result
         except TooManyRequests as e:
             reset_ts = getattr(e, 'rate_limit_reset', None)
             self.last_error = "Arama rate limit. Biraz bekleyip tekrar deneyin."
@@ -570,14 +604,23 @@ class TwikitSearchClient:
         except (NotFound, Unauthorized, Forbidden, TwitterException,
                 TypeError, AttributeError) as e:
             err_name = type(e).__name__
-            self.last_error = f"Kullanıcı tweet hatası (@{username}): {err_name}: {e}"
-            print(f"Twikit user tweets {err_name}, attempting re-auth...")
-            if self.username and self.password:
-                async def _retry():
-                    return await self._user_tweets_async(username, count, progress_callback)
-                retry_result = await self._retry_after_reauth(_retry)
-                if retry_result is not None:
-                    return retry_result
+            err_str = str(e)
+            # Transport/async errors are NOT auth issues — skip re-auth
+            if "weak reference" in err_str or "async library" in err_str.lower():
+                self.last_error = (
+                    f"@{username}: Async transport hatası: {err_name}: {e}. "
+                    "Uygulamayı yeniden başlatmayı deneyin."
+                )
+                print(f"Twikit user tweets transport error: {err_name}: {e}")
+            else:
+                self.last_error = f"Kullanıcı tweet hatası (@{username}): {err_name}: {e}"
+                print(f"Twikit user tweets {err_name}, attempting re-auth...")
+                if self.username and self.password:
+                    async def _retry():
+                        return await self._user_tweets_async(username, count, progress_callback)
+                    retry_result = await self._retry_after_reauth(_retry)
+                    if retry_result is not None:
+                        return retry_result
         except TooManyRequests as e:
             reset_ts = getattr(e, 'rate_limit_reset', None)
             if reset_ts:

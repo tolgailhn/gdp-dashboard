@@ -88,6 +88,43 @@ class TweetPublisher:
             return {"success": False, "tweet_id": None, "url": None,
                     "error": f"Hata: {e}"}
 
+    def post_reply(self, text: str, reply_to_tweet_id: str) -> dict:
+        """
+        Post a reply to an existing tweet
+
+        Args:
+            text: The reply text
+            reply_to_tweet_id: ID of the tweet being replied to
+
+        Returns:
+            dict with 'success', 'tweet_id', 'url', 'error' keys
+        """
+        if not reply_to_tweet_id or not str(reply_to_tweet_id).strip().isdigit():
+            return {"success": False, "tweet_id": None, "url": None,
+                    "error": "Geçersiz tweet ID formatı."}
+
+        try:
+            response = self.client.create_tweet(
+                text=text,
+                in_reply_to_tweet_id=str(reply_to_tweet_id).strip()
+            )
+            tweet_id = response.data["id"]
+            return {
+                "success": True,
+                "tweet_id": tweet_id,
+                "url": f"https://x.com/i/status/{tweet_id}",
+                "error": None
+            }
+        except tweepy.Forbidden as e:
+            return {"success": False, "tweet_id": None, "url": None,
+                    "error": f"Yetki hatası: {e}"}
+        except tweepy.TooManyRequests:
+            return {"success": False, "tweet_id": None, "url": None,
+                    "error": "Rate limit aşıldı. Lütfen biraz bekleyin."}
+        except Exception as e:
+            return {"success": False, "tweet_id": None, "url": None,
+                    "error": f"Hata: {e}"}
+
     def post_thread(self, tweets: list[str]) -> list[dict]:
         """
         Post a thread (series of connected tweets)

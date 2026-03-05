@@ -23,7 +23,8 @@ from modules.deep_research import (
 )
 from modules.style_manager import (
     load_user_samples, load_custom_persona,
-    add_to_post_history, add_draft, load_draft_tweets
+    add_to_post_history, add_draft, load_draft_tweets,
+    load_reply_accounts, save_reply_accounts,
 )
 from modules.tweet_analyzer import load_all_analyses, build_training_context
 
@@ -60,11 +61,13 @@ st.markdown("""
 mode_tab1, mode_tab2, mode_tab3 = st.tabs([
     "📝 Tweet Yaz",
     "🔬 Araştırmalı Quote Tweet",
-    "💬 Hızlı Quote Tweet",
+    "💬 Hızlı Reply",
 ])
 
 # Track which tab is active
 research_summary = ""
+topic_text = ""
+topic_source = ""
 
 with mode_tab2:
     st.markdown("""
@@ -248,16 +251,19 @@ with mode_tab2:
                         """, unsafe_allow_html=True)
 
             # --- Show research results ---
+            is_agentic = use_agentic or use_grok_agentic
+
             # In agentic mode, show the AI's own research summary prominently
-            if use_agentic and research.synthesized_brief:
-                with st.expander("🤖 AI Otonom Araştırma Sonuçları", expanded=True):
+            if is_agentic and research.synthesized_brief:
+                agentic_label = "🧠 Grok Otonom Araştırma Sonuçları" if use_grok_agentic else "🤖 AI Otonom Araştırma Sonuçları"
+                with st.expander(agentic_label, expanded=True):
                     st.markdown(research.synthesized_brief)
                     if research.related_tweets:
                         st.markdown(f"\n**𝕏 İlgili Yorumlar ({len(research.related_tweets)}):**")
                         for rt in research.related_tweets[:3]:
                             st.markdown(f"- @{rt['author']} ({rt['likes']} ❤️): _{rt['text'][:300]}_")
 
-            with st.expander("📊 Araştırma Sonuçları" if not use_agentic else "📊 Ek Detaylar", expanded=not use_agentic):
+            with st.expander("📊 Araştırma Sonuçları" if not is_agentic else "📊 Ek Detaylar", expanded=not is_agentic):
                 if research.topic:
                     st.markdown(f"**Tespit edilen konu:** `{research.topic}`")
 
@@ -287,11 +293,11 @@ with mode_tab2:
                     for rt in research.related_tweets[:3]:
                         st.markdown(f"- @{rt['author']} ({rt['likes']} ❤️): _{rt['text'][:300]}_")
 
-                if not research.web_results and not research.deep_articles and not research.related_tweets:
+                if not is_agentic and not research.web_results and not research.deep_articles and not research.related_tweets:
                     st.warning("Bu konu için web'de yeterli bilgi bulunamadı.")
 
-            # Show AI-synthesized brief if available
-            if research.synthesized_brief:
+            # Show AI-synthesized brief if available (only for non-agentic, since agentic already shows it above)
+            if not is_agentic and research.synthesized_brief:
                 with st.expander("🧠 AI Araştırma Sentezi", expanded=False):
                     st.markdown(research.synthesized_brief)
 
@@ -359,110 +365,382 @@ with mode_tab2:
 
 with mode_tab3:
     st.markdown("""
-    <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:12px;
+    <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); border-radius:12px;
                 padding:16px; margin-bottom:16px;">
-        <div style="color:#a5b4fc; font-weight:bold; font-size:16px;">💬 Hızlı Quote Tweet</div>
+        <div style="color:#6ee7b7; font-weight:bold; font-size:16px;">💬 Hızlı Reply</div>
         <div style="color:#94a3b8; font-size:13px; margin-top:4px;">
-            Tweet URL yapıştır → Hızlıca quote tweet yaz ve paylaş
+            AI hesaplarını tara → En iyi tweetleri bul → AI ile reply yaz → Direkt gönder
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    quick_quote_url = st.text_input(
-        "Quote yapılacak Tweet URL'si",
-        placeholder="https://x.com/kullanici/status/123456789...",
-        key="quick_quote_url"
+    # --- Settings Row ---
+    _reply_col1, _reply_col2, _reply_col3 = st.columns(3)
+    with _reply_col1:
+        reply_time_hours = st.selectbox(
+            "Zaman Aralığı",
+            options=[6, 12, 24],
+            format_func=lambda x: f"Son {x} saat",
+            index=1,
+            key="reply_time_hours",
+        )
+    with _reply_col2:
+        reply_max_tweets = st.selectbox(
+            "Hesap Başı Max Tweet",
+            options=[3, 5, 10],
+            index=1,
+            key="reply_max_per_account",
+        )
+    with _reply_col3:
+        reply_min_engagement = st.selectbox(
+            "Min. Engagement",
+            options=[0, 50, 100, 500],
+            format_func=lambda x: f"{x}+ etkileşim" if x > 0 else "Filtre yok",
+            index=1,
+            key="reply_min_engagement",
+        )
+
+    # --- Account list management ---
+    with st.expander("👥 Hesap Listesi", expanded=False):
+        reply_accounts = load_reply_accounts()
+        st.caption(f"Şu an {len(reply_accounts)} hesap takip ediliyor")
+
+        reply_accounts_text = st.text_area(
+            "Hesaplar (her satıra bir tane, @ olmadan)",
+            value="\n".join(reply_accounts),
+            height=150,
+            key="reply_accounts_editor",
+        )
+
+        if st.button("💾 Hesap Listesini Kaydet", key="save_reply_accounts"):
+            new_accounts = [a.strip().lstrip("@") for a in reply_accounts_text.strip().split("\n") if a.strip()]
+            save_reply_accounts(new_accounts)
+            st.success(f"{len(new_accounts)} hesap kaydedildi!")
+            st.rerun()
+
+    # --- Scan Button ---
+    reply_scan_clicked = st.button(
+        "🔍 X'te Tara",
+        type="primary",
+        use_container_width=True,
+        key="reply_scan_btn",
     )
 
-    if quick_quote_url:
-        quick_tweet_id = extract_tweet_id(quick_quote_url)
-        if not quick_tweet_id:
-            st.error("Geçersiz tweet URL'si! Örn: https://x.com/user/status/123456")
-            topic_text = ""
-            topic_source = ""
+    if reply_scan_clicked:
+        reply_accounts = load_reply_accounts()
+        if not reply_accounts:
+            st.error("Hesap listesi bos! Yukaridan hesap ekleyin.")
         else:
-            # Fetch original tweet (cached to avoid re-fetching on every rerun)
-            cached_id = st.session_state.get("_quick_quote_cached_id")
-            if cached_id != quick_tweet_id:
-                original_text = ""
-                original_author = ""
-                bearer_token = get_secret("twitter_bearer_token", "")
-                if bearer_token:
-                    try:
-                        from modules.twitter_scanner import TwitterScanner
-                        _scanner = TwitterScanner(bearer_token=bearer_token)
-                        with st.spinner("Tweet çekiliyor..."):
-                            fetched = _scanner.get_tweet_by_id(quick_tweet_id)
-                            if fetched:
-                                original_text = fetched.text
-                                original_author = fetched.author_username
-                    except Exception:
-                        pass
-                st.session_state._quick_quote_cached_id = quick_tweet_id
-                st.session_state._quick_quote_text = original_text
-                st.session_state._quick_quote_author = original_author
+            # Twikit credentials check
+            twikit_username = get_secret("twikit_username", "")
+            twikit_password = get_secret("twikit_password", "")
+            twikit_email = get_secret("twikit_email", "")
+            _has_tw_cookies = bool(get_secret("twikit_auth_token", "")) and bool(get_secret("twikit_ct0", ""))
 
-            original_text = st.session_state.get("_quick_quote_text", "")
-            original_author = st.session_state.get("_quick_quote_author", "")
-
-            if original_text:
-                st.markdown(f"""
-                <div class="tweet-card" style="border-color:#a5b4fc;">
-                    <div>
-                        <span class="tweet-author">Orijinal Tweet</span>
-                        <span class="tweet-username">@{original_author}</span>
-                    </div>
-                    <div class="tweet-text">{original_text}</div>
-                </div>
-                """, unsafe_allow_html=True)
+            if not twikit_username and not _has_tw_cookies:
+                st.error("Twikit bilgileri eksik! Ayarlar sayfasindan Twikit kullanici adi/sifre veya cookie ekleyin.")
             else:
-                st.info(f"Tweet ID: {quick_tweet_id} — Tweet metni çekilemedi ama quote yapılabilir.")
+                from modules.twikit_client import TwikitSearchClient
 
-            # Set quote state
-            st.session_state.write_mode = "quote"
-            st.session_state.quote_topic = {
-                "id": quick_tweet_id,
-                "text": original_text or quick_quote_url,
-                "author": original_author or "",
-            }
-            write_mode = "quote"
-            quote_topic = st.session_state.quote_topic
+                _tw_client = TwikitSearchClient(
+                    username=twikit_username or "",
+                    password=twikit_password or "",
+                    email=twikit_email or "",
+                )
+                if not _tw_client.authenticate():
+                    st.error(f"Twikit auth basarisiz: {_tw_client.last_error or 'Bilinmeyen hata'}")
+                else:
+                    start_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=reply_time_hours)
+                    all_tweets = []
+                    errors = []
+                    progress_bar = st.progress(0)
+                    progress_text = st.empty()
 
-            topic_text = original_text or quick_quote_url
-            topic_source = original_author or ""
+                    for idx, account in enumerate(reply_accounts):
+                        progress_bar.progress((idx + 1) / len(reply_accounts))
+                        progress_text.caption(f"Taraniyor: @{account} ({idx + 1}/{len(reply_accounts)})")
+                        try:
+                            tweets = _tw_client.get_user_tweets(account, count=reply_max_tweets)
+                            if _tw_client.last_error:
+                                errors.append(f"@{account}: {_tw_client.last_error}")
+                            for tw in tweets:
+                                # Filter by time
+                                tw_time = tw.get("created_at")
+                                if tw_time and tw_time >= start_time:
+                                    # Calculate engagement score
+                                    likes = tw.get("like_count", 0)
+                                    rts = tw.get("retweet_count", 0)
+                                    replies = tw.get("reply_count", 0)
+                                    eng_score = rts * 20 + replies * 13.5 + likes * 1
+                                    tw["engagement_score"] = eng_score
+                                    all_tweets.append(tw)
+                        except Exception as e:
+                            errors.append(f"@{account}: {e}")
 
-            if st.button("Quote modu kapat", key="clear_quote"):
-                st.session_state.write_mode = "normal"
-                st.session_state.quote_topic = None
-                for k in ["_quick_quote_cached_id", "_quick_quote_text", "_quick_quote_author"]:
-                    st.session_state.pop(k, None)
-                st.rerun()
+                    progress_bar.empty()
+                    progress_text.empty()
 
-    elif write_mode == "quote" and quote_topic:
-        # Previously set from Scanner page
+                    # Show errors if any
+                    if errors:
+                        with st.expander(f"⚠️ {len(errors)} hesapta hata", expanded=False):
+                            for err in errors[:20]:
+                                st.caption(err)
+
+                    # Filter by minimum engagement
+                    min_eng = st.session_state.get("reply_min_engagement", 50)
+                    if min_eng > 0:
+                        all_tweets = [tw for tw in all_tweets if tw.get("engagement_score", 0) >= min_eng]
+
+                    # Sort by engagement score descending
+                    all_tweets.sort(key=lambda tw: tw.get("engagement_score", 0), reverse=True)
+
+                    # Store in session
+                    st.session_state._reply_scan_results = [
+                        {
+                            "id": tw.get("id", ""),
+                            "text": tw.get("text", ""),
+                            "author": tw.get("author_username", ""),
+                            "author_name": tw.get("author_name", ""),
+                            "likes": tw.get("like_count", 0),
+                            "retweets": tw.get("retweet_count", 0),
+                            "replies": tw.get("reply_count", 0),
+                            "engagement": tw.get("engagement_score", 0),
+                            "url": f"https://x.com/{tw.get('author_username', '')}/status/{tw.get('id', '')}",
+                            "created_at": tw["created_at"].isoformat() if tw.get("created_at") else "",
+                        }
+                        for tw in all_tweets[:100]  # Keep top 100
+                    ]
+
+                    if not all_tweets:
+                        st.warning(f"Son {reply_time_hours} saatte tweet bulunamadi. Zaman araligini artirmayi deneyin.")
+                    else:
+                        st.rerun()
+
+    # --- Display Scan Results ---
+    scan_results = st.session_state.get("_reply_scan_results", [])
+
+    if scan_results:
         st.markdown(f"""
-        <div class="tweet-card" style="border-color:#a5b4fc;">
-            <div>
-                <span class="tweet-author">Orijinal Tweet</span>
-                <span class="tweet-username">@{quote_topic.get('author', '')}</span>
-            </div>
-            <div class="tweet-text">{quote_topic.get('text', '')}</div>
+        <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.15);
+                    border-radius:8px; padding:10px 14px; margin-bottom:12px;">
+            <span style="color:#6ee7b7; font-weight:bold;">{len(scan_results)} tweet bulundu</span>
+            <span style="color:#94a3b8; font-size:13px; margin-left:8px;">Engagement sırasına göre</span>
         </div>
         """, unsafe_allow_html=True)
-        topic_text = quote_topic.get("text", "")
-        topic_source = quote_topic.get("author", "")
 
-        if st.button("Quote modu kapat", key="clear_quote_prev"):
-            st.session_state.write_mode = "normal"
-            st.session_state.quote_topic = None
-            st.rerun()
-    else:
-        st.info("Yukarıya quote yapmak istediğiniz tweet'in URL'sini yapıştırın.")
-        topic_text = ""
-        topic_source = ""
+        for i, tw in enumerate(scan_results[:30]):
+            eng_text = f"❤️ {tw['likes']:,}  🔁 {tw['retweets']:,}  💬 {tw['replies']:,}"
+
+            st.markdown(f"""
+            <div style="background:rgba(15,20,35,0.7); border-left:3px solid #10b981;
+                        padding:10px 14px; margin:6px 0; border-radius:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <span style="color:#6ee7b7; font-size:13px; font-weight:bold;">@{tw['author']}</span>
+                        <span style="color:#64748b; font-size:11px; margin-left:6px;">{tw.get('author_name', '')}</span>
+                    </div>
+                    <span style="color:#94a3b8; font-size:11px;">{eng_text}</span>
+                </div>
+                <div style="color:#f1f5f9; font-size:13px; margin-top:6px; line-height:1.5;">
+                    {tw['text'][:400]}{'...' if len(tw['text']) > 400 else ''}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            if st.button(f"💬 Reply Yaz", key=f"reply_select_{i}", use_container_width=True):
+                st.session_state._reply_selected_tweet = tw
+                st.rerun()
+
+    # --- Selected Tweet: Generate Reply ---
+    selected_reply_tweet = st.session_state.get("_reply_selected_tweet")
+
+    if selected_reply_tweet:
+        st.markdown("---")
+        st.markdown(f"""
+        <div style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3);
+                    border-radius:10px; padding:14px; margin-bottom:12px;">
+            <div style="color:#a5b4fc; font-weight:bold; font-size:14px;">
+                Reply yazılacak tweet — @{selected_reply_tweet['author']}
+            </div>
+            <div style="color:#f1f5f9; font-size:14px; margin-top:8px; line-height:1.6;">
+                {selected_reply_tweet['text']}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        _reply_extra = st.text_input(
+            "Ek talimat (opsiyonel)",
+            placeholder="Örn: 'biraz espirili yaz', 'karşıt görüş belirt'",
+            key="reply_extra_instructions",
+        )
+
+        _rcol1, _rcol2 = st.columns(2)
+        with _rcol1:
+            reply_generate_clicked = st.button(
+                "✨ Reply Üret",
+                type="primary",
+                use_container_width=True,
+                key="reply_generate_btn",
+            )
+        with _rcol2:
+            if st.button("❌ Seçimi Kaldır", use_container_width=True, key="reply_deselect_btn"):
+                st.session_state.pop("_reply_selected_tweet", None)
+                st.session_state.pop("_reply_generated_text", None)
+                st.rerun()
+
+        if reply_generate_clicked:
+            # Get AI provider
+            ai_provider = st.session_state.get("ai_provider", "minimax")
+            if ai_provider == "anthropic":
+                _rp_api_key = get_secret("anthropic_api_key", "")
+                _rp_model = st.session_state.get("ai_model_anthropic", "claude-sonnet-4-6")
+            elif ai_provider == "minimax":
+                _rp_api_key = get_secret("minimax_api_key", "")
+                _rp_model = st.session_state.get("ai_model_minimax", "MiniMax-M2.5")
+            else:
+                _rp_api_key = get_secret("openai_api_key", "")
+                _rp_model = st.session_state.get("ai_model_openai", "gpt-4o")
+
+            if not _rp_api_key:
+                st.error("API anahtarı eksik! Ayarlar sayfasından ekleyin.")
+            else:
+                _rp_samples = load_user_samples()
+                _rp_persona = load_custom_persona()
+                _rp_analyses = load_all_analyses(session_state=st.session_state)
+                # Use tweet text as topic so pool selects relevant style examples
+                _rp_topic = selected_reply_tweet.get("text", "")[:200] if selected_reply_tweet else ""
+                _rp_training = build_training_context(_rp_analyses, topic=_rp_topic) if _rp_analyses else ""
+
+                with st.spinner("Reply üretiliyor..."):
+                    try:
+                        _rp_gen = ContentGenerator(
+                            provider=ai_provider,
+                            api_key=_rp_api_key,
+                            model=_rp_model,
+                            custom_persona=_rp_persona if _rp_persona else None,
+                            training_context=_rp_training if _rp_training else None,
+                        )
+                        reply_text = _rp_gen.generate_reply(
+                            original_tweet=selected_reply_tweet["text"],
+                            original_author=selected_reply_tweet["author"],
+                            style="reply",
+                            additional_context=_reply_extra or "",
+                            user_samples=_rp_samples if _rp_samples else None,
+                        )
+                        st.session_state._reply_generated_text = reply_text
+                    except Exception as e:
+                        st.error(f"Reply üretim hatası: {e}")
+
+        # --- Display Generated Reply ---
+        generated_reply = st.session_state.get("_reply_generated_text")
+        if generated_reply:
+            st.markdown("### 💬 Oluşturulan Reply")
+
+            render_generated_tweet(generated_reply)
+            st.caption(f"📏 {len(generated_reply)} karakter")
+
+            # Edit option
+            edited_reply = st.text_area(
+                "Reply'ı düzenle",
+                value=generated_reply,
+                height=100,
+                key="reply_edit_area",
+                label_visibility="collapsed",
+            )
+            if edited_reply != generated_reply:
+                st.session_state._reply_generated_text = edited_reply
+                generated_reply = edited_reply
+
+            # Action buttons
+            _ra_col1, _ra_col2, _ra_col3 = st.columns(3)
+
+            with _ra_col1:
+                if st.button("🚀 Reply Gönder", type="primary", use_container_width=True, key="reply_send_btn"):
+                    api_key = get_secret("twitter_api_key", "")
+                    api_secret = get_secret("twitter_api_secret", "")
+                    access_token = get_secret("twitter_access_token", "")
+                    access_secret = get_secret("twitter_access_secret", "")
+
+                    if not all([api_key, api_secret, access_token, access_secret]):
+                        st.error("Twitter API anahtarları eksik! Ayarlar sayfasından ekleyin.")
+                    else:
+                        try:
+                            publisher = TweetPublisher(
+                                api_key=api_key,
+                                api_secret=api_secret,
+                                access_token=access_token,
+                                access_secret=access_secret,
+                                bearer_token=get_secret("twitter_bearer_token", ""),
+                            )
+                            result = publisher.post_reply(
+                                text=generated_reply,
+                                reply_to_tweet_id=str(selected_reply_tweet["id"]),
+                            )
+                            if result["success"]:
+                                st.success("Reply gönderildi! 🎉")
+                                st.link_button("X'te Görüntüle", result["url"])
+                                add_to_post_history({
+                                    "text": generated_reply,
+                                    "style": "reply",
+                                    "url": result["url"],
+                                    "tweet_id": result["tweet_id"],
+                                    "posted_at": datetime.datetime.now().isoformat(),
+                                    "type": "reply",
+                                    "reply_to": selected_reply_tweet["id"],
+                                    "reply_to_author": selected_reply_tweet["author"],
+                                })
+                            elif "not allowed" in result.get("error", "").lower() or "not been mentioned" in result.get("error", "").lower():
+                                # Conversation controls block reply - offer quote tweet fallback
+                                st.warning("Bu tweet'e reply kısıtlı (yazar sadece belirli kişilere izin vermiş). Quote Tweet olarak göndermeyi deneyin.")
+                                _qt_result = publisher.post_quote_tweet(
+                                    text=generated_reply,
+                                    quoted_tweet_id=str(selected_reply_tweet["id"]),
+                                )
+                                if _qt_result["success"]:
+                                    st.success("Quote Tweet olarak gönderildi! 🎉")
+                                    st.link_button("X'te Görüntüle", _qt_result["url"])
+                                    add_to_post_history({
+                                        "text": generated_reply,
+                                        "style": "quote",
+                                        "url": _qt_result["url"],
+                                        "tweet_id": _qt_result["tweet_id"],
+                                        "posted_at": datetime.datetime.now().isoformat(),
+                                        "type": "quote",
+                                        "reply_to": selected_reply_tweet["id"],
+                                        "reply_to_author": selected_reply_tweet["author"],
+                                    })
+                                else:
+                                    st.error(f"Quote Tweet de gönderilemedi: {_qt_result['error']}")
+                            else:
+                                st.error(f"Gönderim hatası: {result['error']}")
+                        except Exception as e:
+                            st.error(f"Hata: {e}")
+
+            with _ra_col2:
+                if st.button("🔄 Yeniden Üret", use_container_width=True, key="reply_regenerate_btn"):
+                    st.session_state.pop("_reply_generated_text", None)
+                    st.rerun()
+
+            with _ra_col3:
+                if st.button("📋 Kopyala", use_container_width=True, key="reply_copy_btn"):
+                    st.code(generated_reply, language=None)
+
+    elif not scan_results:
+        st.info("Yukarıdaki 'X'te Tara' butonuna basarak AI hesaplarının son tweetlerini tarayın.")
 
 with mode_tab1:
-    if selected_topic and write_mode != "quote":
+    if write_mode == "quote" and quote_topic:
+        # In quote mode, topic comes from the researched tweet
+        topic_text = quote_topic.get("text", "")
+        topic_source = quote_topic.get("author", "")
+        research_summary = st.session_state.get("research_summary", "")
+        st.info(f"📌 Quote Tweet modu: @{topic_source} — {topic_text[:100]}...")
+        if st.button("Quote modundan çık", key="clear_quote_mode"):
+            st.session_state.write_mode = "normal"
+            st.session_state.quote_topic = None
+            st.session_state.pop("research_summary", None)
+            st.rerun()
+    elif selected_topic:
         st.info(f"📌 Seçilen konu: {selected_topic.get('text', '')[:100]}...")
         topic_text = selected_topic.get("text", "")
         topic_source = selected_topic.get("url", "")
@@ -470,7 +748,7 @@ with mode_tab1:
         if st.button("Konuyu temizle", key="clear_topic"):
             st.session_state.selected_topic = None
             st.rerun()
-    elif write_mode != "quote":
+    else:
         topic_text = st.text_area(
             "Konu / AI Gelişmesi",
             placeholder="Tweet yazmak istediğiniz konuyu veya AI gelişmesini buraya yazın...\n\nÖrnek: Qwen 3 modeli çıktı, coding benchmark'larında GPT-4o'yu geçti\nÖrnek: Amazon'un BAE'deki AWS deposu bombalandı",

@@ -359,6 +359,11 @@ def fetch_article_content(url: str) -> dict | None:
     except Exception:
         return None
 
+    # GitHub repos: use API for much richer data
+    gh_match = _is_github_repo_url(url)
+    if gh_match:
+        return _fetch_github_repo(gh_match[0], gh_match[1])
+
     try:
         # Fetch with retry on timeout
         resp = None
@@ -460,6 +465,108 @@ def fetch_article_content(url: str) -> dict | None:
     except Exception as e:
         print(f"Article fetch error ({url[:60]}): {e}")
         return None
+
+
+def _fetch_github_repo(owner: str, repo: str) -> dict | None:
+    """
+    Fetch detailed GitHub repo info via API: description, README, topics, stats.
+    Returns a rich content dict with all the info an AI needs to write about it.
+    """
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": USER_AGENT,
+    }
+
+    result_parts = []
+
+    # 1. Repo metadata
+    try:
+        resp = requests.get(
+            f"https://api.github.com/repos/{owner}/{repo}",
+            headers=headers, timeout=10
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            meta_lines = [
+                f"# {data.get('full_name', f'{owner}/{repo}')}",
+                f"**Açıklama:** {data.get('description', 'N/A')}",
+                f"**Dil:** {data.get('language', 'N/A')}",
+                f"**Lisans:** {data.get('license', {}).get('name', 'N/A') if data.get('license') else 'N/A'}",
+                f"**Son güncelleme:** {data.get('pushed_at', 'N/A')[:10]}",
+                f"**Oluşturulma:** {data.get('created_at', 'N/A')[:10]}",
+            ]
+            topics = data.get("topics", [])
+            if topics:
+                meta_lines.append(f"**Konular:** {', '.join(topics)}")
+            homepage = data.get("homepage")
+            if homepage:
+                meta_lines.append(f"**Website:** {homepage}")
+            result_parts.append("\n".join(meta_lines))
+    except Exception as e:
+        print(f"GitHub API repo fetch error: {e}")
+
+    # 2. README content
+    try:
+        resp = requests.get(
+            f"https://api.github.com/repos/{owner}/{repo}/readme",
+            headers={**headers, "Accept": "application/vnd.github.v3.raw"},
+            timeout=10
+        )
+        if resp.status_code == 200:
+            readme_text = resp.text
+            # Truncate very long READMEs but keep more than regular articles
+            if len(readme_text) > 8000:
+                readme_text = readme_text[:8000] + "\n\n[README devamı kısaltıldı...]"
+            result_parts.append(f"\n## README İÇERİĞİ:\n{readme_text}")
+    except Exception as e:
+        print(f"GitHub API readme fetch error: {e}")
+
+    # 3. Recent releases (top 3)
+    try:
+        resp = requests.get(
+            f"https://api.github.com/repos/{owner}/{repo}/releases",
+            headers=headers, timeout=10, params={"per_page": 3}
+        )
+        if resp.status_code == 200:
+            releases = resp.json()
+            if releases:
+                release_lines = ["\n## SON SÜRÜMLER:"]
+                for rel in releases[:3]:
+                    tag = rel.get("tag_name", "?")
+                    name = rel.get("name", "")
+                    date = rel.get("published_at", "")[:10]
+                    body = rel.get("body", "")[:500]
+                    release_lines.append(f"**{tag}** ({name}) - {date}")
+                    if body:
+                        release_lines.append(body)
+                result_parts.append("\n".join(release_lines))
+    except Exception as e:
+        print(f"GitHub API releases fetch error: {e}")
+
+    if not result_parts:
+        return None
+
+    full_content = "\n\n".join(result_parts)
+    return {
+        "url": f"https://github.com/{owner}/{repo}",
+        "title": f"GitHub: {owner}/{repo}",
+        "content": full_content,
+        "length": len(full_content),
+        "source": "github_api",
+    }
+
+
+def _is_github_repo_url(url: str) -> tuple[str, str] | None:
+    """Check if URL is a GitHub repo and return (owner, repo) or None."""
+    match = re.match(r'https?://github\.com/([^/]+)/([^/]+?)(?:\.git)?(?:/.*)?$', url)
+    if match:
+        owner, repo = match.group(1), match.group(2)
+        # Skip GitHub pages that aren't repos
+        if owner in ("features", "explore", "topics", "trending", "settings",
+                      "notifications", "marketplace", "sponsors"):
+            return None
+        return owner, repo
+    return None
 
 
 def _resolve_url(url: str, timeout: int = 5) -> str:
@@ -952,13 +1059,26 @@ YAPMA:
 - Tweet'te olmayan rakip ürünleri araştırma (tweet'te karşılaştırma yoksa)
 - 3-4 aramadan fazla yapma (odaklan, dağılma)
 
+⛔ YÜZEYSEL METRİK YASAĞI:
+- Yıldız sayısı (star count), fork sayısı, contributor sayısı gibi popülerlik metriklerini RAPORLAMA
+- Bunlar yüzeysel vanity metrikler — tweet yazarken işe yaramaz
+- Bunun yerine şunları bul: teknik mimari, hangi dili/framework'ü kullanıyor, nasıl çalışıyor, benchmark sonuçları, pratik kullanım, rakiplerden farkı
+
+📦 GitHub REPO İSE:
+- Tweet bir GitHub reposu/açık kaynak projesi hakkındaysa → o projenin GitHub sayfasını ve README'sini oku
+- Teknik detaylara odaklan: mimari, desteklenen özellikler, API tasarımı, kurulum, entegrasyon
+- "Şu kadar star almış" DEĞİL → "şu teknolojiyi kullanıyor, şu problemi çözüyor" yaz
+
 TAMAMLADIĞINDA şu formatta özetle:
 
 ## TWEET'TEKİ İDDIALAR VE DOĞRULAMA
 (Tweet ne diyor → gerçekte durum ne)
 
+## TEKNİK DETAYLAR
+(Mimari, teknoloji, API, desteklenen özellikler, nasıl çalıştığı)
+
 ## GÜNCEL VERİLER
-(Tweet'teki konuya ait spesifik rakamlar, benchmarklar — kaynaklı)
+(Benchmark sonuçları, performans metrikleri, fiyatlandırma — kaynaklı. Yıldız/fork sayısı DEĞİL)
 
 ## EKSİK BAĞLAM
 (Tweet'te söylenmeyen ama aynı konuyla ilgili önemli 1-2 bilgi)"""
@@ -1251,6 +1371,25 @@ def research_topic(tweet_text: str, tweet_author: str = "",
         result.thread_texts = [tweet_text]
         result.full_thread_text = tweet_text
 
+    # === STEP 1.5: Follow links in original tweet/thread ===
+    # Extract URLs from the tweet (GitHub repos, articles, etc.) and fetch their content
+    original_link_articles = []
+    tweet_as_list = [{"text": t} for t in result.thread_texts]
+    original_urls = _extract_urls_from_tweets(tweet_as_list)
+    if original_urls:
+        if progress_callback:
+            progress_callback(f"Tweet'teki {len(original_urls)} link okunuyor...")
+        for i, url in enumerate(original_urls[:3]):
+            if progress_callback:
+                progress_callback(f"Link okunuyor ({i + 1}/{min(len(original_urls), 3)}): {url[:60]}...")
+            article = fetch_article_content(url)
+            if article and article.get("content") and len(article["content"]) > 200:
+                article["source"] = "original_tweet_link"
+                original_link_articles.append(article)
+                result.deep_articles.append(article)
+        if original_link_articles and progress_callback:
+            progress_callback(f"Tweet linklerinden {len(original_link_articles)} sayfa okundu")
+
     # === STEP 2: AI-powered topic extraction ===
     ai_topic = None
     if ai_client:
@@ -1292,7 +1431,14 @@ def research_topic(tweet_text: str, tweet_author: str = "",
             )
 
             if grok_result:
-                result.synthesized_brief = grok_result
+                # Append original tweet link content to Grok's synthesis
+                if original_link_articles:
+                    link_context = "\n\n## TWEET'TEKİ LİNKLERDEN OKUNAN İÇERİK\n"
+                    for art in original_link_articles:
+                        link_context += f"\n### {art.get('title', 'Sayfa')}\n{art['content'][:2000]}\n"
+                    result.synthesized_brief = grok_result + link_context
+                else:
+                    result.synthesized_brief = grok_result
 
                 if progress_callback:
                     progress_callback("🧠 Grok araştırma tamamlandı, X araması yapılıyor...")
@@ -1360,8 +1506,14 @@ def research_topic(tweet_text: str, tweet_author: str = "",
         )
 
         if agentic_result:
-            # Store the AI's autonomous research as the synthesized brief
-            result.synthesized_brief = agentic_result
+            # Append original tweet link content to AI's synthesis
+            if original_link_articles:
+                link_context = "\n\n## TWEET'TEKİ LİNKLERDEN OKUNAN İÇERİK\n"
+                for art in original_link_articles:
+                    link_context += f"\n### {art.get('title', 'Sayfa')}\n{art['content'][:2000]}\n"
+                result.synthesized_brief = agentic_result + link_context
+            else:
+                result.synthesized_brief = agentic_result
 
             if progress_callback:
                 progress_callback("🤖 AI araştırma tamamlandı, X araması yapılıyor...")
@@ -1800,7 +1952,12 @@ KURALLAR:
 - Sadece GERÇEK bilgi yaz, yorum ekleme
 - Tweet konusuyla ALAKASIZ bilgileri dahil etme
 - "Bulunamadı" yazmak yerine o bölümü boş bırak
-- Araştırmada bilgi yoksa bölümü atla"""
+- Araştırmada bilgi yoksa bölümü atla
+
+⛔ FİLTRELE:
+- Yıldız sayısı (star count), fork sayısı, contributor sayısı gibi popülerlik metrikleri DAHIL ETME
+- Bunlar yüzeysel vanity metrikler ve tweet'e değer katmaz
+- Bunun yerine teknik bilgi, mimari detay, benchmark sonuçları, pratik kullanım öne çıkar"""
 
     try:
         if provider == "anthropic":

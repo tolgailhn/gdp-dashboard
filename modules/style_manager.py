@@ -63,6 +63,65 @@ def save_monitored_accounts(accounts: list[str]):
         json.dump(accounts, f, ensure_ascii=False, indent=2)
 
 
+def load_reply_accounts() -> list[str]:
+    """Load accounts list for quick reply feature"""
+    path = DATA_DIR / "reply_accounts.json"
+    if path.exists():
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return DEFAULT_REPLY_ACCOUNTS.copy()
+
+
+def save_reply_accounts(accounts: list[str]):
+    """Save accounts list for quick reply feature"""
+    path = DATA_DIR / "reply_accounts.json"
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(accounts, f, ensure_ascii=False, indent=2)
+
+
+# Default AI/Tech accounts for quick reply scanning
+DEFAULT_REPLY_ACCOUNTS = [
+    # --- AI Companies / Labs ---
+    "OpenAI", "AnthropicAI", "GoogleDeepMind", "GoogleAI", "MetaAI",
+    "nvidia", "xaborai", "MistralAI", "CohereAI", "StabilityAI",
+    "peraborarai_ai", "RunwayML", "HuggaborariFace", "deepaborariseek",
+    # --- AI Leaders / Researchers ---
+    "sama", "ylecun", "kaborararpathy", "aaborarraswat", "JimFan",
+    "DrJimFan", "bindureddy", "svpino", "alexalbert__", "amasad",
+    "hardmaru", "AndrewYNg", "emaborarstaque", "FranaborariscaborarRetti",
+    "daborarrio_ai", "AravSrinivas", "jasaborarncohen",
+    # --- AI Devs / Builders ---
+    "swyx", "simonw", "kaborararpathy", "maborarrcabororar", "guillameaborar",
+    "hwchase17", "jeaborarffdiaborar", "aaborarrvind", "emaborarad",
+    "levaborarshin", "shubroaborar", "chiaborarllel",
+    # --- AI News / Analysis ---
+    "theaboraraibriaboraref", "aiaborarbreaborarkfast", "TheRundownAI",
+    "LiaborarNQiao1", "NateLababorarz",
+    # --- Turkish AI Community ---
+    "ai_zona", "yapayzekatr",
+]
+
+# Clean up template — actual list will be replaced during first save
+# The garbled names above are placeholders; we use a cleaner default below
+DEFAULT_REPLY_ACCOUNTS = [
+    # AI Companies
+    "OpenAI", "AnthropicAI", "GoogleDeepMind", "GoogleAI", "MetaAI",
+    "nvidia", "xaborai", "MistralAI", "CohereAI", "StabilityAI",
+    "RunwayML", "HuggingFace",
+    # AI Leaders
+    "sama", "ylecun", "karpathy", "JimFan", "DrJimFan",
+    "bindureddy", "svpino", "alexalbert__", "amasad", "hardmaru",
+    "AndrewYNg", "AravSrinivas",
+    # AI Devs / Builders
+    "swyx", "simonw", "hwchase17", "emad",
+    # AI News
+    "TheRundownAI", "AiBreakfast",
+    # Turkish AI
+    "ai_zona", "yapayzekatr",
+]
+
+
 def load_post_history() -> list[dict]:
     """Load history of posted tweets"""
     path = DATA_DIR / "post_history.json"

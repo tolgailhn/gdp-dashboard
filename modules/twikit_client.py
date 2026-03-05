@@ -10,10 +10,14 @@ one call uses the loop at a time. The loop is never closed, so twikit's
 internal httpx sessions remain valid across calls.
 """
 import asyncio
+import builtins
+import contextlib
 import datetime
 import re
 import threading
 from pathlib import Path
+
+LOGIN_TIMEOUT = 30  # seconds — login hangs if Twitter asks for interactive input
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 COOKIES_PATH = DATA_DIR / "twikit_cookies.json"
@@ -121,6 +125,35 @@ class TwikitSearchClient:
         """Authenticate with Twitter. Returns True on success."""
         return self._run(self._auth_async())
 
+    class _InputBlockedError(Exception):
+        """Raised when twikit's login() calls input() for interactive verification."""
+        pass
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _block_input():
+        """Temporarily replace builtins.input so that twikit login cannot hang.
+
+        twikit calls input('>>> ') when Twitter asks for interactive
+        verification (LoginAcid) or 2FA without a TOTP secret. In a
+        Streamlit context there is no stdin, so the call blocks forever.
+        This context manager makes input() raise immediately with a
+        descriptive error instead.
+        """
+        original_input = builtins.input
+
+        def _raise_on_input(prompt=""):
+            raise TwikitSearchClient._InputBlockedError(
+                f"Twitter interaktif doğrulama istiyor (prompt: {prompt!r}). "
+                "Streamlit ortamında stdin olmadığı için giriş yapılamaz."
+            )
+
+        builtins.input = _raise_on_input
+        try:
+            yield
+        finally:
+            builtins.input = original_input
+
     async def _auth_async(self) -> bool:
         client = await self._get_client()
         self.last_error = ""
@@ -140,7 +173,9 @@ class TwikitSearchClient:
         except Exception:
             pass
 
-        # 2. Try loading saved cookies from file
+        # 2. Try loading saved cookies via twikit's cookies_file param
+        #    (will be loaded automatically by login() if file exists)
+        #    But also try manual load for cookie-only auth (no credentials)
         if COOKIES_PATH.exists():
             try:
                 client.load_cookies(str(COOKIES_PATH))
@@ -159,26 +194,57 @@ class TwikitSearchClient:
             return False
 
         try:
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+
             login_kwargs = {
                 "auth_info_1": self.username,
                 "auth_info_2": self.email or self.username,
                 "password": self.password,
+                "enable_ui_metrics": False,  # js2py not installed, avoid hang
+                "cookies_file": str(COOKIES_PATH),  # auto-save on success
             }
 
             # Add TOTP for 2FA if provided
             if self.totp_secret:
-                try:
-                    import pyotp
-                    totp = pyotp.TOTP(self.totp_secret)
-                    login_kwargs["totp_secret"] = self.totp_secret
-                except ImportError:
-                    pass
+                login_kwargs["totp_secret"] = self.totp_secret
 
-            await client.login(**login_kwargs)
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
-            client.save_cookies(str(COOKIES_PATH))
+            # Block input() AND enforce timeout to prevent infinite hangs
+            with self._block_input():
+                await asyncio.wait_for(
+                    client.login(**login_kwargs),
+                    timeout=LOGIN_TIMEOUT,
+                )
+
             self._authenticated = True
             return True
+
+        except TwikitSearchClient._InputBlockedError as e:
+            # Twitter asked for interactive verification
+            error_str = str(e)
+            if "2fa" in error_str.lower() or "totp" in error_str.lower():
+                self.last_error = (
+                    "İki faktörlü doğrulama (2FA) gerekli! "
+                    "Ayarlar'da TOTP secret girin veya "
+                    "Twitter'dan geçici olarak 2FA'yı kapatın."
+                )
+            else:
+                self.last_error = (
+                    "Twitter ek doğrulama istiyor (e-posta/telefon onayı). "
+                    "Önce twitter.com'dan tarayıcıyla giriş yapıp doğrulamayı tamamlayın, "
+                    "sonra tekrar deneyin."
+                )
+            print(f"Twikit login blocked (interactive input): {e}")
+            return False
+
+        except asyncio.TimeoutError:
+            self.last_error = (
+                f"Twitter giriş {LOGIN_TIMEOUT} saniyede tamamlanamadı (timeout). "
+                "Twitter sunucuları yavaş olabilir veya hesap doğrulama bekliyor olabilir. "
+                "twitter.com'dan giriş yapıp hesabı kontrol edin."
+            )
+            print(f"Twikit login timeout ({LOGIN_TIMEOUT}s)")
+            return False
+
         except Exception as e:
             error_str = str(e)
             error_type = type(e).__name__
@@ -208,7 +274,7 @@ class TwikitSearchClient:
             elif "2fa" in error_str.lower() or "totp" in error_str.lower():
                 self.last_error = (
                     "İki faktörlü doğrulama (2FA) gerekli! "
-                    "secrets.toml'a twikit_totp_secret ekleyin "
+                    "Ayarlar'da TOTP secret girin "
                     "veya Twitter'dan geçici olarak 2FA'yı kapatın."
                 )
             elif "rate" in error_str.lower() or "429" in error_str:

@@ -99,9 +99,20 @@ class TwikitSearchClient:
             self._client = Client('tr')
         return self._client
 
+    def _bypass_client_transaction(self):
+        """Monkey-patch ClientTransaction to return empty IDs instead of crashing.
+        Called when CT init fails (weak reference, KEY_BYTE, etc.) so that
+        API calls can still be attempted without the X-Client-Transaction-Id header."""
+        client = self._get_client_sync()
+        ct = client.client_transaction
+        ct.home_page_response = "bypassed"  # Prevent re-init attempts
+        ct.generate_transaction_id = lambda *a, **kw: ""
+        print("Twikit: ClientTransaction bypassed (empty transaction IDs)")
+
     def _init_client_transaction(self) -> bool:
         """Initialize ClientTransaction so API calls can generate X-Client-Transaction-Id.
-        Must be called after cookies are set. Returns True on success."""
+        Must be called after cookies are set. Returns True on success.
+        On failure, bypasses CT so API calls can still be attempted."""
         try:
             self._run(self._init_ct_async())
             return True
@@ -121,6 +132,8 @@ class TwikitSearchClient:
             else:
                 self.last_error = f"ClientTransaction init hatası: {type(e).__name__}: {e}"
             print(f"Twikit ClientTransaction init failed: {e}")
+            # Bypass CT so API calls don't crash
+            self._bypass_client_transaction()
             return False
 
     async def _init_ct_async(self):
@@ -272,6 +285,10 @@ class TwikitSearchClient:
     async def _login_async(self) -> bool:
         """Async login with username/password. Only called when no cookies."""
         client = self._client
+
+        # Pre-bypass ClientTransaction to prevent "weak reference to NoneType"
+        # crash inside twikit's login() when Twitter homepage can't be parsed.
+        self._bypass_client_transaction()
 
         try:
             DATA_DIR.mkdir(parents=True, exist_ok=True)

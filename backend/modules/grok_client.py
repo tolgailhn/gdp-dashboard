@@ -7,8 +7,11 @@ import json
 import re
 import datetime
 import requests as http_requests
-import streamlit as st
 from openai import OpenAI
+
+
+# In-memory cost tracking (replaces _grok_state)
+_grok_state: dict = {"grok_usage_cost": 0.0, "grok_call_count": 0}
 
 
 # Grok model for research — grok-4-1-fast has best agentic search capabilities
@@ -24,7 +27,7 @@ def _get_api_key(api_key: str = None) -> str:
     """Get xAI API key from parameter or secrets."""
     if api_key:
         return api_key
-    from modules.ui_components import get_secret
+    from backend.modules._compat import get_secret
     return get_secret("xai_api_key", "")
 
 
@@ -155,13 +158,13 @@ def _track_cost(input_tokens: int = 0, output_tokens: int = 0):
     total = (input_tokens / 1_000_000 * COST_INPUT_PER_M +
              output_tokens / 1_000_000 * COST_OUTPUT_PER_M)
 
-    if "grok_usage_cost" not in st.session_state:
-        st.session_state["grok_usage_cost"] = 0.0
-    if "grok_call_count" not in st.session_state:
-        st.session_state["grok_call_count"] = 0
+    if "grok_usage_cost" not in _grok_state:
+        _grok_state["grok_usage_cost"] = 0.0
+    if "grok_call_count" not in _grok_state:
+        _grok_state["grok_call_count"] = 0
 
-    st.session_state["grok_usage_cost"] += total
-    st.session_state["grok_call_count"] += 1
+    _grok_state["grok_usage_cost"] += total
+    _grok_state["grok_call_count"] += 1
 
 
 # ========================================================================
@@ -535,21 +538,21 @@ def test_grok_connection(api_key: str) -> dict:
 
 def has_grok_key() -> bool:
     """Check if Grok API key is configured."""
-    from modules.ui_components import get_secret
-    return bool(get_secret("xai_api_key", ""))
+    from backend.config import get_settings
+    return bool(get_settings().xai_api_key)
 
 
 def get_grok_cost() -> float:
     """Get current session's estimated Grok cost."""
-    return st.session_state.get("grok_usage_cost", 0.0)
+    return _grok_state.get("grok_usage_cost", 0.0)
 
 
 def get_grok_call_count() -> int:
     """Get current session's Grok API call count."""
-    return st.session_state.get("grok_call_count", 0)
+    return _grok_state.get("grok_call_count", 0)
 
 
 def reset_grok_cost():
     """Reset Grok usage cost and call count for the current session."""
-    st.session_state["grok_usage_cost"] = 0.0
-    st.session_state["grok_call_count"] = 0
+    _grok_state["grok_usage_cost"] = 0.0
+    _grok_state["grok_call_count"] = 0

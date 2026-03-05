@@ -506,12 +506,12 @@ class TwitterScanner:
                      email: str = None):
         """Initialize Twikit client for free Twitter search"""
         try:
-            from modules.twikit_client import TwikitSearchClient, COOKIES_PATH
+            from backend.modules.twikit_client import TwikitSearchClient, COOKIES_PATH
 
             # Check if cookies exist in secrets.toml
             has_secret_cookies = False
             try:
-                from modules.ui_components import get_secret
+                from backend.modules._compat import get_secret
                 has_secret_cookies = (
                     bool(get_secret("twikit_auth_token", ""))
                     and bool(get_secret("twikit_ct0", ""))

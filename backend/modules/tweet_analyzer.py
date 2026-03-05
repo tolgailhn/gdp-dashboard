@@ -722,7 +722,7 @@ def build_training_context(analyses: list[dict], max_examples: int = 50, topic: 
 
         _pool_used = False
         try:
-            from modules.tweet_pool import load_pool, select_examples, build_pool_training_context
+            from backend.modules.tweet_pool import load_pool, select_examples, build_pool_training_context
             _pool_data = load_pool()
             if _pool_data.get("pool") and len(_pool_data["pool"]) >= 10:
                 _pool_used = True
@@ -831,7 +831,7 @@ def build_training_context(analyses: list[dict], max_examples: int = 50, topic: 
 
     # --- TWEET HAVUZU ÖRNEKLERİ + HAVUZ DNA'SI ---
     try:
-        from modules.tweet_pool import load_pool, select_examples, build_pool_training_context, get_pool_dna
+        from backend.modules.tweet_pool import load_pool, select_examples, build_pool_training_context, get_pool_dna
         pool_data = load_pool()
         if pool_data.get("pool") and len(pool_data["pool"]) >= 10:
             # --- ÖNCELİK 1: Claude AI tarafından oluşturulan derin DNA ---

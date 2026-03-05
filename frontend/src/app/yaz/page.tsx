@@ -1,10 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { generateTweet, researchTopic } from "@/lib/api";
 
 export default function YazPage() {
+  return (
+    <Suspense fallback={<div className="text-[var(--text-secondary)]">Yukleniyor...</div>}>
+      <YazContent />
+    </Suspense>
+  );
+}
+
+function YazContent() {
   const searchParams = useSearchParams();
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("default");

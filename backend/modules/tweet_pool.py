@@ -76,7 +76,7 @@ def add_tweets_to_pool(pool_data: dict, tweets: list[dict], author: str,
 
     Returns: eklenen tweet sayısı
     """
-    from modules.tweet_analyzer import calculate_engagement_score
+    from backend.modules.tweet_analyzer import calculate_engagement_score
 
     existing_fingerprints = {t["text"][:100] for t in pool_data["pool"]}
     added = 0
@@ -248,7 +248,7 @@ def fetch_and_add_account(twikit_client, username: str,
 
     Returns: {"username": str, "fetched": int, "added": int, "skipped": int}
     """
-    from modules.tweet_analyzer import pull_user_tweets
+    from backend.modules.tweet_analyzer import pull_user_tweets
 
     if progress_callback:
         progress_callback(f"@{username} tweet'leri çekiliyor...")
@@ -322,7 +322,7 @@ def import_from_analyses(min_engagement: float = 100,
 
     Returns: list of {"username", "fetched", "added", "skipped"} per account
     """
-    from modules.tweet_analyzer import load_all_analyses
+    from backend.modules.tweet_analyzer import load_all_analyses
 
     analyses = load_all_analyses()
     if not analyses:
@@ -391,7 +391,7 @@ def regenerate_pool_dna() -> dict:
 
     Returns: {"dna": dict, "tweet_count": int, "account_count": int}
     """
-    from modules.tweet_analyzer import _extract_style_dna
+    from backend.modules.tweet_analyzer import _extract_style_dna
 
     pool_data = load_pool()
     pool = pool_data.get("pool", [])

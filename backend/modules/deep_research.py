@@ -1422,7 +1422,7 @@ def research_topic(tweet_text: str, tweet_author: str = "",
             progress_callback("🧠 Grok otonom araştırma modunda — X ve web'de geziniyor...")
 
         try:
-            from modules.grok_client import grok_agentic_research
+            from backend.modules.grok_client import grok_agentic_research
             grok_result = grok_agentic_research(
                 tweet_text=result.full_thread_text or tweet_text,
                 tweet_author=tweet_author,
@@ -1578,7 +1578,7 @@ def research_topic(tweet_text: str, tweet_author: str = "",
             if progress_callback:
                 progress_callback("🧠 Grok ile web'de araştırma yapılıyor...")
             try:
-                from modules.grok_client import grok_search_web
+                from backend.modules.grok_client import grok_search_web
                 for query in search_queries.get("general", [])[:3]:
                     grok_results = grok_search_web(query, max_results=6)
                     for r in grok_results:
@@ -1657,7 +1657,7 @@ def research_topic(tweet_text: str, tweet_author: str = "",
             if progress_callback:
                 progress_callback("🧠 Grok ile son haberler aranıyor...")
             try:
-                from modules.grok_client import grok_search_web
+                from backend.modules.grok_client import grok_search_web
                 for query in search_queries.get("news", [])[:2]:
                     news_results = grok_search_web(f"{query} news latest", max_results=5)
                     for n in news_results:
@@ -2580,7 +2580,7 @@ def research_topic_from_text(
         if progress_callback:
             progress_callback("🧠 Grok otonom araştırma modunda — X ve web'de geziniyor...")
         try:
-            from modules.grok_client import grok_agentic_research
+            from backend.modules.grok_client import grok_agentic_research
             grok_result = grok_agentic_research(
                 tweet_text=topic_input,
                 tweet_author="",
@@ -2650,7 +2650,7 @@ def research_topic_from_text(
             if progress_callback:
                 progress_callback("🧠 Grok ile web'de araştırma yapılıyor...")
             try:
-                from modules.grok_client import grok_search_web
+                from backend.modules.grok_client import grok_search_web
                 for query in search_queries.get("general", [])[:4]:
                     if progress_callback:
                         progress_callback(f"🧠 Grok ile aranıyor: {query[:50]}...")
@@ -2971,7 +2971,7 @@ def discover_topics(ai_client=None, ai_model: str = None,
     # Grok shortcut: use Grok's native X + web search for topic discovery
     if engine == "grok":
         try:
-            from modules.grok_client import grok_discover_topics
+            from backend.modules.grok_client import grok_discover_topics
             if progress_callback:
                 progress_callback("🧠 Grok ile güncel gelişmeler keşfediliyor...")
             topics = grok_discover_topics(

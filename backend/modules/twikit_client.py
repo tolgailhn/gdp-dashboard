@@ -204,7 +204,7 @@ class TwikitSearchClient:
         if not skip_cookies:
             # 1. Try cookies from secrets.toml
             try:
-                from modules.ui_components import get_secret
+                from backend.modules._compat import get_secret
                 secret_auth = get_secret("twikit_auth_token", "")
                 secret_ct0 = get_secret("twikit_ct0", "")
                 if secret_auth and secret_ct0:

@@ -8,7 +8,8 @@ import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-DATA_DIR = Path(__file__).parent.parent / "data"
+# data/ is at project root (two levels up from backend/modules/)
+DATA_DIR = Path(__file__).parent.parent.parent / "data"
 TZ_TR = ZoneInfo("Europe/Istanbul")
 
 

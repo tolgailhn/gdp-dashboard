@@ -76,12 +76,20 @@ body {
 
 /* Action cards */
 .action-card {
-  @apply glass-card cursor-pointer text-center;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.6));
+  border: 1px solid var(--border);
+  border-radius: 16px;
   padding: 24px 16px;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  text-align: center;
 }
 
 .action-card:hover {
   border-color: var(--accent-cyan);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(34, 211, 238, 0.1);
 }
 
 .action-icon {
@@ -108,7 +116,12 @@ body {
 
 /* Sidebar nav */
 .nav-item {
-  @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  transition: all 0.2s ease;
   color: var(--text-secondary);
 }
 
@@ -125,9 +138,15 @@ body {
 
 /* Button styles */
 .btn-primary {
-  @apply px-6 py-3 rounded-xl font-semibold transition-all;
+  display: inline-block;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  transition: all 0.2s ease;
   background: linear-gradient(135deg, var(--accent-blue), #818cf8);
   color: white;
+  border: none;
+  cursor: pointer;
 }
 
 .btn-primary:hover {
@@ -135,13 +154,29 @@ body {
   box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
 }
 
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .btn-secondary {
-  @apply px-6 py-3 rounded-xl font-semibold transition-all;
+  display: inline-block;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  transition: all 0.2s ease;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   color: var(--text-primary);
+  cursor: pointer;
 }
 
 .btn-secondary:hover {
   border-color: var(--accent-blue);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

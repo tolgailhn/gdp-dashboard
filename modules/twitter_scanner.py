@@ -311,6 +311,8 @@ def is_turkish_account(text: str, author_name: str = "") -> bool:
 
 def generate_content_summary(text: str, category: str) -> str:
     """Generate a brief Turkish summary of what the tweet is about"""
+    if not text:
+        return ""
     text_lower = text.lower()
     summaries = []
 
@@ -383,6 +385,8 @@ CATEGORY_KEYWORDS = {
 
 def is_spam(text: str) -> bool:
     """Check if a tweet is likely spam or irrelevant"""
+    if not text:
+        return True
     # Too short to be meaningful AI content
     if len(text.strip()) < MIN_TWEET_LENGTH:
         return True
@@ -433,6 +437,8 @@ def is_ai_relevant(text: str) -> bool:
 
 def categorize_topic(text: str) -> str:
     """Categorize a tweet into an AI topic category"""
+    if not text:
+        return "general"
     text_lower = text.lower()
     best_category = "Genel"
     best_score = 0
@@ -502,13 +508,13 @@ class TwitterScanner:
         try:
             from modules.twikit_client import TwikitSearchClient, COOKIES_PATH
 
-            # Check if cookies exist in st.secrets
+            # Check if cookies exist in secrets.toml
             has_secret_cookies = False
             try:
-                import streamlit as _st
+                from modules.ui_components import get_secret
                 has_secret_cookies = (
-                    bool(_st.secrets.get("twikit_auth_token", ""))
-                    and bool(_st.secrets.get("twikit_ct0", ""))
+                    bool(get_secret("twikit_auth_token", ""))
+                    and bool(get_secret("twikit_ct0", ""))
                 )
             except Exception:
                 pass
@@ -528,6 +534,13 @@ class TwitterScanner:
                 self.twikit_error = self.twikit_client.last_error
             else:
                 self.twikit_error = ""
+
+            # Log authentication result for debugging
+            if self.use_twikit:
+                src = getattr(self.twikit_client, '_cookie_source', 'unknown')
+                print(f"TwitterScanner: Twikit aktif (kaynak: {src})")
+            elif self.twikit_client:
+                print(f"TwitterScanner: Twikit başarısız: {self.twikit_error}")
         except ImportError:
             self.twikit_error = "twikit paketi kurulu değil"
         except Exception as e:
@@ -650,14 +663,19 @@ class TwitterScanner:
                     query, count=max_results, since_date=since_date
                 )
                 if not results and self.twikit_client.last_error:
-                    self.search_errors.append(self.twikit_client.last_error)
+                    err = self.twikit_client.last_error
+                    # Only add unique errors (avoid flooding with same message)
+                    if err not in self.search_errors:
+                        self.search_errors.append(err)
                 topics = []
                 for d in results:
                     if d.get('created_at') and d['created_at'] >= start_time:
                         topics.append(self._dict_to_topic(d))
                 return topics
             except Exception as e:
-                self.search_errors.append(f"Twikit arama hatası: {e}")
+                err_msg = f"Twikit arama hatası: {type(e).__name__}: {e}"
+                if err_msg not in self.search_errors:
+                    self.search_errors.append(err_msg)
 
         # Fallback: Twitter API v2
         if not self.client:

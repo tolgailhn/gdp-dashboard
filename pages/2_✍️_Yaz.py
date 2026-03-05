@@ -8,7 +8,7 @@ import re
 from urllib.parse import quote as url_quote
 from modules.ui_components import (inject_custom_css, check_password,
                                    render_generated_tweet, render_thread_preview,
-                                   get_secret, render_sidebar_nav,
+                                   get_secret, render_sidebar_nav, render_step_header,
                                    render_research_engine_toggle, render_agentic_mode_toggle,
                                    render_media_suggestions, render_media_source_selector,
                                    render_image_analysis)
@@ -83,45 +83,35 @@ with mode_tab2:
         key="research_quote_url"
     )
 
-    # Research source selection
-    st.markdown("##### 🔎 Araştırma Kaynakları")
-    st.caption("Hangi kaynaklarda araştırma yapılsın? Sadece X seçersen 40-50 tweet bulur, daha odaklı sonuç verir.")
-    src_cols = st.columns(4)
-    with src_cols[0]:
-        src_x = st.checkbox("𝕏 Twitter/X", value=True, key="src_x",
-                             help="X'te ilgili tweetleri ara (önerilen)")
-    with src_cols[1]:
-        src_web = st.checkbox("🌐 Web", value=False, key="src_web",
-                               help="Web'de makale ve teknik detay ara")
-    with src_cols[2]:
-        src_reddit = st.checkbox("🔴 Reddit", value=False, key="src_reddit",
-                                  help="Reddit tartışmalarını ara")
-    with src_cols[3]:
-        src_news = st.checkbox("📰 Haberler", value=False, key="src_news",
-                                help="Son haberleri ara")
+    # --- Grouped Research Settings ---
+    with st.expander("⚙️ Araştırma Ayarları", expanded=True):
+        # Sources row
+        st.caption("Hangi kaynaklarda araştırma yapılsın?")
+        src_cols = st.columns(4)
+        with src_cols[0]:
+            src_x = st.checkbox("𝕏 X", value=True, key="src_x")
+        with src_cols[1]:
+            src_web = st.checkbox("🌐 Web", value=False, key="src_web")
+        with src_cols[2]:
+            src_reddit = st.checkbox("🔴 Reddit", value=False, key="src_reddit")
+        with src_cols[3]:
+            src_news = st.checkbox("📰 Haber", value=False, key="src_news")
 
-    # Research engine selection
-    st.markdown("##### 🔧 Araştırma Motoru")
-    research_engine = render_research_engine_toggle(key_suffix="quote")
+        # Engine + Agentic + Verify in compact rows
+        rc1, rc2 = st.columns(2)
+        with rc1:
+            research_engine = render_research_engine_toggle(key_suffix="quote")
+        with rc2:
+            deep_verify = st.checkbox(
+                "🔍 Doğrulama Modu",
+                value=False,
+                key="deep_verify",
+                help="Tweet yazıldıktan sonra iddiaları internette doğrular ve düzeltir."
+            )
 
-    # Research mode selection
-    st.markdown("##### 🧠 Araştırma Modu")
-    agentic_mode = render_agentic_mode_toggle(key_suffix="quote")
-    use_agentic = (agentic_mode == "standard")
-    use_grok_agentic = (agentic_mode == "grok")
-
-    deep_verify = st.checkbox(
-        "🔍 Doğrulama Modu",
-        value=False,
-        key="deep_verify",
-        help="Tweet yazıldıktan sonra iddiaları internette doğrular ve düzeltir. "
-             "Otonom araştırmayla birlikte kullanılabilir."
-    )
-
-    if use_agentic:
-        st.caption("🤖 AI modeli kendi başına web araması yapacak, makale okuyacak ve bilgi toplayacak.")
-    elif use_grok_agentic:
-        st.caption("🧠 Grok modeli X'te ve web'de kendi başına gezinerek araştırma yapacak.")
+        agentic_mode = render_agentic_mode_toggle(key_suffix="quote")
+        use_agentic = (agentic_mode == "standard")
+        use_grok_agentic = (agentic_mode == "grok")
 
     research_clicked = st.button(
         "🔬 Araştır ve Quote Tweet Yaz",
@@ -495,62 +485,49 @@ with mode_tab1:
 
         # --- Topic Research Section ---
         if topic_text:
-            st.markdown("""
-            <div style="background:rgba(99,102,241,0.06); border:1px solid rgba(255,255,255,0.06); border-radius:8px;
-                        padding:12px; margin:8px 0;">
-                <div style="color:#e2e8f0; font-size:13px; font-weight:bold;">🔍 Konu Araştır</div>
-                <div style="color:#94a3b8; font-size:11px;">Konuyu X'te, web'de araştır ve AI ile doğrula</div>
-            </div>
-            """, unsafe_allow_html=True)
+            with st.expander("🔍 Konu Araştır", expanded=False):
+                st.caption("Konuyu X'te, web'de araştır ve AI ile doğrula")
 
-            # Row 1: Time + Source + Button
-            rcol1, rcol2, rcol3 = st.columns([1, 1, 2])
-            with rcol1:
-                topic_research_time = st.selectbox(
-                    "Zaman",
-                    options=[6, 12, 24],
-                    format_func=lambda x: f"Son {x} saat",
-                    index=1,
-                    key="topic_research_time"
-                )
-            with rcol2:
-                topic_search_mode = st.selectbox(
-                    "Kaynak",
-                    options=["x_only", "x_and_web"],
-                    format_func=lambda x: "𝕏 Sadece X" if x == "x_only" else "𝕏+🌐 X + Web",
-                    index=0,
-                    key="topic_search_mode"
-                )
-            with rcol3:
-                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                rcol1, rcol2 = st.columns(2)
+                with rcol1:
+                    topic_research_time = st.selectbox(
+                        "Zaman",
+                        options=[6, 12, 24],
+                        format_func=lambda x: f"Son {x} saat",
+                        index=1,
+                        key="topic_research_time"
+                    )
+                with rcol2:
+                    topic_search_mode = st.selectbox(
+                        "Kaynak",
+                        options=["x_only", "x_and_web"],
+                        format_func=lambda x: "𝕏 Sadece X" if x == "x_only" else "𝕏+🌐 X + Web",
+                        index=0,
+                        key="topic_search_mode"
+                    )
+
+                rc1, rc2 = st.columns(2)
+                with rc1:
+                    topic_engine = render_research_engine_toggle(key_suffix="topic")
+                with rc2:
+                    topic_deep_verify = st.checkbox(
+                        "🔍 Doğrulama Modu",
+                        value=False,
+                        key="topic_deep_verify",
+                        help="Tweet yazıldıktan sonra içindeki iddiaları internette doğrular."
+                    )
+
+                topic_agentic_mode = render_agentic_mode_toggle(key_suffix="topic")
+                topic_use_agentic = (topic_agentic_mode == "standard")
+                topic_use_grok_agentic = (topic_agentic_mode == "grok")
+
                 btn_label = "🔍 X'te Araştır" if topic_search_mode == "x_only" else "🔍 X + Web Araştır"
                 topic_research_clicked = st.button(
                     btn_label,
-                    type="secondary",
+                    type="primary",
                     use_container_width=True,
                     key="topic_research_btn",
                 )
-
-            # Research engine selection
-            topic_engine = render_research_engine_toggle(key_suffix="topic")
-
-            # Row 2: AI Research Modes
-            topic_agentic_mode = render_agentic_mode_toggle(key_suffix="topic")
-            topic_use_agentic = (topic_agentic_mode == "standard")
-            topic_use_grok_agentic = (topic_agentic_mode == "grok")
-
-            topic_deep_verify = st.checkbox(
-                "🔍 Doğrulama Modu",
-                value=False,
-                key="topic_deep_verify",
-                help="Tweet yazıldıktan sonra içindeki iddiaları internette doğrular "
-                     "ve hatalı bilgileri düzeltir."
-            )
-
-            if topic_use_agentic:
-                st.caption("🤖 AI, yazdığın konudaki spesifik iddiaları/ürünleri/rakamları internette araştıracak.")
-            elif topic_use_grok_agentic:
-                st.caption("🧠 Grok, X'te ve web'de kendi başına gezinerek konu hakkında araştırma yapacak.")
 
             if topic_research_clicked:
                 # Build AI client for topic extraction
@@ -585,7 +562,8 @@ with mode_tab1:
                 twikit_email = get_secret("twikit_email", "")
 
                 _scanner = None
-                if bearer_token or twikit_username:
+                _has_tw_cookies = bool(get_secret("twikit_auth_token", "")) and bool(get_secret("twikit_ct0", ""))
+                if bearer_token or twikit_username or _has_tw_cookies:
                     from modules.twitter_scanner import TwitterScanner
                     _scanner = TwitterScanner(
                         bearer_token=bearer_token,
@@ -683,111 +661,70 @@ if "research_summary" in st.session_state:
 
 st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
 
-# --- Writing Style ---
-st.markdown("### 🎨 Yazım Tarzı")
+# --- Style & Format Selection (compact) ---
+st.markdown("""
+<div class="step-panel">
+    <div class="step-header">
+        <span class="step-number">2</span>
+        <span class="step-title">Tarz & Format</span>
+    </div>
+</div>
+""".strip(), unsafe_allow_html=True)
 
 styles = get_available_styles()
-
-# Don't show quote_tweet in normal mode (it has its own dedicated tab)
 if write_mode != "quote":
     display_styles = {k: v for k, v in styles.items() if k != "quote_tweet"}
 else:
     display_styles = {k: v for k, v in styles.items()}
 
 style_options = list(display_styles.keys())
-style_labels = [display_styles[k]["name"] for k in style_options]
-
-cols = st.columns(len(style_options))
 selected_style = st.session_state.get("selected_style", style_options[0])
-
-for i, (key, label) in enumerate(zip(style_options, style_labels)):
-    with cols[i]:
-        desc = display_styles[key]["description"]
-        is_selected = selected_style == key
-        border = "2px solid #6366f1" if is_selected else "1px solid rgba(255,255,255,0.06)"
-        bg = "rgba(99,102,241,0.06)" if is_selected else "rgba(15,20,35,0.7)"
-
-        st.markdown(f"""
-        <div style="background:{bg}; border:{border}; border-radius:12px;
-                    padding:12px; text-align:center; min-height:80px;">
-            <div style="color:#f1f5f9; font-weight:bold; font-size:14px;">{label}</div>
-            <div style="color:#94a3b8; font-size:11px; margin-top:4px;">{desc}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("Seç" if not is_selected else "✓ Seçili",
-                     key=f"style_{key}", use_container_width=True,
-                     type="primary" if is_selected else "secondary"):
-            st.session_state.selected_style = key
-            st.rerun()
-
-# --- Tweet Format ---
-st.markdown("### 📐 Format")
 
 _format_options = get_available_formats("tweet")
 selected_format = st.session_state.get("selected_format", "spark")
 
-# Show formats in 2 rows of 3
-_fmt_keys = list(_format_options.keys())
-_row1_keys = _fmt_keys[:3]
-_row2_keys = _fmt_keys[3:]
+col_style, col_fmt = st.columns(2)
+with col_style:
+    selected_style = st.selectbox(
+        "🎨 Yazım Tarzı",
+        options=style_options,
+        format_func=lambda x: f"{display_styles[x]['name']}",
+        index=style_options.index(selected_style) if selected_style in style_options else 0,
+        key="style_selectbox"
+    )
+    st.session_state.selected_style = selected_style
+    # Show description
+    st.caption(display_styles[selected_style]["description"])
 
-for row_keys in [_row1_keys, _row2_keys]:
-    fmt_cols = st.columns(len(row_keys))
-    for i, fkey in enumerate(row_keys):
-        finfo = _format_options[fkey]
-        with fmt_cols[i]:
-            is_sel = selected_format == fkey
-            border = "2px solid #6366f1" if is_sel else "1px solid rgba(255,255,255,0.06)"
-            bg = "rgba(99,102,241,0.06)" if is_sel else "rgba(15,20,35,0.7)"
-
-            st.markdown(f"""
-            <div style="background:{bg}; border:{border}; border-radius:12px;
-                        padding:10px; text-align:center; min-height:78px;">
-                <div style="color:#f1f5f9; font-weight:bold; font-size:13px;">{finfo['icon']} {finfo['name']}</div>
-                <div style="color:#a5b4fc; font-size:12px;">{finfo['range']}</div>
-                <div style="color:#94a3b8; font-size:11px; margin-top:2px;">{finfo['description']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            if st.button("Seç" if not is_sel else "✓ Seçili",
-                         key=f"format_{fkey}", use_container_width=True,
-                         type="primary" if is_sel else "secondary"):
-                st.session_state.selected_format = fkey
-                st.rerun()
-
-st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
+with col_fmt:
+    fmt_keys = list(_format_options.keys())
+    selected_format = st.selectbox(
+        "📐 Format",
+        options=fmt_keys,
+        format_func=lambda x: f"{_format_options[x]['icon']} {_format_options[x]['name']} ({_format_options[x]['range']})",
+        index=fmt_keys.index(selected_format) if selected_format in fmt_keys else 0,
+        key="format_selectbox"
+    )
+    st.session_state.selected_format = selected_format
+    st.caption(_format_options[selected_format]["description"])
 
 # --- Additional Options ---
-with st.expander("Ek Seçenekler"):
+with st.expander("⚙️ Gelişmiş Ayarlar"):
     col1, col2 = st.columns(2)
 
     with col1:
         additional_instructions = st.text_area(
             "Ek talimatlar (opsiyonel)",
-            placeholder="Örn: 'Biraz daha teknik yaz', 'Espri ekle', 'Kısa tut'",
+            placeholder="Örn: 'Biraz daha teknik yaz', 'Espri ekle'",
             height=80,
             key="additional_instructions"
         )
 
     with col2:
-        thread_mode = st.checkbox("Thread modunda yaz", key="thread_mode")
+        thread_mode = st.checkbox("🧵 Thread modunda yaz", key="thread_mode")
         if thread_mode:
             thread_count = st.slider("Thread uzunluğu", 3, 10, 5, key="thread_count")
-
         use_premium = st.checkbox("X Premium (karakter sınırı yok)", value=True, key="use_premium")
-
-    # Training data indicator (session_state first, then files)
-    _analyses = load_all_analyses(session_state=st.session_state)
-    if _analyses:
-        usernames = [a.get("username", "?") for a in _analyses]
-        st.markdown(f"""
-        <div style="background:rgba(99,102,241,0.06); border:1px solid rgba(255,255,255,0.06); border-radius:8px;
-                    padding:8px 12px; margin:4px 0; font-size:12px; color:#94a3b8;">
-            🧠 Egitim verisi aktif: {', '.join(['@' + u for u in usernames[:5]])}
-            ({sum(a.get('analysis', {}).get('total_tweets', 0) for a in _analyses)} tweet analiz edilmis)
-        </div>
-        """, unsafe_allow_html=True)
 
     # AI Provider selection
     col1, col2 = st.columns(2)
@@ -810,41 +747,33 @@ with st.expander("Ek Seçenekler"):
                 "claude-sonnet-4-6": "Sonnet 4.6 (Dengeli)",
                 "claude-haiku-4-5-20251001": "Haiku 4.5 (Hızlı/Ucuz)",
             }
-            ai_model = st.selectbox(
-                "Model",
-                options=list(model_labels.keys()),
-                format_func=lambda x: model_labels[x],
-                key="ai_model_anthropic"
-            )
+            ai_model = st.selectbox("Model", options=list(model_labels.keys()),
+                format_func=lambda x: model_labels[x], key="ai_model_anthropic")
         elif ai_provider == "minimax":
             minimax_labels = {
                 "MiniMax-M2.5": "M2.5 (En Güçlü)",
                 "MiniMax-M2.5-highspeed": "M2.5 Highspeed (Hızlı)",
                 "MiniMax-M2": "M2 (Agent/Coding)",
             }
-            ai_model = st.selectbox(
-                "Model",
-                options=list(minimax_labels.keys()),
-                format_func=lambda x: minimax_labels[x],
-                key="ai_model_minimax"
-            )
+            ai_model = st.selectbox("Model", options=list(minimax_labels.keys()),
+                format_func=lambda x: minimax_labels[x], key="ai_model_minimax")
         else:
             openai_labels = {
                 "gpt-4.1": "GPT-4.1 (En Güçlü)",
                 "gpt-4o": "GPT-4o (Dengeli)",
                 "gpt-4o-mini": "GPT-4o Mini (Hızlı/Ucuz)",
             }
-            ai_model = st.selectbox(
-                "Model",
-                options=list(openai_labels.keys()),
-                format_func=lambda x: openai_labels[x],
-                key="ai_model_openai"
-            )
+            ai_model = st.selectbox("Model", options=list(openai_labels.keys()),
+                format_func=lambda x: openai_labels[x], key="ai_model_openai")
 
-st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
+    # Training data indicator
+    _analyses = load_all_analyses(session_state=st.session_state)
+    if _analyses:
+        usernames = [a.get("username", "?") for a in _analyses]
+        st.caption(f"🧠 Eğitim verisi: {', '.join(['@' + u for u in usernames[:5]])} ({sum(a.get('analysis', {}).get('total_tweets', 0) for a in _analyses)} tweet)")
 
 # --- Generate Button ---
-col1, col2 = st.columns(2)
+col1, col2 = st.columns([3, 1])
 
 with col1:
     generate_clicked = st.button(
@@ -857,7 +786,7 @@ with col1:
 
 with col2:
     regenerate_clicked = st.button(
-        "🔄 Yeniden Üret",
+        "🔄 Yeniden",
         use_container_width=True,
         key="regenerate_btn",
         disabled="generated_tweet" not in st.session_state
@@ -891,7 +820,7 @@ if generate_clicked or regenerate_clicked:
 
     # Load training data from tweet analyses (session_state first, then files)
     analyses = load_all_analyses(session_state=st.session_state)
-    training_context = build_training_context(analyses) if analyses else ""
+    training_context = build_training_context(analyses, topic=topic_text) if analyses else ""
 
     with st.spinner("Tweet üretiliyor... 🤖"):
         try:
@@ -1147,21 +1076,21 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
                 st.markdown(f"- {_sug}")
 
     # Edit option
-    edited_text = st.text_area(
-        "Düzenle (opsiyonel)",
-        value=tweet_text,
-        height=150,
-        key="edit_tweet"
-    )
+    with st.expander("✏️ Düzenle", expanded=False):
+        edited_text = st.text_area(
+            "Tweet metnini düzenle",
+            value=tweet_text,
+            height=150,
+            key="edit_tweet",
+            label_visibility="collapsed"
+        )
 
-    if edited_text != tweet_text:
-        st.session_state.generated_tweet = edited_text
-        tweet_text = edited_text
+        if edited_text != tweet_text:
+            st.session_state.generated_tweet = edited_text
+            tweet_text = edited_text
 
-    st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
-
-    # Action buttons
-    col1, col2, col3, col4, col5 = st.columns(5)
+    # Action buttons - Row 1: Primary
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         if st.button("🚀 API Paylaş", type="primary", use_container_width=True, key="publish_btn"):
@@ -1217,12 +1146,10 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
         if write_mode == "quote" and quote_topic and quote_topic.get("id"):
             tid = str(quote_topic['id'])
             quote_url = f"https://x.com/i/status/{tid}"
-            # Strip the quoted tweet URL from text (AI sometimes appends it)
             clean_text = re.sub(
                 r'https?://(?:twitter\.com|x\.com)/\S+/status/' + re.escape(tid) + r'\S*',
                 '', tweet_text
             ).strip()
-            # attachment_url creates a proper quote tweet in X (not just a link)
             intent_url = (
                 f"https://x.com/intent/tweet"
                 f"?text={url_quote(clean_text)}"
@@ -1231,9 +1158,16 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
         else:
             intent_url = f"https://x.com/intent/tweet?text={url_quote(tweet_text)}"
         st.link_button("📱 X'te Aç", intent_url, use_container_width=True)
-        st.caption("Görsel ekleyebilirsin")
 
     with col3:
+        if st.button("📋 Kopyala", use_container_width=True, key="copy_btn"):
+            st.code(tweet_text, language=None)
+            st.info("Yukarıdaki metni kopyalayabilirsiniz")
+
+    # Action buttons - Row 2: Secondary
+    col4, col5, col6 = st.columns(3)
+
+    with col4:
         if st.button("💾 Taslak Kaydet", use_container_width=True, key="save_draft_btn"):
             add_draft(
                 text=tweet_text,
@@ -1241,11 +1175,6 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
                 style=selected_style
             )
             st.success("Taslak kaydedildi!")
-
-    with col4:
-        if st.button("📋 Kopyala", use_container_width=True, key="copy_btn"):
-            st.code(tweet_text, language=None)
-            st.info("Yukarıdaki metni kopyalayabilirsiniz")
 
     with col5:
         if st.button("🔄 Yeniden Yaz", use_container_width=True, key="rewrite_btn"):
@@ -1262,7 +1191,7 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
                     model = st.session_state.get("ai_model_openai", "gpt-4o")
 
                 _rw_analyses = load_all_analyses(session_state=st.session_state)
-                _rw_training = build_training_context(_rw_analyses) if _rw_analyses else ""
+                _rw_training = build_training_context(_rw_analyses, topic=topic_text) if _rw_analyses else ""
                 _rw_persona = load_custom_persona()
                 generator = ContentGenerator(
                     provider=ai_provider, api_key=api_key, model=model,
@@ -1279,15 +1208,12 @@ if "generated_tweet" in st.session_state and st.session_state.generated_tweet:
             except Exception as e:
                 st.error(f"Yeniden yazma hatası: {e}")
 
-    # --- Media Finder Section ---
-    st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
+    with col6:
+        pass  # reserved for future action
 
+    # --- Media Finder Section ---
     with st.expander("🖼️ Görsel/Video Bul", expanded=False):
-        st.markdown("""
-        <div style="color:#94a3b8; font-size:12px; margin-bottom:10px;">
-            Tweet'inize eklemek için konuyla ilgili görsel ve video önerileri alın
-        </div>
-        """, unsafe_allow_html=True)
+        st.caption("Tweet'inize eklemek için konuyla ilgili görsel ve video önerileri alın")
 
         media_source = render_media_source_selector(key_suffix="yaz")
 

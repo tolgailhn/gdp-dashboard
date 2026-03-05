@@ -583,7 +583,7 @@ def import_analyses_from_json(json_str: str, session_state=None) -> int:
     return count
 
 
-def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
+def build_training_context(analyses: list[dict], max_examples: int = 50, topic: str = "") -> str:
     """
     Build optimized training context string from saved analyses.
     This gets injected into the system prompt for MiniMax/AI.
@@ -671,45 +671,50 @@ def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
                 )
 
         # --- SECTION 2: CURATED TWEET EXAMPLES (style training) ---
-        all_originals = analysis.get("all_original_tweets", [])
+        # Havuz varsa bu bölüm atlanır, havuz örnekleri for döngüsünden sonra eklenir
+        _pool_used = False
+        try:
+            from modules.tweet_pool import load_pool, select_examples, build_pool_training_context
+            _pool_data = load_pool()
+            if _pool_data.get("pool") and len(_pool_data["pool"]) >= 10:
+                _pool_used = True
+        except Exception:
+            pass
 
-        if all_originals:
-            # Smart sampling: mix of top performers + random mid-range + recent
-            # This gives AI diverse style examples without blowing token limits
-            sorted_by_score = sorted(all_originals, key=lambda x: x.get("engagement_score", 0), reverse=True)
+        if not _pool_used:
+            # Fallback: havuz yoksa mevcut curated examples sistemi
+            all_originals = analysis.get("all_original_tweets", [])
 
-            # Top 10 (high engagement - what works)
-            top_examples = sorted_by_score[:10]
-            # Mid-range 10 (typical style - not just viral ones)
-            mid_start = len(sorted_by_score) // 3
-            mid_examples = sorted_by_score[mid_start:mid_start + 10]
-            # Recent 10 (latest style evolution)
-            sorted_by_date = sorted(
-                all_originals,
-                key=lambda x: x.get("created_at", ""),
-                reverse=True
-            )
-            recent_examples = sorted_by_date[:10]
+            if all_originals:
+                sorted_by_score = sorted(all_originals, key=lambda x: x.get("engagement_score", 0), reverse=True)
 
-            # Deduplicate
-            seen_texts = set()
-            curated = []
-            for t in top_examples + mid_examples + recent_examples:
-                text = t.get("text", "").strip()
-                if text and len(text) > 30 and text[:100] not in seen_texts:
-                    seen_texts.add(text[:100])
-                    # Truncate very long tweets
-                    display_text = text[:500] + "..." if len(text) > 500 else text
-                    curated.append(f'"{display_text}"')
-
-            if curated:
-                context_parts.append(
-                    f"### @{username} - YAZIM TARZI ÖRNEKLERİ "
-                    f"({len(curated)} seçilmiş tweet / toplam {len(all_originals)} orijinal):\n"
-                    f"Bu tweet'lerin TONUNU, CÜMLE YAPISINI, KELİME SEÇİMİNİ "
-                    f"ve YAZIM TARZINI birebir model al:\n\n"
-                    + "\n---\n".join(curated)
+                top_examples = sorted_by_score[:10]
+                mid_start = len(sorted_by_score) // 3
+                mid_examples = sorted_by_score[mid_start:mid_start + 10]
+                sorted_by_date = sorted(
+                    all_originals,
+                    key=lambda x: x.get("created_at", ""),
+                    reverse=True
                 )
+                recent_examples = sorted_by_date[:10]
+
+                seen_texts = set()
+                curated = []
+                for t in top_examples + mid_examples + recent_examples:
+                    text = t.get("text", "").strip()
+                    if text and len(text) > 30 and text[:100] not in seen_texts:
+                        seen_texts.add(text[:100])
+                        display_text = text[:500] + "..." if len(text) > 500 else text
+                        curated.append(f'"{display_text}"')
+
+                if curated:
+                    context_parts.append(
+                        f"### @{username} - YAZIM TARZI ÖRNEKLERİ "
+                        f"({len(curated)} seçilmiş tweet / toplam {len(all_originals)} orijinal):\n"
+                        f"Bu tweet'lerin TONUNU, CÜMLE YAPISINI, KELİME SEÇİMİNİ "
+                        f"ve YAZIM TARZINI birebir model al:\n\n"
+                        + "\n---\n".join(curated)
+                    )
 
         # --- SECTION 3: ENGAGEMENT STRATEGY ---
         top_tweets = analysis.get("top_tweets", [])
@@ -777,6 +782,19 @@ def build_training_context(analyses: list[dict], max_examples: int = 20) -> str:
             context_parts.append(
                 f"### @{username} - Tarz Analizi:\n{short_report}"
             )
+
+    # --- TWEET HAVUZU ÖRNEKLERİ (for döngüsünden sonra, tüm hesaplar için tek sefer) ---
+    try:
+        from modules.tweet_pool import load_pool, select_examples, build_pool_training_context
+        pool_data = load_pool()
+        if pool_data.get("pool") and len(pool_data["pool"]) >= 10:
+            selected = select_examples(pool_data, topic=topic, count=max_examples)
+            if selected:
+                pool_context = build_pool_training_context(selected)
+                if pool_context:
+                    context_parts.append(pool_context)
+    except Exception:
+        pass  # Havuz yoksa veya hata varsa sessizce geç
 
     if not context_parts:
         return ""

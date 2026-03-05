@@ -43,11 +43,11 @@ main_tab1, main_tab2 = st.tabs(["🔍 Tara", "🌐 Keşfet"])
 with main_tab1:
 
     # --- Controls ---
-    col1, col2, col3 = st.columns([2, 2, 1])
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         time_range = st.selectbox(
-            "Zaman Aralığı",
+            "⏱️ Zaman",
             options=[6, 12, 24],
             format_func=lambda x: f"Son {x} saat",
             index=2,
@@ -56,7 +56,7 @@ with main_tab1:
 
     with col2:
         category_filter = st.selectbox(
-            "Kategori Filtresi",
+            "📁 Kategori",
             options=["Tümü", "Yeni Model", "Model Güncelleme", "Araştırma",
                      "Benchmark", "Açık Kaynak", "API/Platform", "AI Ajanlar",
                      "Görüntü/Video", "Endüstri"],
@@ -65,34 +65,27 @@ with main_tab1:
 
     with col3:
         max_results = st.number_input(
-            "Maks. Sonuç",
+            "📊 Maks. Sonuç",
             min_value=5, max_value=50, value=20,
             key="scan_max_results"
         )
 
-    # Custom search query
-    with st.expander("Gelişmiş Arama"):
+    # Custom search query + filters
+    with st.expander("⚙️ Gelişmiş Arama", expanded=False):
         custom_query = st.text_input(
-            "Özel arama sorgusu (opsiyonel)",
+            "Özel arama sorgusu",
             placeholder="Örn: 'Qwen release' veya 'GPT-5 leak'",
             key="custom_query"
         )
-        col1, col2, col3 = st.columns(3)
-        with col1:
+        fc1, fc2, fc3 = st.columns(3)
+        with fc1:
             min_likes = st.number_input("Min. beğeni", min_value=0, value=10, key="min_likes")
-        with col2:
-            min_retweets = st.number_input("Min. retweet", min_value=0, value=5, key="min_retweets")
-        with col3:
-            min_followers = st.number_input("Min. takipçi", min_value=0, value=500, key="min_followers",
-                                            help="Hesabın minimum takipçi sayısı")
+        with fc2:
+            min_retweets = st.number_input("Min. RT", min_value=0, value=5, key="min_retweets")
+        with fc3:
+            min_followers = st.number_input("Min. takipçi", min_value=0, value=500, key="min_followers")
 
-        # Grok search engine toggle
-        st.markdown("---")
         scan_engine = render_research_engine_toggle(key_suffix="scan")
-        if scan_engine == "grok":
-            st.caption("🧠 Özel arama sorguları Grok ile X'te aranacak. Hesap taraması standart yöntemle devam eder.")
-
-    st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
 
     # --- Scan Button ---
     scan_clicked = st.button("🔍 Tara", type="primary", use_container_width=True, key="scan_button")
@@ -111,7 +104,9 @@ with main_tab1:
         twikit_password = get_secret("twikit_password", "")
         twikit_email = get_secret("twikit_email", "")
 
-        if not bearer_token and not twikit_username:
+        # Also check for cookie-only auth (no username needed)
+        _has_twikit_cookies = bool(get_secret("twikit_auth_token", "")) and bool(get_secret("twikit_ct0", ""))
+        if not bearer_token and not twikit_username and not _has_twikit_cookies:
             st.error("Twitter API veya Twikit bilgileri yapılandırılmamış! Ayarlar sayfasından ekleyin.")
             st.stop()
 
@@ -129,7 +124,8 @@ with main_tab1:
                 )
 
                 if scanner.use_twikit:
-                    st.success("Twikit ile taranıyor (ücretsiz)")
+                    src = getattr(scanner.twikit_client, '_cookie_source', '')
+                    st.success(f"Twikit ile taranıyor (ücretsiz, kaynak: {src})")
                 elif scanner.client:
                     st.info("Twitter API ile taranıyor")
                 else:
@@ -229,8 +225,6 @@ with main_tab1:
             for i, (cat, count) in enumerate(sorted(categories.items(), key=lambda x: -x[1])):
                 with cols[i % len(cols)]:
                     st.metric(cat, count)
-
-        st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
 
         # --- View Toggle ---
         view_mode = st.radio(
@@ -336,7 +330,7 @@ with main_tab1:
                 with col3:
                     st.link_button("🔗 X'te Aç", topic.url, use_container_width=True)
 
-                st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
+                st.markdown("")
 
     elif "scan_results" in st.session_state:
         st.info("Arama kriterlerine uygun sonuç bulunamadı. Filtreleri değiştirmeyi deneyin.")
@@ -365,8 +359,6 @@ with main_tab1:
 
         st.caption(f"Toplam {len(all_accounts)} hesap izleniyor ({len(DEFAULT_AI_ACCOUNTS)} varsayılan + {len(custom_accounts)} özel)")
 
-        st.markdown("<div class='custom-divider'></div>", unsafe_allow_html=True)
-
         st.info("💡 **İpucu:** Tarama butonuna basarak son saatlerin AI gelişmelerini bulun. "
                 "Sonra bir konu seçip tweet yazabilirsiniz.")
 
@@ -384,21 +376,23 @@ with main_tab2:
     </div>
     """, unsafe_allow_html=True)
 
-    discover_col1, discover_col2 = st.columns([2, 1])
-    with discover_col1:
+    dc1, dc2, dc3 = st.columns(3)
+    with dc1:
         discover_time = st.selectbox(
-            "Zaman Aralığı",
+            "⏱️ Zaman",
             options=[6, 12, 24],
             format_func=lambda x: f"Son {x} saat",
             index=1,
             key="discover_time"
         )
-    with discover_col2:
+    with dc2:
         discover_max = st.number_input(
-            "Maks. Sonuç",
+            "📊 Maks. Sonuç",
             min_value=10, max_value=100, value=30,
             key="discover_max"
         )
+    with dc3:
+        st.write("")  # spacer
 
     # === AI DEVELOPMENT DISCOVERY QUERIES ===
     # Specific AI model names + action verbs (avoids zodiac/gaming false positives)
@@ -432,8 +426,8 @@ with main_tab2:
         '(arxiv.org) (AI OR LLM OR "machine learning" OR transformer OR diffusion) -is:retweet lang:en min_faves:20',
     ]
 
-    # Grok discover engine toggle
-    discover_engine = render_research_engine_toggle(key_suffix="discover")
+    with st.expander("⚙️ Gelişmiş Ayarlar", expanded=False):
+        discover_engine = render_research_engine_toggle(key_suffix="discover")
 
     discover_clicked = st.button("🌐 Keşfet", type="primary", use_container_width=True, key="discover_button")
 
@@ -484,7 +478,8 @@ with main_tab2:
         twikit_password = get_secret("twikit_password", "")
         twikit_email = get_secret("twikit_email", "")
 
-        if not bearer_token and not twikit_username:
+        _has_twikit_cookies2 = bool(get_secret("twikit_auth_token", "")) and bool(get_secret("twikit_ct0", ""))
+        if not bearer_token and not twikit_username and not _has_twikit_cookies2:
             st.error("Twitter API veya Twikit bilgileri yapılandırılmamış!")
             st.stop()
 
@@ -606,8 +601,6 @@ with main_tab2:
                         st.switch_page("pages/2_✍️_Yaz.py")
                 with gh_col3:
                     st.link_button("🔗 X'te Aç", t.url, use_container_width=True)
-
-            st.markdown("---")
 
         # --- AI Developments Section ---
         if new_items:

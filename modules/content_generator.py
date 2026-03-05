@@ -974,7 +974,7 @@ DİKKAT: Bu örneklerdeki TONU referans al ama ASLA birebir kopyalama.
         if self.training_context:
             tc = self.training_context
             # Allow generous training context — this is the most important part
-            max_training_chars = 10000
+            max_training_chars = 25000
             if len(tc) > max_training_chars:
                 tc = tc[:max_training_chars] + "\n\n[Eğitim verisi uzunluk limiti nedeniyle kısaltıldı]"
             prompt += f"""

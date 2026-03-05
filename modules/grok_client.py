@@ -98,8 +98,56 @@ def _grok_responses_api(
         }
 
     except Exception as e:
-        print(f"Grok Responses API error: {e}")
+        error_str = str(e)
+        if "Tunnel connection failed" in error_str or "ProxyError" in str(type(e)):
+            print(f"Grok Responses API: Proxy hatası - {e}")
+        elif "ConnectError" in str(type(e).__name__) or "name resolution" in error_str.lower():
+            print(f"Grok Responses API: Bağlantı hatası - {e}")
+        else:
+            print(f"Grok Responses API error: {type(e).__name__}: {e}")
         return None
+
+
+def _parse_json_array(text: str) -> list:
+    """Robustly extract a JSON array from text that may contain markdown/extra content."""
+    # Strip markdown code fences
+    text = re.sub(r'```(?:json)?\s*', '', text).strip()
+    text = text.rstrip('`').strip()
+
+    # Try direct parse first
+    try:
+        result = json.loads(text)
+        if isinstance(result, list):
+            return result
+    except json.JSONDecodeError:
+        pass
+
+    # Find the outermost [...] by bracket matching
+    start = text.find('[')
+    if start == -1:
+        return []
+
+    depth = 0
+    for i in range(start, len(text)):
+        if text[i] == '[':
+            depth += 1
+        elif text[i] == ']':
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(text[start:i + 1])
+                except json.JSONDecodeError:
+                    break
+
+    # Fallback: non-greedy regex
+    json_match = re.search(r'\[.*?\]', text, re.DOTALL)
+    if json_match:
+        try:
+            return json.loads(json_match.group())
+        except json.JSONDecodeError:
+            pass
+
+    return []
 
 
 def _track_cost(input_tokens: int = 0, output_tokens: int = 0):
@@ -151,15 +199,8 @@ Return ONLY the JSON array, no other text."""},
     _track_cost(result["input_tokens"], result["output_tokens"])
 
     raw = re.sub(r'<think>.*?</think>', '', result["text"], flags=re.DOTALL).strip()
-    json_match = re.search(r'\[.*?\]', raw, re.DOTALL)
-    if json_match:
-        try:
-            results = json.loads(json_match.group())
-            return results[:max_results]
-        except json.JSONDecodeError:
-            pass
-
-    return []
+    parsed = _parse_json_array(raw)
+    return parsed[:max_results] if parsed else []
 
 
 def grok_search_web(query: str, api_key: str = None, max_results: int = 8) -> list[dict]:
@@ -192,15 +233,8 @@ Return ONLY the JSON array, no other text."""},
     _track_cost(result["input_tokens"], result["output_tokens"])
 
     raw = re.sub(r'<think>.*?</think>', '', result["text"], flags=re.DOTALL).strip()
-    json_match = re.search(r'\[.*?\]', raw, re.DOTALL)
-    if json_match:
-        try:
-            results = json.loads(json_match.group())
-            return results[:max_results]
-        except json.JSONDecodeError:
-            pass
-
-    return []
+    parsed = _parse_json_array(raw)
+    return parsed[:max_results] if parsed else []
 
 
 # ========================================================================
@@ -369,14 +403,7 @@ yeni model çıkışları, önemli güncellemeler. Genel kategori isimleri DEĞ�
 
     # Parse JSON response
     raw = re.sub(r'<think>.*?</think>', '', result["text"], flags=re.DOTALL).strip()
-    json_match = re.search(r'\[.*?\]', raw, re.DOTALL)
-    if json_match:
-        try:
-            return json.loads(json_match.group())
-        except json.JSONDecodeError:
-            pass
-
-    return []
+    return _parse_json_array(raw)
 
 
 # ========================================================================

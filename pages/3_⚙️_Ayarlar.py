@@ -15,6 +15,7 @@ from modules.style_manager import (
     load_post_history
 )
 
+
 # Page config
 st.set_page_config(
     page_title="Ayarlar | X AI Otomasyon",
@@ -115,16 +116,20 @@ with tab1:
     with col_tw2:
         from pathlib import Path
         cookies_path = Path(__file__).parent.parent / "data" / "twikit_cookies.json"
-        if cookies_path.exists():
-            st.success("Twikit Cookie: Kayıtlı ✓")
+        _has_secrets_cookies = bool(get_secret("twikit_auth_token", "")) and bool(get_secret("twikit_ct0", ""))
+        if _has_secrets_cookies:
+            st.success("Twikit Cookie: secrets.toml'da kayıtlı ✓")
+        elif cookies_path.exists():
+            st.success("Twikit Cookie: Dosyadan kayıtlı ✓")
         else:
             st.info("Twikit Cookie: Henüz oluşturulmadı")
 
     col_test1, col_test2 = st.columns(2)
     with col_test1:
         if st.button("🔗 Twikit Bağlantısını Test Et", use_container_width=True):
-            if twikit_user and twikit_pass:
-                with st.spinner("Twikit ile giriş yapılıyor... (bu 10-20 saniye sürebilir)"):
+            _has_cookies = bool(get_secret("twikit_auth_token", "")) and bool(get_secret("twikit_ct0", ""))
+            if twikit_user or _has_cookies:
+                with st.spinner("Twikit ile bağlantı test ediliyor... (bu 10-30 saniye sürebilir)"):
                     try:
                         from modules.twikit_client import TwikitSearchClient
                         tc = TwikitSearchClient(
@@ -132,7 +137,15 @@ with tab1:
                             totp_secret=twikit_totp
                         )
                         if tc.authenticate():
-                            st.success("Twikit bağlantısı başarılı! Cookie kaydedildi.")
+                            # Cookie yüklendi, şimdi gerçek bağlantıyı test et
+                            st.info(f"Cookie yüklendi (kaynak: {tc._cookie_source}). Gerçek arama testi yapılıyor...")
+                            if tc.validate_connection():
+                                st.success("Twikit bağlantısı başarılı! Arama çalışıyor.")
+                            else:
+                                st.warning(f"Cookie yüklendi ama arama testi başarısız: {tc.last_error}")
+                                st.info("Cookie'ler geçersiz/süresi dolmuş olabilir. "
+                                        "Tarayıcıdan yeni cookie yapıştırmayı veya cookie'leri silip "
+                                        "yeniden test etmeyi deneyin.")
                         else:
                             st.error(f"Twikit giriş başarısız!")
                             if tc.last_error:
@@ -175,7 +188,7 @@ with tab1:
                     except Exception as e:
                         st.error(f"Twikit beklenmeyen hatası: {e}")
             else:
-                st.error("Twikit kullanıcı adı ve şifre gerekli! secrets.toml'a ekleyin.")
+                st.error("Twikit kullanıcı adı veya cookie gerekli! secrets.toml'a ekleyin veya aşağıdan cookie yapıştırın.")
 
     with col_test2:
         if st.button("🗑️ Twikit Cookie Sil", use_container_width=True):

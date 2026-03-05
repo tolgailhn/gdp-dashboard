@@ -643,6 +643,19 @@ def get_format_info(format_key: str) -> dict | None:
     return CONTENT_FORMATS.get(mapped)
 
 
+# Styles eligible for auto-selection (exclude quote_tweet — it's context-specific)
+_AUTO_STYLE_POOL = [k for k in WRITING_STYLES if k != "quote_tweet"]
+
+
+def _resolve_style(style: str, context: str = "tweet") -> str:
+    """Resolve 'auto' style to a random pick. Pass-through for explicit styles."""
+    if style == "auto":
+        if context == "quote_tweet":
+            return random.choice([k for k in WRITING_STYLES if k != "quote_tweet"] + ["quote_tweet"])
+        return random.choice(_AUTO_STYLE_POOL)
+    return style
+
+
 class ContentGenerator:
     """AI-powered content generator for natural tweet writing"""
 
@@ -703,6 +716,9 @@ class ContentGenerator:
         if not self.client:
             raise ValueError("API client not initialized. Check your API key.")
 
+        # Resolve "auto" style to a random pick
+        style = _resolve_style(style, context="tweet")
+
         system_prompt = self._build_system_prompt(style, user_samples)
         user_prompt = self._build_user_prompt(
             topic_text, topic_source, style, additional_context,
@@ -723,6 +739,9 @@ class ContentGenerator:
         """Generate a quote tweet with optional deep research context"""
         if not self.client:
             raise ValueError("API client not initialized. Check your API key.")
+
+        # Resolve "auto" style to a random pick
+        style = _resolve_style(style, context="quote_tweet")
 
         system_prompt = self._build_system_prompt(style, user_samples)
 
@@ -946,6 +965,7 @@ Her tweet'i --- ile ayır. Sadece tweet metinlerini yaz."""
         if not self.client:
             raise ValueError("API client not initialized. Check your API key.")
 
+        style = _resolve_style(style, context="tweet")
         system_prompt = self._build_system_prompt(style)
 
         user_prompt = f"""Aşağıdaki tweet taslağını yeniden yaz. Daha doğal, daha etkileyici yap.
@@ -1641,9 +1661,18 @@ def score_tweet(tweet_text: str, content_format: str = "spark",
     }
 
 
+_AUTO_STYLE_ENTRY = {
+    "auto": {
+        "name": "Otomatik",
+        "description": "Her seferinde rastgele bir yazım tarzı seçilir — çeşitlilik için",
+        "prompt": "",  # resolved at generation time
+    }
+}
+
+
 def get_available_styles() -> dict:
-    """Get all available writing styles"""
-    return WRITING_STYLES
+    """Get all available writing styles (with 'auto' option first)"""
+    return {**_AUTO_STYLE_ENTRY, **WRITING_STYLES}
 
 
 def get_style_info(style_key: str) -> dict:

@@ -359,6 +359,11 @@ def fetch_article_content(url: str) -> dict | None:
     except Exception:
         return None
 
+    # GitHub repos: use API for much richer data
+    gh_match = _is_github_repo_url(url)
+    if gh_match:
+        return _fetch_github_repo(gh_match[0], gh_match[1])
+
     try:
         # Fetch with retry on timeout
         resp = None
@@ -460,6 +465,111 @@ def fetch_article_content(url: str) -> dict | None:
     except Exception as e:
         print(f"Article fetch error ({url[:60]}): {e}")
         return None
+
+
+def _fetch_github_repo(owner: str, repo: str) -> dict | None:
+    """
+    Fetch detailed GitHub repo info via API: description, README, topics, stats.
+    Returns a rich content dict with all the info an AI needs to write about it.
+    """
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": USER_AGENT,
+    }
+
+    result_parts = []
+
+    # 1. Repo metadata
+    try:
+        resp = requests.get(
+            f"https://api.github.com/repos/{owner}/{repo}",
+            headers=headers, timeout=10
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            meta_lines = [
+                f"# {data.get('full_name', f'{owner}/{repo}')}",
+                f"**Açıklama:** {data.get('description', 'N/A')}",
+                f"**Dil:** {data.get('language', 'N/A')}",
+                f"**Yıldız:** {data.get('stargazers_count', 0):,}",
+                f"**Fork:** {data.get('forks_count', 0):,}",
+                f"**Açık Issue:** {data.get('open_issues_count', 0):,}",
+                f"**Lisans:** {data.get('license', {}).get('name', 'N/A') if data.get('license') else 'N/A'}",
+                f"**Son güncelleme:** {data.get('pushed_at', 'N/A')[:10]}",
+                f"**Oluşturulma:** {data.get('created_at', 'N/A')[:10]}",
+            ]
+            topics = data.get("topics", [])
+            if topics:
+                meta_lines.append(f"**Konular:** {', '.join(topics)}")
+            homepage = data.get("homepage")
+            if homepage:
+                meta_lines.append(f"**Website:** {homepage}")
+            result_parts.append("\n".join(meta_lines))
+    except Exception as e:
+        print(f"GitHub API repo fetch error: {e}")
+
+    # 2. README content
+    try:
+        resp = requests.get(
+            f"https://api.github.com/repos/{owner}/{repo}/readme",
+            headers={**headers, "Accept": "application/vnd.github.v3.raw"},
+            timeout=10
+        )
+        if resp.status_code == 200:
+            readme_text = resp.text
+            # Truncate very long READMEs but keep more than regular articles
+            if len(readme_text) > 8000:
+                readme_text = readme_text[:8000] + "\n\n[README devamı kısaltıldı...]"
+            result_parts.append(f"\n## README İÇERİĞİ:\n{readme_text}")
+    except Exception as e:
+        print(f"GitHub API readme fetch error: {e}")
+
+    # 3. Recent releases (top 3)
+    try:
+        resp = requests.get(
+            f"https://api.github.com/repos/{owner}/{repo}/releases",
+            headers=headers, timeout=10, params={"per_page": 3}
+        )
+        if resp.status_code == 200:
+            releases = resp.json()
+            if releases:
+                release_lines = ["\n## SON SÜRÜMLER:"]
+                for rel in releases[:3]:
+                    tag = rel.get("tag_name", "?")
+                    name = rel.get("name", "")
+                    date = rel.get("published_at", "")[:10]
+                    body = rel.get("body", "")[:500]
+                    release_lines.append(f"**{tag}** ({name}) - {date}")
+                    if body:
+                        release_lines.append(body)
+                result_parts.append("\n".join(release_lines))
+    except Exception as e:
+        print(f"GitHub API releases fetch error: {e}")
+
+    if not result_parts:
+        return None
+
+    full_content = "\n\n".join(result_parts)
+    return {
+        "url": f"https://github.com/{owner}/{repo}",
+        "title": f"GitHub: {owner}/{repo}",
+        "content": full_content,
+        "length": len(full_content),
+        "source": "github_api",
+    }
+
+
+def _is_github_repo_url(url: str) -> tuple[str, str] | None:
+    """Check if URL is a GitHub repo and return (owner, repo) or None."""
+    match = re.match(r'https?://github\.com/([^/]+)/([^/]+?)(?:\.git)?(?:/.*)?$', url)
+    if match:
+        owner, repo = match.group(1), match.group(2)
+        # Skip GitHub pages that aren't repos
+        if owner in ("features", "explore", "topics", "trending", "settings",
+                      "notifications", "marketplace", "sponsors"):
+            return None
+        return owner, repo
+    return None
 
 
 def _resolve_url(url: str, timeout: int = 5) -> str:

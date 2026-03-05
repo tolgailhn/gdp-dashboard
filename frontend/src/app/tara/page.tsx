@@ -4,10 +4,17 @@ import { useState } from "react";
 import { scanTopics } from "@/lib/api";
 
 interface Topic {
-  title: string;
-  summary: string;
+  text: string;
+  author_name: string;
+  author_username: string;
   category: string;
   engagement_score: number;
+  relevance_score: number;
+  like_count: number;
+  retweet_count: number;
+  reply_count: number;
+  url: string;
+  content_summary: string;
   media_urls: string[];
 }
 
@@ -24,6 +31,7 @@ export default function TaraPage() {
     try {
       const result = (await scanTopics(timeRange, category)) as {
         topics: Topic[];
+        total_scanned: number;
       };
       setTopics(result.topics);
     } catch (e) {
@@ -98,18 +106,33 @@ export default function TaraPage() {
             <div key={i} className="glass-card">
               <div className="flex justify-between items-start gap-4">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-[var(--text-primary)]">
-                    {topic.title}
-                  </h3>
-                  <p className="text-sm text-[var(--text-secondary)] mt-2">
-                    {topic.summary}
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs text-[var(--text-secondary)]">
+                      @{topic.author_username}
+                    </span>
+                    {topic.author_name && (
+                      <span className="text-xs text-[var(--text-secondary)] opacity-60">
+                        ({topic.author_name})
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-[var(--text-primary)] whitespace-pre-line">
+                    {topic.text}
                   </p>
-                  <div className="flex gap-2 mt-3">
+                  {topic.content_summary && (
+                    <p className="text-xs text-[var(--text-secondary)] mt-2 italic">
+                      {topic.content_summary}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-2 mt-3">
                     <span className="text-xs bg-[var(--accent-blue)]/20 text-[var(--accent-blue)] px-2 py-1 rounded">
                       {topic.category}
                     </span>
                     <span className="text-xs bg-[var(--accent-green)]/20 text-[var(--accent-green)] px-2 py-1 rounded">
-                      Score: {topic.engagement_score.toFixed(0)}
+                      Engagement: {topic.engagement_score.toFixed(0)}
+                    </span>
+                    <span className="text-xs bg-[var(--accent-amber)]/20 text-[var(--accent-amber)] px-2 py-1 rounded">
+                      {topic.like_count} like &middot; {topic.retweet_count} RT &middot; {topic.reply_count} reply
                     </span>
                     {topic.media_urls.length > 0 && (
                       <span className="text-xs bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] px-2 py-1 rounded">
@@ -118,12 +141,24 @@ export default function TaraPage() {
                     )}
                   </div>
                 </div>
-                <a
-                  href={`/yaz?topic=${encodeURIComponent(topic.title)}`}
-                  className="btn-primary text-sm whitespace-nowrap"
-                >
-                  Tweet Yaz
-                </a>
+                <div className="flex flex-col gap-2">
+                  <a
+                    href={`/yaz?topic=${encodeURIComponent(topic.content_summary || topic.text.slice(0, 200))}`}
+                    className="btn-primary text-sm whitespace-nowrap"
+                  >
+                    Tweet Yaz
+                  </a>
+                  {topic.url && (
+                    <a
+                      href={topic.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-secondary text-sm text-center whitespace-nowrap"
+                    >
+                      Kaynak
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
           ))}

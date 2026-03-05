@@ -99,6 +99,45 @@ class TwikitSearchClient:
             self._client = Client('tr')
         return self._client
 
+    def _init_client_transaction(self) -> bool:
+        """Initialize ClientTransaction so API calls can generate X-Client-Transaction-Id.
+        Must be called after cookies are set. Returns True on success."""
+        try:
+            self._run(self._init_ct_async())
+            return True
+        except Exception as e:
+            error_str = str(e)
+            if "KEY_BYTE" in error_str or "Couldn't get key" in error_str:
+                self.last_error = (
+                    "Twitter güvenlik token'ı alınamadı (ClientTransaction). "
+                    "IP engellenmiş olabilir veya cookie'ler geçersiz."
+                )
+            elif "weak reference" in error_str:
+                self.last_error = (
+                    "Twitter ana sayfası parse edilemedi (ClientTransaction init hatası). "
+                    "Cookie'ler geçersiz/süresi dolmuş olabilir. "
+                    "Tarayıcıdan yeni cookie alıp tekrar deneyin."
+                )
+            else:
+                self.last_error = f"ClientTransaction init hatası: {type(e).__name__}: {e}"
+            print(f"Twikit ClientTransaction init failed: {e}")
+            return False
+
+    async def _init_ct_async(self):
+        """Initialize ClientTransaction by fetching Twitter homepage."""
+        client = self._get_client_sync()
+        ct = client.client_transaction
+        if ct.home_page_response is None:
+            ct_headers = {
+                'Accept-Language': f'{client.language},{client.language.split("-")[0]};q=0.9',
+                'Cache-Control': 'no-cache',
+                'Referer': 'https://x.com',
+                'User-Agent': client._user_agent,
+            }
+            cookies_backup = client.get_cookies().copy()
+            await ct.init(client.http, ct_headers)
+            client.set_cookies(cookies_backup, clear_cookies=True)
+
     def authenticate(self, skip_cookies: bool = False) -> bool:
         """Authenticate with Twitter. Cookie-based auth is fully sync.
         Only falls back to async login() if no cookies available.
@@ -125,10 +164,15 @@ class TwikitSearchClient:
                         "auth_token": secret_auth,
                         "ct0": secret_ct0,
                     })
-                    self._authenticated = True
-                    self._cookie_source = "secrets"
                     print("Twikit: cookies loaded from secrets.toml")
-                    return True
+                    # Initialize ClientTransaction before declaring success
+                    if self._init_client_transaction():
+                        self._authenticated = True
+                        self._cookie_source = "secrets"
+                        return True
+                    else:
+                        print(f"Twikit: ClientTransaction init failed with secrets cookies")
+                        # Fall through to try other methods
             except Exception as e:
                 print(f"Twikit: secrets.toml cookie error: {e}")
 
@@ -136,10 +180,13 @@ class TwikitSearchClient:
             if COOKIES_PATH.exists():
                 try:
                     self._client.load_cookies(str(COOKIES_PATH))
-                    self._authenticated = True
-                    self._cookie_source = "file"
                     print("Twikit: cookies loaded from file")
-                    return True
+                    if self._init_client_transaction():
+                        self._authenticated = True
+                        self._cookie_source = "file"
+                        return True
+                    else:
+                        print(f"Twikit: ClientTransaction init failed with file cookies")
                 except Exception as e:
                     self.last_error = f"Cookie yükleme hatası: {e}"
                     print(f"Twikit: cookie file error: {e}")
@@ -147,7 +194,8 @@ class TwikitSearchClient:
 
         # 3. Login with credentials (async — only if no cookies)
         if not (self.username and self.password):
-            self.last_error = "Cookie bulunamadı ve kullanıcı adı/şifre verilmedi"
+            if not self.last_error:
+                self.last_error = "Cookie bulunamadı ve kullanıcı adı/şifre verilmedi"
             return False
 
         try:
@@ -166,7 +214,20 @@ class TwikitSearchClient:
             self._run(self._validate_async())
             return True
         except Exception as e:
-            self.last_error = f"Cookie doğrulama hatası: {type(e).__name__}: {e}"
+            error_str = str(e)
+            if "weak reference" in error_str:
+                self.last_error = (
+                    "Twitter güvenlik token'ı oluşturulamadı. "
+                    "Cookie'ler geçersiz/süresi dolmuş olabilir. "
+                    "Tarayıcıdan yeni auth_token ve ct0 cookie'lerini alıp tekrar deneyin."
+                )
+            elif "KEY_BYTE" in error_str or "Couldn't get key" in error_str:
+                self.last_error = (
+                    "Twitter güvenlik token'ı alınamadı. "
+                    "IP engellenmiş veya cookie'ler geçersiz olabilir."
+                )
+            else:
+                self.last_error = f"Cookie doğrulama hatası: {type(e).__name__}: {e}"
             print(f"Twikit validation failed: {e}")
             self._authenticated = False
             return False

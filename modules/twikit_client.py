@@ -109,7 +109,10 @@ class TwikitSearchClient:
         """Force ClientTransaction into bypass mode on the current client instance.
         Prevents 'cannot create weak reference to NoneType' errors that occur
         when twikit tries to fetch/parse the Twitter homepage (common on VPS/servers).
-        API calls will work without X-Client-Transaction-Id header."""
+
+        Also monkey-patches the client's request() method to remove the
+        X-Client-Transaction-Id header entirely (an empty string can cause 404s).
+        """
         client = self._get_client_sync()
         ct = client.client_transaction
         if ct is None:
@@ -119,6 +122,30 @@ class TwikitSearchClient:
         async def _noop_init(*a, **kw):
             pass
         ct.init = _noop_init
+
+        # Monkey-patch request() to strip the empty X-Client-Transaction-Id header
+        if not getattr(client, '_ct_patched', False):
+            _orig_request = client.request
+
+            async def _patched_request(method, url, **kwargs):
+                resp = await _orig_request(method, url, **kwargs)
+                return resp
+
+            # Instead of wrapping request, patch at the point where header is set:
+            # twikit sets headers['X-Client-Transaction-Id'] = tid in request().
+            # We can't easily intercept that, so we wrap the http.request call.
+            _orig_http_request = client.http.request
+
+            async def _http_request_no_ct(method, url, **kwargs):
+                headers = kwargs.get('headers', {})
+                # Remove empty CT header — Twitter may 404 on empty value
+                if 'X-Client-Transaction-Id' in headers and not headers['X-Client-Transaction-Id']:
+                    del headers['X-Client-Transaction-Id']
+                return await _orig_http_request(method, url, **kwargs)
+
+            client.http.request = _http_request_no_ct
+            client._ct_patched = True
+
         if not silent:
             print("Twikit: ClientTransaction bypassed (no homepage fetch needed)")
 
@@ -194,18 +221,22 @@ class TwikitSearchClient:
         try:
             self._run(self._validate_async())
             return True
+        except (NotFound, Unauthorized, Forbidden) as e:
+            error_type = type(e).__name__
+            print(f"Twikit validation failed: {error_type}: {e}")
+            self.last_error = (
+                f"Cookie doğrulama başarısız ({error_type}). "
+                "Cookie'ler geçersiz veya süresi dolmuş olabilir. "
+                "Tarayıcıdan yeni auth_token ve ct0 cookie'lerini alıp tekrar deneyin."
+            )
+            self._authenticated = False
+            return False
         except Exception as e:
             error_str = str(e)
             error_type = type(e).__name__
             print(f"Twikit validation failed: {error_type}: {e}")
             traceback.print_exc()
-            if "weak reference" in error_str or "NoneType" in error_str:
-                self.last_error = (
-                    "Twitter güvenlik token'ı oluşturulamadı. "
-                    "Cookie'ler geçersiz/süresi dolmuş olabilir. "
-                    "Tarayıcıdan yeni auth_token ve ct0 cookie'lerini alıp tekrar deneyin."
-                )
-            elif "KEY_BYTE" in error_str or "Couldn't get key" in error_str:
+            if "KEY_BYTE" in error_str or "Couldn't get key" in error_str:
                 self.last_error = (
                     "Twitter güvenlik token'ı alınamadı. "
                     "IP engellenmiş veya cookie'ler geçersiz olabilir."
@@ -216,14 +247,15 @@ class TwikitSearchClient:
             return False
 
     async def _validate_async(self):
-        """Try a simple search to validate cookies work."""
+        """Try a lightweight API call to validate cookies work."""
+        self._bypass_client_transaction(silent=True)
         client = self._get_client_sync()
-        # Re-apply CT bypass right before the API call (belt and suspenders)
-        ct = client.client_transaction
-        if ct is not None:
-            ct.home_page_response = "bypassed"
-            ct.generate_transaction_id = lambda *a, **kw: ""
-        await client.search_tweet("test", 'Latest', count=1)
+        # Use get_user_by_screen_name as a lighter endpoint than search
+        # If username is available, validate with that; otherwise use search
+        if self.username:
+            await client.get_user_by_screen_name(self.username)
+        else:
+            await client.search_tweet("test", 'Latest', count=1)
 
     class _InputBlockedError(Exception):
         """Raised when twikit's login() calls input() for interactive verification."""

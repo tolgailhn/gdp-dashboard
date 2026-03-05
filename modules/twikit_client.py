@@ -54,6 +54,12 @@ def _get_loop():
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+    # Tell sniffio we are in asyncio context (httpx needs this)
+    try:
+        import sniffio
+        sniffio.current_async_library_cvar.set("asyncio")
+    except Exception:
+        pass
     return loop
 
 

@@ -177,11 +177,11 @@ class TwikitSearchClient:
         client = await self._get_client()
         self.last_error = ""
 
-        # 1. Try cookies from st.secrets (persistent on Streamlit Cloud)
+        # 1. Try cookies from secrets.toml (read directly, no st.secrets)
         try:
-            import streamlit as _st
-            secret_auth = _st.secrets.get("twikit_auth_token", "")
-            secret_ct0 = _st.secrets.get("twikit_ct0", "")
+            from modules.ui_components import get_secret
+            secret_auth = get_secret("twikit_auth_token", "")
+            secret_ct0 = get_secret("twikit_ct0", "")
             if secret_auth and secret_ct0:
                 client.set_cookies({
                     "auth_token": secret_auth,
@@ -190,7 +190,7 @@ class TwikitSearchClient:
                 if await self._verify_cookies(client):
                     self._authenticated = True
                     return True
-                print("Twikit: st.secrets cookies invalid, trying other methods...")
+                print("Twikit: secrets.toml cookies invalid, trying other methods...")
         except Exception:
             pass
 

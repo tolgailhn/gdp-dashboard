@@ -5,20 +5,40 @@ Reusable Streamlit components for the X AI Automation Dashboard
 import streamlit as st
 
 
+_secrets_cache = None
+
+def _load_secrets_toml():
+    """Load secrets from .streamlit/secrets.toml directly (bypass st.secrets)"""
+    global _secrets_cache
+    if _secrets_cache is not None:
+        return _secrets_cache
+    try:
+        import tomllib
+    except ModuleNotFoundError:
+        import tomli as tomllib  # Python < 3.11 fallback
+    from pathlib import Path
+    toml_path = Path(__file__).parent.parent / ".streamlit" / "secrets.toml"
+    if toml_path.exists():
+        try:
+            with open(toml_path, "rb") as f:
+                _secrets_cache = tomllib.load(f)
+        except Exception:
+            _secrets_cache = {}
+    else:
+        _secrets_cache = {}
+    return _secrets_cache
+
+
 def get_secret(key: str, default: str = "") -> str:
-    """Safely get a secret value - works both locally and on Streamlit Cloud"""
+    """Safely get a secret value - reads .streamlit/secrets.toml directly"""
     import os
     # First try environment variables
     env_val = os.environ.get(key, "")
     if env_val:
         return env_val
-    # Then try Streamlit secrets (may fail if secrets.toml missing/empty)
-    try:
-        return st.secrets[key]
-    except (KeyError, FileNotFoundError, TypeError, AttributeError):
-        return default
-    except Exception:
-        return default
+    # Then read TOML file directly (no st.secrets dependency)
+    secrets = _load_secrets_toml()
+    return secrets.get(key, default)
 
 
 def setup_page_config(title: str = "X AI Otomasyon", icon: str = "🤖"):

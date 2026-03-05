@@ -508,13 +508,13 @@ class TwitterScanner:
         try:
             from modules.twikit_client import TwikitSearchClient, COOKIES_PATH
 
-            # Check if cookies exist in st.secrets
+            # Check if cookies exist in secrets.toml
             has_secret_cookies = False
             try:
-                import streamlit as _st
+                from modules.ui_components import get_secret
                 has_secret_cookies = (
-                    bool(_st.secrets.get("twikit_auth_token", ""))
-                    and bool(_st.secrets.get("twikit_ct0", ""))
+                    bool(get_secret("twikit_auth_token", ""))
+                    and bool(get_secret("twikit_ct0", ""))
                 )
             except Exception:
                 pass

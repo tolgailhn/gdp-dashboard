@@ -382,6 +382,54 @@ def import_from_analyses(min_engagement: float = 100,
     return results
 
 
+# --- Havuzdan DNA Yeniden Hesaplama ---
+
+def regenerate_pool_dna() -> dict:
+    """
+    Havuzdaki TÜM tweet'lerden birleşik Style DNA çıkar.
+    Havuz büyüdükçe DNA daha zengin ve doğru olur.
+
+    Returns: {"dna": dict, "tweet_count": int, "account_count": int}
+    """
+    from modules.tweet_analyzer import _extract_style_dna
+
+    pool_data = load_pool()
+    pool = pool_data.get("pool", [])
+
+    if not pool:
+        return {"dna": {}, "tweet_count": 0, "account_count": 0}
+
+    # Havuzdaki tweetleri _extract_style_dna formatına çevir
+    tweets_for_dna = [
+        {
+            "text": t["text"],
+            "engagement_score": t.get("engagement_score", 0),
+        }
+        for t in pool
+    ]
+
+    dna = _extract_style_dna(tweets_for_dna)
+
+    # DNA'yı havuz dosyasına kaydet
+    pool_data["pool_dna"] = dna
+    pool_data["pool_dna_updated"] = datetime.datetime.now().isoformat()
+    save_pool(pool_data)
+
+    authors = list({t.get("author", "") for t in pool})
+
+    return {
+        "dna": dna,
+        "tweet_count": len(pool),
+        "account_count": len(authors),
+    }
+
+
+def get_pool_dna() -> dict:
+    """Kaydedilmiş havuz DNA'sını döndür (yoksa boş dict)."""
+    pool_data = load_pool()
+    return pool_data.get("pool_dna", {})
+
+
 # --- İstatistikler ---
 
 def get_pool_stats(pool_data: dict = None) -> dict:

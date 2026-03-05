@@ -3,18 +3,19 @@ Twikit Client Module
 Sync wrapper for twikit's async API for free Twitter search operations.
 Uses cookie-based auth to avoid Twitter API costs.
 
-Async strategy: A single daemon thread owns the event loop and ALL async
-work happens there. Client creation, HTTP requests, everything stays in
-one thread so httpx connection pools and twikit state remain valid.
+Async strategy: nest_asyncio allows running async code inside Streamlit's
+own event loop. Simple and avoids daemon-thread weak-reference issues.
 """
 import asyncio
 import builtins
 import contextlib
 import datetime
 import re
-import threading
 import time
 from pathlib import Path
+
+import nest_asyncio
+nest_asyncio.apply()
 
 from twikit.errors import (
     AccountLocked,
@@ -43,43 +44,17 @@ def _safe_int(val) -> int:
         return 0
 
 
-class _AsyncRunner:
-    """Run async coroutines from sync code without nest_asyncio.
-
-    A single daemon thread owns the event loop and ALL async work happens
-    there — Client creation, HTTP requests, everything. This ensures
-    httpx's internal connection pools and twikit's state stay in one
-    thread. sniffio.thread_local.name is set once in the daemon thread
-    so httpx can always detect asyncio.
-    """
-
-    def __init__(self):
-        self._loop = asyncio.new_event_loop()
-        self._ready = threading.Event()
-        self._thread = threading.Thread(target=self._run_loop, daemon=True)
-        self._thread.start()
-        self._ready.wait()  # Wait until loop is running
-
-    def _run_loop(self):
-        asyncio.set_event_loop(self._loop)
-        # Set sniffio thread_local ONCE for this thread — all coroutines
-        # run here, so sniffio will always detect asyncio.
-        try:
-            import sniffio
-            sniffio.thread_local.name = "asyncio"
-        except Exception:
-            pass
-        self._ready.set()
-        self._loop.run_forever()
-
-    def run(self, coro, timeout=120):
-        """Submit a coroutine to the daemon thread's loop and wait."""
-        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
-        return future.result(timeout=timeout)
-
-
-# Module-level runner shared by all TwikitSearchClient instances
-_runner = _AsyncRunner()
+def _get_loop():
+    """Get or create an event loop for the current thread."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop
 
 
 def adapt_query_for_web(query: str, since_date: str = None) -> str:
@@ -106,29 +81,15 @@ class TwikitSearchClient:
         self.last_error = ""  # Store last error for UI display
 
     def _run(self, coro, timeout=120):
-        """Run an async coroutine in the persistent event loop thread."""
-        return _runner.run(coro, timeout=timeout)
+        """Run an async coroutine using nest_asyncio."""
+        loop = _get_loop()
+        return loop.run_until_complete(coro)
 
     async def _get_client(self):
-        """Get or create twikit Client INSIDE the daemon thread.
-
-        Client and its httpx.AsyncClient must live in the same thread
-        as the event loop to avoid weak reference / connection errors.
-        """
+        """Get or create twikit Client. Recreates if internal session is dead."""
         if self._client is None:
             from twikit import Client
             self._client = Client('tr')
-        else:
-            # Verify internal httpx client is still alive
-            # If it's None or garbage collected, recreate the client
-            try:
-                http = getattr(self._client, 'http', None) or getattr(self._client, '_session', None)
-                if http is None:
-                    from twikit import Client
-                    self._client = Client('tr')
-            except (TypeError, ReferenceError):
-                from twikit import Client
-                self._client = Client('tr')
         return self._client
 
     def authenticate(self) -> bool:

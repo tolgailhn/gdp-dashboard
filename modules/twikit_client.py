@@ -101,7 +101,7 @@ class TwikitSearchClient:
             self._client = Client('tr')
         return self._client
 
-    def _bypass_client_transaction(self):
+    def _bypass_client_transaction(self, silent=False):
         """Force ClientTransaction into bypass mode on the current client instance.
         Prevents 'cannot create weak reference to NoneType' errors that occur
         when twikit tries to fetch/parse the Twitter homepage (common on VPS/servers).
@@ -115,7 +115,8 @@ class TwikitSearchClient:
         async def _noop_init(*a, **kw):
             pass
         ct.init = _noop_init
-        print("Twikit: ClientTransaction bypassed (no homepage fetch needed)")
+        if not silent:
+            print("Twikit: ClientTransaction bypassed (no homepage fetch needed)")
 
     def authenticate(self, skip_cookies: bool = False) -> bool:
         """Authenticate with Twitter. Cookie-based auth is fully sync.
@@ -191,7 +192,10 @@ class TwikitSearchClient:
             return True
         except Exception as e:
             error_str = str(e)
-            if "weak reference" in error_str:
+            error_type = type(e).__name__
+            print(f"Twikit validation failed: {error_type}: {e}")
+            traceback.print_exc()
+            if "weak reference" in error_str or "NoneType" in error_str:
                 self.last_error = (
                     "Twitter güvenlik token'ı oluşturulamadı. "
                     "Cookie'ler geçersiz/süresi dolmuş olabilir. "
@@ -203,15 +207,18 @@ class TwikitSearchClient:
                     "IP engellenmiş veya cookie'ler geçersiz olabilir."
                 )
             else:
-                self.last_error = f"Cookie doğrulama hatası: {type(e).__name__}: {e}"
-            print(f"Twikit validation failed: {e}")
+                self.last_error = f"Cookie doğrulama hatası: {error_type}: {e}"
             self._authenticated = False
             return False
 
     async def _validate_async(self):
         """Try a simple search to validate cookies work."""
         client = self._get_client_sync()
-        # Use a minimal search to test the connection
+        # Re-apply CT bypass right before the API call (belt and suspenders)
+        ct = client.client_transaction
+        if ct is not None:
+            ct.home_page_response = "bypassed"
+            ct.generate_transaction_id = lambda *a, **kw: ""
         await client.search_tweet("test", 'Latest', count=1)
 
     class _InputBlockedError(Exception):
@@ -370,6 +377,7 @@ class TwikitSearchClient:
     async def _search_async(self, query: str, count: int) -> list[dict]:
         results = []
         try:
+            self._bypass_client_transaction(silent=True)
             client = self._get_client_sync()
             tweets = await client.search_tweet(query, 'Latest', count=count)
             for tweet in tweets:
@@ -426,6 +434,7 @@ class TwikitSearchClient:
                                   progress_callback=None) -> list[dict]:
         results = []
         try:
+            self._bypass_client_transaction(silent=True)
             client = self._get_client_sync()
             user = await client.get_user_by_screen_name(username)
             if not user:
@@ -573,6 +582,7 @@ class TwikitSearchClient:
 
     async def _user_info_async(self, username: str) -> dict | None:
         try:
+            self._bypass_client_transaction(silent=True)
             client = self._get_client_sync()
             user = await client.get_user_by_screen_name(username)
             if not user:
@@ -611,6 +621,7 @@ class TwikitSearchClient:
     async def _user_followers_async(self, username: str, limit: int,
                                      verified_only: bool,
                                      progress_callback) -> list[dict]:
+        self._bypass_client_transaction(silent=True)
         results = []
         try:
             client = self._get_client_sync()

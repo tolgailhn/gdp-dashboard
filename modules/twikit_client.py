@@ -104,6 +104,17 @@ class TwikitSearchClient:
         if self._client is None:
             from twikit import Client
             self._client = Client('tr')
+        else:
+            # Verify internal httpx client is still alive
+            # If it's None or garbage collected, recreate the client
+            try:
+                http = getattr(self._client, 'http', None) or getattr(self._client, '_session', None)
+                if http is None:
+                    from twikit import Client
+                    self._client = Client('tr')
+            except (TypeError, ReferenceError):
+                from twikit import Client
+                self._client = Client('tr')
         return self._client
 
     def authenticate(self) -> bool:
@@ -237,11 +248,13 @@ class TwikitSearchClient:
                 results.append(self._tweet_to_dict(tweet))
         except Exception as e:
             err_name = type(e).__name__
-            # 404/401 usually means cookies expired — try re-auth once
-            if err_name in ("NotFound", "Unauthorized") and self.username and self.password:
-                print(f"Twikit search {err_name}, attempting re-auth...")
+            # 404/401/TypeError usually means cookies expired or client broken — try re-auth once
+            retryable = ("NotFound", "Unauthorized", "TypeError",
+                         "ReferenceError", "AttributeError")
+            if err_name in retryable and self.username and self.password:
+                print(f"Twikit search {err_name}, attempting client reset + re-auth...")
                 self._authenticated = False
-                self._client = None  # Reset client
+                self._client = None  # Reset client completely
                 if await self._auth_async():
                     try:
                         client = await self._get_client()
@@ -335,12 +348,14 @@ class TwikitSearchClient:
             self.last_error = f"Kullanıcı tweet hatası (@{username}): {err_name}: {e}"
             print(f"Twikit user tweets error ({username}): {err_name}: {e}")
 
-            # 401/404 usually means cookies expired — try re-auth once
-            if err_name in ("NotFound", "Unauthorized", "Forbidden",
-                            "TwitterException") and self.username and self.password:
-                print(f"Twikit user tweets {err_name}, attempting re-auth...")
+            # 401/404/TypeError usually means cookies expired or client broken — try re-auth once
+            retryable = ("NotFound", "Unauthorized", "Forbidden",
+                         "TwitterException", "TypeError", "ReferenceError",
+                         "AttributeError")
+            if err_name in retryable and self.username and self.password:
+                print(f"Twikit user tweets {err_name}, attempting client reset + re-auth...")
                 self._authenticated = False
-                self._client = None  # Reset client
+                self._client = None  # Reset client completely
                 if await self._auth_async():
                     try:
                         return await self._user_tweets_async(username, count, progress_callback)

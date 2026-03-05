@@ -3,49 +3,21 @@ Twikit Client Module
 Sync wrapper for twikit's async API for free Twitter search operations.
 Uses cookie-based auth to avoid Twitter API costs.
 
-Async strategy: nest_asyncio allows running async code inside Streamlit's
-own event loop. Simple and avoids daemon-thread weak-reference issues.
+Async strategy: A dedicated background event loop runs in a daemon thread.
+Sync methods submit coroutines to this loop via run_coroutine_threadsafe().
+This avoids nest_asyncio which is incompatible with Python 3.14 + anyio
+(asyncio.current_task() returns None → weak-reference errors in anyio).
 """
 import asyncio
 import builtins
 import contextlib
 import datetime
 import re
+import threading
 import time
 from pathlib import Path
 
 import traceback
-
-import nest_asyncio
-nest_asyncio.apply()
-
-# ---------- Python 3.14 + anyio/httpcore compatibility patch ----------
-# In Python 3.14, asyncio.current_task() can return None when running via
-# nest_asyncio. This causes anyio's AsyncShieldCancellation to fail with
-# "cannot create weak reference to 'NoneType' object" during httpcore's
-# connection pool cleanup.  The actual HTTP response is already received
-# at that point, so we can safely swallow the cleanup error.
-def _patch_httpcore_for_python314():
-    try:
-        import httpcore._async.connection_pool as _pool_mod
-        _orig_close = _pool_mod.AsyncConnectionPool._close_connections
-
-        async def _safe_close_connections(self, closing):
-            try:
-                await _orig_close(self, closing)
-            except TypeError as exc:
-                if "weak reference" in str(exc):
-                    # Silently ignore — connections will be GC'd
-                    pass
-                else:
-                    raise
-
-        _pool_mod.AsyncConnectionPool._close_connections = _safe_close_connections
-    except Exception:
-        pass
-
-_patch_httpcore_for_python314()
-# ----------------------------------------------------------------------
 
 from twikit.errors import (
     AccountLocked,
@@ -74,23 +46,26 @@ def _safe_int(val) -> int:
         return 0
 
 
-def _get_loop():
-    """Get or create an event loop for the current thread."""
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    # Tell sniffio we are in asyncio context (httpx needs this)
-    try:
-        import sniffio
-        sniffio.current_async_library_cvar.set("asyncio")
-    except Exception:
-        pass
-    return loop
+# ---------- Background event loop (daemon thread) ----------
+# A single persistent loop avoids nest_asyncio and keeps httpx connections
+# alive across calls.  The daemon thread exits when the main process exits.
+_bg_loop: asyncio.AbstractEventLoop | None = None
+_bg_lock = threading.Lock()
+
+
+def _get_bg_loop() -> asyncio.AbstractEventLoop:
+    """Return (and lazily start) the shared background event loop."""
+    global _bg_loop
+    if _bg_loop is not None and not _bg_loop.is_closed():
+        return _bg_loop
+    with _bg_lock:
+        if _bg_loop is not None and not _bg_loop.is_closed():
+            return _bg_loop
+        _bg_loop = asyncio.new_event_loop()
+        t = threading.Thread(target=_bg_loop.run_forever, daemon=True,
+                             name="twikit-async-loop")
+        t.start()
+    return _bg_loop
 
 
 def adapt_query_for_web(query: str, since_date: str = None) -> str:
@@ -118,9 +93,10 @@ class TwikitSearchClient:
         self.last_error = ""  # Store last error for UI display
 
     def _run(self, coro, timeout=120):
-        """Run an async coroutine using nest_asyncio."""
-        loop = _get_loop()
-        return loop.run_until_complete(coro)
+        """Run an async coroutine on the background event loop."""
+        loop = _get_bg_loop()
+        future = asyncio.run_coroutine_threadsafe(coro, loop)
+        return future.result(timeout=timeout)
 
     def _get_client_sync(self):
         """Get or create twikit Client (sync)."""

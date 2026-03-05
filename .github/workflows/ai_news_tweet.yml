@@ -1,0 +1,68 @@
+name: AI News Twitter Bot
+
+on:
+  schedule:
+    - cron: "0 7 * * *"    # 07:00 UTC = 10:00 Türkiye (son 24 saat)
+    - cron: "0 13 * * *"   # 13:00 UTC = 16:00 Türkiye (son 6 saat)
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: "Kaç saatlik haber aralığı? (6 / 12 / 24)"
+        required: false
+        default: "24"
+        type: choice
+        options: ["6", "12", "24"]
+      dry_run:
+        description: "Dry run (tweet gönderme, sadece önizle)"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+
+jobs:
+  post-ai-tweets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: ai_news_twitter_bot/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r ai_news_twitter_bot/requirements.txt
+
+      - name: Determine time window
+        id: window
+        run: |
+          # Scheduled at 07:00 UTC → last 24h, at 13:00 UTC → last 6h
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "hours=${{ github.event.inputs.hours }}" >> "$GITHUB_OUTPUT"
+          elif [ "$(date -u +%H)" = "07" ]; then
+            echo "hours=24" >> "$GITHUB_OUTPUT"
+          else
+            echo "hours=6" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run AI News Twitter Bot
+        working-directory: ai_news_twitter_bot
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+        run: |
+          HOURS="${{ steps.window.outputs.hours }}"
+          DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            python main.py --hours "$HOURS" --dry-run
+          else
+            python main.py --hours "$HOURS"
+          fi

@@ -32,52 +32,36 @@ def _safe_int(val) -> int:
 class _AsyncRunner:
     """Run async coroutines from sync code without nest_asyncio.
 
-    Uses a persistent event loop (never closed) so that twikit's internal
-    httpx sessions stay valid. Each call runs in a dedicated thread via
-    loop.run_until_complete(), which properly activates the asyncio
-    context so sniffio/httpx can detect it.
+    A single daemon thread owns the event loop and ALL async work happens
+    there — Client creation, HTTP requests, everything. This ensures
+    httpx's internal connection pools and twikit's state stay in one
+    thread. sniffio.thread_local.name is set once in the daemon thread
+    so httpx can always detect asyncio.
     """
 
     def __init__(self):
         self._loop = asyncio.new_event_loop()
-        self._lock = threading.Lock()
+        self._ready = threading.Event()
+        self._thread = threading.Thread(target=self._run_loop, daemon=True)
+        self._thread.start()
+        self._ready.wait()  # Wait until loop is running
+
+    def _run_loop(self):
+        asyncio.set_event_loop(self._loop)
+        # Set sniffio thread_local ONCE for this thread — all coroutines
+        # run here, so sniffio will always detect asyncio.
+        try:
+            import sniffio
+            sniffio.thread_local.name = "asyncio"
+        except Exception:
+            pass
+        self._ready.set()
+        self._loop.run_forever()
 
     def run(self, coro, timeout=120):
-        """Run a coroutine in a dedicated thread using run_until_complete."""
-        with self._lock:
-            result_box = [None]
-            error_box = [None]
-
-            def _target():
-                asyncio.set_event_loop(self._loop)
-                # Tell sniffio we're in asyncio context. Without this,
-                # sniffio relies on asyncio.current_task() which may
-                # return None in a thread on Python 3.12+/3.14+.
-                try:
-                    import sniffio
-                    sniffio.thread_local.name = "asyncio"
-                except Exception:
-                    pass
-                try:
-                    result_box[0] = self._loop.run_until_complete(coro)
-                except Exception as e:
-                    error_box[0] = e
-                finally:
-                    try:
-                        import sniffio
-                        sniffio.thread_local.name = None
-                    except Exception:
-                        pass
-
-            t = threading.Thread(target=_target, daemon=True)
-            t.start()
-            t.join(timeout=timeout)
-
-            if t.is_alive():
-                raise TimeoutError(f"Async operation timed out after {timeout}s")
-            if error_box[0] is not None:
-                raise error_box[0]
-            return result_box[0]
+        """Submit a coroutine to the daemon thread's loop and wait."""
+        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        return future.result(timeout=timeout)
 
 
 # Module-level runner shared by all TwikitSearchClient instances
@@ -112,10 +96,10 @@ class TwikitSearchClient:
         return _runner.run(coro, timeout=timeout)
 
     async def _get_client(self):
-        """Get or create twikit Client inside the persistent event loop.
+        """Get or create twikit Client INSIDE the daemon thread.
 
-        MUST be called from within the async runner so that httpx's
-        internal session is bound to the correct event loop.
+        Client and its httpx.AsyncClient must live in the same thread
+        as the event loop to avoid weak reference / connection errors.
         """
         if self._client is None:
             from twikit import Client

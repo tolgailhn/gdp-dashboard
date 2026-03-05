@@ -62,7 +62,16 @@ def _get_bg_loop() -> asyncio.AbstractEventLoop:
         if _bg_loop is not None and not _bg_loop.is_closed():
             return _bg_loop
         _bg_loop = asyncio.new_event_loop()
-        t = threading.Thread(target=_bg_loop.run_forever, daemon=True,
+
+        def _run_loop():
+            asyncio.set_event_loop(_bg_loop)
+            # Suppress Streamlit "missing ScriptRunContext" warnings
+            # that fire when any code touches st internals from this thread.
+            import logging
+            logging.getLogger("streamlit.runtime.scriptrunner_utils.script_run_context").setLevel(logging.ERROR)
+            _bg_loop.run_forever()
+
+        t = threading.Thread(target=_run_loop, daemon=True,
                              name="twikit-async-loop")
         t.start()
     return _bg_loop

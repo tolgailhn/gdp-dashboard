@@ -14,6 +14,8 @@ import re
 import time
 from pathlib import Path
 
+import traceback
+
 import nest_asyncio
 nest_asyncio.apply()
 
@@ -27,6 +29,59 @@ from twikit.errors import (
     TwitterException,
     Unauthorized,
 )
+
+# ─── CLASS-LEVEL ClientTransaction patch ───────────────────────────────
+# Patch ClientTransaction at the CLASS level before any Client instance
+# is created. This prevents "cannot create weak reference to NoneType"
+# errors that occur when twikit tries to fetch/parse the Twitter homepage.
+# The original init() is tried first; on failure it's replaced with a no-op.
+_CT_PATCHED = False
+
+def _patch_client_transaction_class():
+    """Patch ClientTransaction class methods to gracefully handle init failures."""
+    global _CT_PATCHED
+    if _CT_PATCHED:
+        return
+    try:
+        from twikit.x_client_transaction.transaction import ClientTransaction
+
+        _original_init = ClientTransaction.init
+        _original_generate = ClientTransaction.generate_transaction_id
+
+        async def _safe_ct_init(self, *args, **kwargs):
+            """Try original init; on any error, silently disable CT."""
+            try:
+                return await _original_init(self, *args, **kwargs)
+            except Exception as e:
+                print(f"Twikit CT init failed ({type(e).__name__}: {e}), using empty transaction IDs")
+                self.home_page_response = "bypassed"
+                # Replace instance methods so future calls also don't crash
+                self.init = _safe_ct_init.__wrapped_noop__
+                self.generate_transaction_id = lambda *a, **kw: ""
+
+        async def _noop_init(self, *args, **kwargs):
+            pass
+
+        _safe_ct_init.__wrapped_noop__ = _noop_init
+
+        def _safe_generate(self, *args, **kwargs):
+            """Try original generate; on error return empty string."""
+            try:
+                return _original_generate(self, *args, **kwargs)
+            except Exception:
+                return ""
+
+        ClientTransaction.init = _safe_ct_init
+        ClientTransaction.generate_transaction_id = _safe_generate
+        _CT_PATCHED = True
+        print("Twikit: ClientTransaction class patched (safe init + generate)")
+    except ImportError:
+        print("Twikit: Could not import ClientTransaction for patching")
+    except Exception as e:
+        print(f"Twikit: ClientTransaction class patch failed: {e}")
+
+_patch_client_transaction_class()
+# ─── End patch ─────────────────────────────────────────────────────────
 
 LOGIN_TIMEOUT = 30  # seconds — prevents infinite hang on interactive prompts
 
@@ -99,89 +154,34 @@ class TwikitSearchClient:
             self._client = Client('tr')
         return self._client
 
-    def _bypass_client_transaction(self):
-        """Monkey-patch ClientTransaction to return empty IDs instead of crashing.
-        Called when CT init fails (weak reference, KEY_BYTE, etc.) so that
-        API calls can still be attempted without the X-Client-Transaction-Id header.
-
-        Patches three things:
-        1. home_page_response → truthy value (prevents re-init in request())
-        2. init() → safe async no-op (prevents crash if called anyway)
-        3. generate_transaction_id() → returns "" (empty header value)
-        """
-        client = self._get_client_sync()
-        ct = client.client_transaction
-
-        # Already bypassed — don't re-patch
-        if getattr(ct, '_bypassed', False):
-            return
-
-        ct.home_page_response = "bypassed"  # Truthy → skips init check in request()
-
-        async def _safe_init(*args, **kwargs):
-            """No-op replacement for ClientTransaction.init()"""
-            pass
-
-        ct.init = _safe_init
-        ct.generate_transaction_id = lambda *a, **kw: ""
-        ct._bypassed = True
-        print("Twikit: ClientTransaction fully bypassed (init + generate_transaction_id)")
-
-    def _patch_client_request(self):
-        """Wrap the twikit Client.request() method to catch CT errors at runtime.
-        This is the last line of defense — if CT init somehow still gets called
-        inside request() and crashes, we catch it and bypass."""
-        client = self._get_client_sync()
-        if getattr(client, '_request_patched', False):
-            return
-
-        _original_request = client.request
-
-        async def _safe_request(*args, **kwargs):
-            try:
-                return await _original_request(*args, **kwargs)
-            except TypeError as e:
-                if "weak reference" in str(e):
-                    print(f"Twikit: Caught weak reference error in request(), bypassing CT")
-                    self._bypass_client_transaction()
-                    return await _original_request(*args, **kwargs)
-                raise
-
-        client.request = _safe_request
-        client._request_patched = True
-
     def _init_client_transaction(self) -> bool:
         """Initialize ClientTransaction so API calls can generate X-Client-Transaction-Id.
-        Must be called after cookies are set. Returns True on success.
-        On failure, bypasses CT so API calls can still be attempted."""
+        The class-level patch (at module import) makes init() safe — it tries
+        the real init and falls back to no-op on error. Returns True on success."""
         try:
             self._run(self._init_ct_async())
+            # Check if CT actually initialized or fell back to bypass
+            ct = self._get_client_sync().client_transaction
+            if ct.home_page_response == "bypassed":
+                print("Twikit: CT init fell back to bypass mode")
+                return False
             return True
         except Exception as e:
-            error_str = str(e)
-            if "KEY_BYTE" in error_str or "Couldn't get key" in error_str:
-                self.last_error = (
-                    "Twitter güvenlik token'ı alınamadı (ClientTransaction). "
-                    "IP engellenmiş olabilir veya cookie'ler geçersiz."
-                )
-            elif "weak reference" in error_str:
-                self.last_error = (
-                    "Twitter ana sayfası parse edilemedi (ClientTransaction init hatası). "
-                    "Cookie'ler geçersiz/süresi dolmuş olabilir. "
-                    "Tarayıcıdan yeni cookie alıp tekrar deneyin."
-                )
-            else:
-                self.last_error = f"ClientTransaction init hatası: {type(e).__name__}: {e}"
-            print(f"Twikit ClientTransaction init failed: {e}")
-            # Bypass CT so API calls don't crash
-            self._bypass_client_transaction()
+            print(f"Twikit ClientTransaction init failed: {type(e).__name__}: {e}")
+            traceback.print_exc()
+            # Force bypass on the instance
+            ct = self._get_client_sync().client_transaction
+            ct.home_page_response = "bypassed"
+            ct.generate_transaction_id = lambda *a, **kw: ""
             return False
 
     async def _init_ct_async(self):
-        """Initialize ClientTransaction by fetching Twitter homepage."""
+        """Initialize ClientTransaction by fetching Twitter homepage.
+        The class-level patch wraps ct.init() to catch errors automatically."""
         client = self._get_client_sync()
         ct = client.client_transaction
-        if ct.home_page_response is None:
+        if ct.home_page_response is None or ct.home_page_response == "bypassed":
+            ct.home_page_response = None  # Reset so init actually tries
             ct_headers = {
                 'Accept-Language': f'{client.language},{client.language.split("-")[0]};q=0.9',
                 'Cache-Control': 'no-cache',
@@ -203,13 +203,10 @@ class TwikitSearchClient:
         self.last_error = ""
 
         # Create client (sync — no network call)
+        # Class-level CT patch was already applied at module import time.
         from twikit import Client
         if self._client is None:
             self._client = Client('tr')
-
-        # Wrap client.request() to catch CT "weak reference" errors at runtime.
-        # This is applied early so ALL code paths (cookie + login) are protected.
-        self._patch_client_request()
 
         if not skip_cookies:
             # 1. Try cookies from secrets.toml
@@ -328,16 +325,10 @@ class TwikitSearchClient:
             builtins.input = original_input
 
     async def _login_async(self) -> bool:
-        """Async login with username/password. Only called when no cookies."""
+        """Async login with username/password. Only called when no cookies.
+        Class-level CT patch (applied at module import) protects login()
+        from ClientTransaction crashes automatically."""
         client = self._client
-
-        # Pre-bypass ClientTransaction to prevent "weak reference to NoneType"
-        # crash inside twikit's login() when Twitter homepage can't be parsed.
-        # Three layers of protection:
-        # 1. bypass CT (no-op init + empty transaction IDs)
-        # 2. patch request() to catch any remaining CT errors at runtime
-        self._bypass_client_transaction()
-        self._patch_client_request()
 
         try:
             DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -426,6 +417,9 @@ class TwikitSearchClient:
         except Exception as e:
             error_type = type(e).__name__
             error_str = str(e)
+            # Full traceback for debugging
+            print(f"Twikit login exception [{error_type}]: {e}")
+            traceback.print_exc()
             if "ConnectError" in error_type or "ConnectError" in error_str:
                 self.last_error = "Twitter'a bağlanılamıyor. İnternet bağlantısını kontrol edin."
             elif "Tunnel connection failed" in error_str or "ProxyError" in error_type:

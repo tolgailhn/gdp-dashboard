@@ -689,6 +689,28 @@ with mode_tab3:
                                     "reply_to": selected_reply_tweet["id"],
                                     "reply_to_author": selected_reply_tweet["author"],
                                 })
+                            elif "not allowed" in result.get("error", "").lower() or "not been mentioned" in result.get("error", "").lower():
+                                # Conversation controls block reply - offer quote tweet fallback
+                                st.warning("Bu tweet'e reply kısıtlı (yazar sadece belirli kişilere izin vermiş). Quote Tweet olarak göndermeyi deneyin.")
+                                _qt_result = publisher.post_quote_tweet(
+                                    text=generated_reply,
+                                    quoted_tweet_id=str(selected_reply_tweet["id"]),
+                                )
+                                if _qt_result["success"]:
+                                    st.success("Quote Tweet olarak gönderildi! 🎉")
+                                    st.link_button("X'te Görüntüle", _qt_result["url"])
+                                    add_to_post_history({
+                                        "text": generated_reply,
+                                        "style": "quote",
+                                        "url": _qt_result["url"],
+                                        "tweet_id": _qt_result["tweet_id"],
+                                        "posted_at": datetime.datetime.now().isoformat(),
+                                        "type": "quote",
+                                        "reply_to": selected_reply_tweet["id"],
+                                        "reply_to_author": selected_reply_tweet["author"],
+                                    })
+                                else:
+                                    st.error(f"Quote Tweet de gönderilemedi: {_qt_result['error']}")
                             else:
                                 st.error(f"Gönderim hatası: {result['error']}")
                         except Exception as e:
@@ -707,7 +729,18 @@ with mode_tab3:
         st.info("Yukarıdaki 'X'te Tara' butonuna basarak AI hesaplarının son tweetlerini tarayın.")
 
 with mode_tab1:
-    if selected_topic and write_mode != "quote":
+    if write_mode == "quote" and quote_topic:
+        # In quote mode, topic comes from the researched tweet
+        topic_text = quote_topic.get("text", "")
+        topic_source = quote_topic.get("author", "")
+        research_summary = st.session_state.get("research_summary", "")
+        st.info(f"📌 Quote Tweet modu: @{topic_source} — {topic_text[:100]}...")
+        if st.button("Quote modundan çık", key="clear_quote_mode"):
+            st.session_state.write_mode = "normal"
+            st.session_state.quote_topic = None
+            st.session_state.pop("research_summary", None)
+            st.rerun()
+    elif selected_topic:
         st.info(f"📌 Seçilen konu: {selected_topic.get('text', '')[:100]}...")
         topic_text = selected_topic.get("text", "")
         topic_source = selected_topic.get("url", "")
@@ -715,7 +748,7 @@ with mode_tab1:
         if st.button("Konuyu temizle", key="clear_topic"):
             st.session_state.selected_topic = None
             st.rerun()
-    elif write_mode != "quote":
+    else:
         topic_text = st.text_area(
             "Konu / AI Gelişmesi",
             placeholder="Tweet yazmak istediğiniz konuyu veya AI gelişmesini buraya yazın...\n\nÖrnek: Qwen 3 modeli çıktı, coding benchmark'larında GPT-4o'yu geçti\nÖrnek: Amazon'un BAE'deki AWS deposu bombalandı",

@@ -349,6 +349,41 @@ tweet'teki verileri kullanarak kendi bakış açını ekle.
 - SORU ile bitirme — güçlü görüş veya cesur tahminle kapat
 """,
     },
+    "reply": {
+        "name": "Reply / Hızlı Yanıt",
+        "description": "Tweet'e kısa, doğal ve samimi reply yaz",
+        "prompt": """
+yazım tarzı: REPLY / HIZLI YANIT
+
+Bu bir reply — kısa, doğal ve nokta atışı olmalı.
+Reply = sohbete katılmak. Uzun analiz DEĞİL, kısa ve vurucu yorum.
+
+TEMEL KURALLAR:
+- KISA yaz: 1-3 cümle ideal. Paragraf YOK. Max 280 karakter.
+- Doğrudan konuya gir — "şöyle düşünüyorum" yerine direkt görüşünü söyle
+- Tweet'e KATKI sun — sadece "harika!" veya "katılıyorum" YAZMA
+- Kendi bilgini veya bakış açını ekle — tweet'te söylenmemiş bir detay, karşıt görüş, pratik yorum
+- Tweet'teki bir noktayı genişlet, sorgula veya farklı açıdan değerlendir
+- Samimi ve doğal ol — "ya bence", "harbiden", "cidden", "aslında" gibi günlük dil
+- küçük harfle yaz, noktalama opsiyonel
+- Emoji 0-1 tane, genelde kullanma
+
+REPLY TİPLERİ (birini seç):
+1. BİLGİ EKLEME: Tweet'te bahsedilmeyen ilgili bir bilgi/detay ekle
+2. KARŞIT GÖRÜŞ: Nazik ama net bir şekilde farklı bakış açısı sun
+3. DENEYİM PAYLAŞIMI: "ben test ettim, şunu gördüm" tarzı kişisel deneyim
+4. BAĞLAM EKLEME: Tweet'i daha büyük bir resme oturt
+5. SORU SOR: Merak ettiğin bir noktayı sor (reply'da soru OK)
+6. ESPRİ/GÖZLEM: Kısa, zekice bir gözlem veya espri
+
+YAPMA:
+- Uzun analiz yazma — bu reply, tweet değil
+- Tweet'i tekrarlama veya özetleme
+- Boş övgü ("harika paylaşım!") yazma
+- Hashtag koyma
+- Resmi/akademik dil kullanma
+""",
+    },
 }
 
 # ============================================================================
@@ -731,6 +766,45 @@ class ContentGenerator:
             topic_text, topic_source, style, additional_context,
             max_length, thread_mode, content_format=content_format
         )
+
+        if self.provider == "anthropic":
+            return self._generate_anthropic(system_prompt, user_prompt)
+        else:
+            return self._generate_openai(system_prompt, user_prompt)
+
+    def generate_reply(self, original_tweet: str, original_author: str,
+                       style: str = "reply",
+                       additional_context: str = "",
+                       user_samples: list = None) -> str:
+        """
+        Generate a short reply to a tweet (no web research, just tweet content).
+
+        Args:
+            original_tweet: The tweet text being replied to
+            original_author: Author username
+            style: Writing style (default "reply")
+            additional_context: Extra instructions
+            user_samples: Sample tweets for style matching
+
+        Returns:
+            Generated reply text (short, max ~280 chars)
+        """
+        if not self.client:
+            raise ValueError("API client not initialized. Check your API key.")
+
+        system_prompt = self._build_system_prompt(style, user_samples)
+
+        user_prompt = f"""@{original_author} şunu yazmış:
+"{original_tweet}"
+
+Bu tweet'e REPLY yaz. Kurallar:
+- KISA: 1-3 cümle, max 280 karakter
+- Tweet'e KATKI sun — boş övgü değil, bilgi/görüş/deneyim ekle
+- Doğal Türkçe, samimi ton
+- Hashtag KOYMA
+{f"Not: {additional_context}" if additional_context else ""}
+
+Sadece reply metnini yaz, başka bir şey yazma."""
 
         if self.provider == "anthropic":
             return self._generate_anthropic(system_prompt, user_prompt)

@@ -468,16 +468,27 @@ class TwikitSearchClient:
             for tweet in tweets:
                 results.append(self._tweet_to_dict(tweet))
         except (NotFound, Unauthorized, Forbidden, TypeError, AttributeError) as e:
-            print(f"Twikit search {type(e).__name__}, attempting re-auth...")
-            self.last_error = f"Arama hatası ({type(e).__name__}): {e}"
-            if self.username and self.password:
-                async def _retry():
-                    c = self._get_client_sync()
-                    tw = await c.search_tweet(query, 'Latest', count=count)
-                    return [self._tweet_to_dict(t) for t in tw]
-                retry_result = await self._retry_after_reauth(_retry)
-                if retry_result is not None:
-                    return retry_result
+            err_str = str(e)
+            err_name = type(e).__name__
+            # Transport/async errors (weak reference, sniffio) are NOT auth
+            # issues — re-auth would just hit the same error again.
+            if "weak reference" in err_str or "async library" in err_str.lower():
+                self.last_error = (
+                    f"Async transport hatası: {err_name}: {e}. "
+                    "Uygulamayı yeniden başlatmayı deneyin."
+                )
+                print(f"Twikit search transport error: {err_name}: {e}")
+            else:
+                print(f"Twikit search {err_name}, attempting re-auth...")
+                self.last_error = f"Arama hatası ({err_name}): {e}"
+                if self.username and self.password:
+                    async def _retry():
+                        c = self._get_client_sync()
+                        tw = await c.search_tweet(query, 'Latest', count=count)
+                        return [self._tweet_to_dict(t) for t in tw]
+                    retry_result = await self._retry_after_reauth(_retry)
+                    if retry_result is not None:
+                        return retry_result
         except TooManyRequests as e:
             reset_ts = getattr(e, 'rate_limit_reset', None)
             self.last_error = "Arama rate limit. Biraz bekleyip tekrar deneyin."
@@ -593,14 +604,23 @@ class TwikitSearchClient:
         except (NotFound, Unauthorized, Forbidden, TwitterException,
                 TypeError, AttributeError) as e:
             err_name = type(e).__name__
-            self.last_error = f"Kullanıcı tweet hatası (@{username}): {err_name}: {e}"
-            print(f"Twikit user tweets {err_name}, attempting re-auth...")
-            if self.username and self.password:
-                async def _retry():
-                    return await self._user_tweets_async(username, count, progress_callback)
-                retry_result = await self._retry_after_reauth(_retry)
-                if retry_result is not None:
-                    return retry_result
+            err_str = str(e)
+            # Transport/async errors are NOT auth issues — skip re-auth
+            if "weak reference" in err_str or "async library" in err_str.lower():
+                self.last_error = (
+                    f"@{username}: Async transport hatası: {err_name}: {e}. "
+                    "Uygulamayı yeniden başlatmayı deneyin."
+                )
+                print(f"Twikit user tweets transport error: {err_name}: {e}")
+            else:
+                self.last_error = f"Kullanıcı tweet hatası (@{username}): {err_name}: {e}"
+                print(f"Twikit user tweets {err_name}, attempting re-auth...")
+                if self.username and self.password:
+                    async def _retry():
+                        return await self._user_tweets_async(username, count, progress_callback)
+                    retry_result = await self._retry_after_reauth(_retry)
+                    if retry_result is not None:
+                        return retry_result
         except TooManyRequests as e:
             reset_ts = getattr(e, 'rate_limit_reset', None)
             if reset_ts:

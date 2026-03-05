@@ -98,6 +98,8 @@ MiniMax (öncelikli) → Anthropic Claude → OpenAI GPT. `get_ai_client()` bu s
 | 2026-03-04 | Görsel arama: varsayılan X, opsiyonel Web | X görselleri daha alakalı, DuckDuckGo ek seçenek |
 | 2026-03-04 | Vision: MiniMax → Claude/OpenAI fallback | MiniMax vision desteklemiyor, görsel analizi için otomatik fallback |
 | 2026-03-04 | media_urls araştırma akışında korunuyor | Daha önce AITopic→ResearchResult dönüşümünde kayboluyordu |
+| 2026-03-05 | sniffio cvar wrapper (`_ensure_sniffio_asyncio`) | httpcore→sniffio `run_coroutine_threadsafe` task'larında async library algılayamıyor → wrapper cvar set eder |
+| 2026-03-05 | Transport hataları re-auth tetiklemiyor | `weak reference`/`async library` hataları auth değil transport sorunu, re-auth aynı hatayı tekrarlıyordu |
 
 ---
 
@@ -120,10 +122,17 @@ MiniMax (öncelikli) → Anthropic Claude → OpenAI GPT. `get_ai_client()` bu s
 - [x] Telegram eksik kategoriler (2026-03-04)
 - [x] `twikit_client.py` datetime parse (2026-03-04)
 - [x] DuckDuckGo paralel arama + sağlamlık (2026-03-04)
+- [x] sniffio AsyncLibraryNotFoundError — background loop'ta httpcore sniffio cvar göremiyordu (2026-03-05)
+- [x] "weak reference to NoneType" — transport hataları gereksiz re-auth tetikliyordu (2026-03-05)
 
 ---
 
 ## Değişiklik Günlüğü
+
+### 2026-03-05 (Async Transport Fix)
+- **fix**: `twikit_client.py` — sniffio `AsyncLibraryNotFoundError` düzeltildi: `_ensure_sniffio_asyncio()` wrapper ile background loop task'larında sniffio cvar set ediliyor
+- **fix**: `twikit_client.py` — Transport hataları (weak reference, async library) artık re-auth tetiklemiyor; gereksiz login döngüsü önlendi
+- **docs**: `CLAUDE.md` — Yeni kararlar ve çözülmüş sorunlar eklendi
 
 ### 2026-03-04 (Tweet Havuzu Sistemi)
 - **feat**: `tweet_pool.py` — Yeni modül: çoklu hesaptan tweet biriktirme, engagement filtresi, akıllı seçim

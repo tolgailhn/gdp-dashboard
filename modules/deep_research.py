@@ -1251,6 +1251,25 @@ def research_topic(tweet_text: str, tweet_author: str = "",
         result.thread_texts = [tweet_text]
         result.full_thread_text = tweet_text
 
+    # === STEP 1.5: Follow links in original tweet/thread ===
+    # Extract URLs from the tweet (GitHub repos, articles, etc.) and fetch their content
+    original_link_articles = []
+    tweet_as_list = [{"text": t} for t in result.thread_texts]
+    original_urls = _extract_urls_from_tweets(tweet_as_list)
+    if original_urls:
+        if progress_callback:
+            progress_callback(f"Tweet'teki {len(original_urls)} link okunuyor...")
+        for i, url in enumerate(original_urls[:3]):
+            if progress_callback:
+                progress_callback(f"Link okunuyor ({i + 1}/{min(len(original_urls), 3)}): {url[:60]}...")
+            article = fetch_article_content(url)
+            if article and article.get("content") and len(article["content"]) > 200:
+                article["source"] = "original_tweet_link"
+                original_link_articles.append(article)
+                result.deep_articles.append(article)
+        if original_link_articles and progress_callback:
+            progress_callback(f"Tweet linklerinden {len(original_link_articles)} sayfa okundu")
+
     # === STEP 2: AI-powered topic extraction ===
     ai_topic = None
     if ai_client:
@@ -1292,7 +1311,14 @@ def research_topic(tweet_text: str, tweet_author: str = "",
             )
 
             if grok_result:
-                result.synthesized_brief = grok_result
+                # Append original tweet link content to Grok's synthesis
+                if original_link_articles:
+                    link_context = "\n\n## TWEET'TEKİ LİNKLERDEN OKUNAN İÇERİK\n"
+                    for art in original_link_articles:
+                        link_context += f"\n### {art.get('title', 'Sayfa')}\n{art['content'][:2000]}\n"
+                    result.synthesized_brief = grok_result + link_context
+                else:
+                    result.synthesized_brief = grok_result
 
                 if progress_callback:
                     progress_callback("🧠 Grok araştırma tamamlandı, X araması yapılıyor...")
@@ -1360,8 +1386,14 @@ def research_topic(tweet_text: str, tweet_author: str = "",
         )
 
         if agentic_result:
-            # Store the AI's autonomous research as the synthesized brief
-            result.synthesized_brief = agentic_result
+            # Append original tweet link content to AI's synthesis
+            if original_link_articles:
+                link_context = "\n\n## TWEET'TEKİ LİNKLERDEN OKUNAN İÇERİK\n"
+                for art in original_link_articles:
+                    link_context += f"\n### {art.get('title', 'Sayfa')}\n{art['content'][:2000]}\n"
+                result.synthesized_brief = agentic_result + link_context
+            else:
+                result.synthesized_brief = agentic_result
 
             if progress_callback:
                 progress_callback("🤖 AI araştırma tamamlandı, X araması yapılıyor...")

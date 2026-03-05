@@ -6,6 +6,7 @@ Optimized for X algorithm and natural Turkish/English writing
 import anthropic
 import openai
 import json
+import random
 
 # X Algorithm optimization guidelines — based on real algorithm data (2025-2026)
 X_ALGORITHM_RULES = """
@@ -529,6 +530,99 @@ _LENGTH_TO_FORMAT = {
 }
 
 
+# ============================================================================
+# TWEET ANGLES — Forces different perspectives on the same topic each time
+# ============================================================================
+
+TWEET_ANGLES = [
+    {
+        "id": "technical_deep",
+        "name": "Teknik Derinlik",
+        "instruction": """BAKIS ACISI: TEKNİK DERİNLİK
+- Bu konunun TEKNİK tarafına odaklan: mimari, teknoloji stack'i, API tasarımı, performans
+- Yıldız sayısı, contributor sayısı, "unofficial" gibi meta bilgileri ATLAMA
+- Bunun yerine: hangi dili kullanıyor, nasıl çalışıyor, hangi problemi çözüyor, teknik avantajı ne
+- "rust ile yazmışlar" diyorsan NEDEN rust? performans mı, güvenlik mi, concurrency mi?
+- Rakip teknolojilerle teknik karşılaştırma yap""",
+    },
+    {
+        "id": "business_strategy",
+        "name": "İş Stratejisi",
+        "instruction": """BAKIS ACISI: İŞ STRATEJİSİ
+- Bu konunun PARA ve STRATEJİ tarafına odaklan
+- Yıldız sayısı, teknik detaylar ATLAMA
+- Bunun yerine: kim bundan para kazanır? kimin işine yarar? hangi pazarı hedefliyor?
+- Şirketin büyük stratejisinde bu nereye oturuyor?
+- Rekabet dinamikleri: bu hamle kime karşı yapıldı?""",
+    },
+    {
+        "id": "contrarian",
+        "name": "Karşıt Görüş",
+        "instruction": """BAKIS ACISI: KARŞIT GÖRÜŞ
+- Herkesin heyecanlandığı noktanın TAM TERSİNİ savun
+- "Herkes X diyor ama aslında..." formatında yaz
+- Riskleri, dezavantajları, gözden kaçanları öne çıkar
+- Yıldız sayısı gibi hype metriklerini ELEŞTİR, gerçek değeri sorgula
+- Provokatif ama mantıklı ol — boş muhalefet değil, temelli karşıt görüş""",
+    },
+    {
+        "id": "practical_use",
+        "name": "Pratik Kullanım",
+        "instruction": """BAKIS ACISI: PRATİK KULLANIM
+- "Ben bunu nasıl kullanırım?" sorusuna cevap ver
+- Genel bilgi, yıldız sayısı, tarihçe ATLAMA
+- Bunun yerine: somut kullanım senaryoları, kimler için faydalı, hangi problemi çözer
+- "Mesela şunu yapabilirsin..." formatında somut örnekler ver
+- Günlük iş akışında bu nasıl bir fark yaratır?""",
+    },
+    {
+        "id": "future_prediction",
+        "name": "Gelecek Tahmini",
+        "instruction": """BAKIS ACISI: GELECEK TAHMİNİ
+- Bugünü değil, 6 ay-2 yıl sonrasını yaz
+- Mevcut rakamlar ve detaylar ATLAMA (kısa bahset yeter)
+- Bunun yerine: bu trend nereye gidiyor? sektörü nasıl değiştirir?
+- "6 ay içinde...", "2 yıl sonra..." gibi somut zaman tahminleri yap
+- Hangi iş kolları etkilenir? kim kazanır, kim kaybeder?""",
+    },
+    {
+        "id": "historical_parallel",
+        "name": "Tarihsel Paralel",
+        "instruction": """BAKIS ACISI: TARİHSEL PARALEL
+- Bu gelişmeyi geçmişteki benzer bir olayla KIYASLA
+- Yıldız sayısı, contributor detayları ATLAMA
+- Bunun yerine: "X yılında Y aynı şeyi yapmıştı, sonuç Z oldu"
+- Kalıpları göster: tarih tekerrür mü ediyor, yoksa bu sefer farklı mı?
+- Docker, Kubernetes, Git gibi dönüm noktalarıyla karşılaştır""",
+    },
+    {
+        "id": "ecosystem_impact",
+        "name": "Ekosistem Etkisi",
+        "instruction": """BAKIS ACISI: EKOSİSTEM ETKİSİ
+- Ürünün kendisini değil, EKOSİSTEME etkisini yaz
+- Yıldız sayısı, teknik spec ATLAMA
+- Bunun yerine: bu çıkınca hangi araçlar gereksiz olur? hangi startup'lar tehlikede?
+- Geliştirici topluluğu nasıl etkilenir?
+- Platform savaşlarında bu ne anlama geliyor?""",
+    },
+    {
+        "id": "hidden_detail",
+        "name": "Gizli Detay",
+        "instruction": """BAKIS ACISI: KİMSENİN GÖRMEDİĞİ DETAY
+- Herkesin konuştuğu şeyleri ATLAMA (yıldız, contributor, genel özellikler)
+- Bunun yerine: araştırmadaki EN AZ BİLİNEN, en ilginç tek bir detayı bul
+- O detayı merkeze koy ve etrafında tweet'i kur
+- "Herkes X'i konuşuyor ama asıl ilginç olan Y" formatı
+- Niş ama değerli bir insight ver""",
+    },
+]
+
+
+def _pick_random_angle() -> dict:
+    """Pick a random tweet angle for variety."""
+    return random.choice(TWEET_ANGLES)
+
+
 def get_available_formats(context: str = "tweet") -> dict:
     """
     Return available formats for a given context.
@@ -677,6 +771,9 @@ ARAŞTIRMA NASIL KULLANILIR:
 - Araştırmayla tweet konusu UYUŞMUYORSA o bilgiyi GÖRMEZDEN GEL
 - Genel/yüzeysel bilgi yerine spesifik veri ve bulgu tercih et"""
 
+            # Pick a random angle for variety in quote tweets too
+            angle = _pick_random_angle()
+
             user_prompt = f"""## ORİJİNAL TWEET:
 @{original_author} şunu yazmış:
 "{original_tweet}"
@@ -691,13 +788,17 @@ ARAŞTIRMA NASIL KULLANILIR:
 
 ---
 
+{angle['instruction']}
+
+---
+
 ## GÖREV:
 Orijinal tweet'in konusu hakkında KENDİ ANALİZİNİ Türkçe yaz.
 
 ZORUNLU KURALLAR:
 1. Tweet'in KONUSUNA sadık kal — tweet ne anlatıyorsa o konuda yaz
 2. Araştırmadan EN AZ 1 spesifik bilgi/rakam/veri kullan (genel yorum yetmez)
-3. Kendi bakış açını ve analizini ekle — sadece özetleme, YORUM KAT
+3. YUKARIDAKI BAKIŞ AÇISINA SADIK KAL — o perspektiften yaz
 4. GÜÇLÜ İFADEYLE BİTİR — cesur tahmin veya kesin görüş. SORU SORMA.
 
 {length_instructions}
@@ -910,12 +1011,9 @@ Araştırma verilerini kullanarak {length_desc_text} formatında yazıyorsun.
 1. KONU SABİTLEME: Orijinal tweet ne hakkındaysa O KONU hakkında yaz.
    Araştırmada tweet konusuyla alakasız bilgi varsa GÖRMEZDEN GEL.
 
-2. ORİJİNAL TWEET'İN DETAYLARINI KULLAN: Orijinal tweet'te bahsedilen TÜM özellikleri,
-   rakamları ve teknik detayları oku ve yazında kullan. Özellikle:
-   - Ürün özellikleri (model desteği, paralel çalışma, custom agents, GUI vb.)
-   - Fiyatlandırma, lansman teklifleri, ücretsiz plan detayları
-   - Desteklenen platformlar, teknik altyapı bilgileri
-   Bu bilgiler tweet metninde var — MUTLAKA kullan, atla geçme.
+2. SEÇİCİ OL: Orijinal tweet'teki ve araştırmadaki bilgilerden BAKIŞ AÇINA UYGUN olanları seç.
+   Her bilgiyi sıralamaya çalışma — tek bir perspektiften derinlemesine yaz.
+   Farklı üretim denemelerinde farklı veri noktaları öne çıkmalı.
 
 3. VERİ KULLANIMI: Araştırmadaki SPESİFİK rakamları, tarihleri, isimleri ve
    bulguları tweet'e dahil et. "Yapay zeka gelişiyor" gibi genel ifadeler yerine
@@ -1035,6 +1133,10 @@ Kendi orijinal cümlelerini kur ama aynı doğallık ve samimiyet olsun.
             if fmt:
                 format_block = f"\n{fmt['prompt_instructions']}\n"
 
+        # Pick a random angle for variety
+        angle = _pick_random_angle()
+        angle_block = f"\n{angle['instruction']}\n"
+
         prompt = f"""Aşağıdaki AI gelişmesi/konusu hakkında bir tweet yaz.
 
 KONU:
@@ -1043,6 +1145,7 @@ KONU:
 {f"KAYNAK: {topic_source}" if topic_source else ""}
 {f"EK TALİMATLAR: {additional_context}" if additional_context else ""}
 {format_block if format_block else (f"MAKSİMUM KARAKTER: {max_length}" if max_length > 0 else "Karakter sınırı yok (X Premium)")}
+{angle_block}
 
 KURALLAR:
 - %100 doğal, insan yazısı olmalı
@@ -1053,7 +1156,7 @@ KURALLAR:
 - ASLA kaynak belirtme — "@şuhesap diyor ki", "X'te şöyle yazıyorlar", "yorumlarda" gibi ifadeler YASAK
 - Bilgiyi KENDİ DENEYİMİN gibi yaz — "test ettim", "bence", "gördüğüm kadarıyla"
 - ⛔ BİLGİ UYDURMA: "X'te bazıları diyor", "kullanıcılar şüpheli" gibi kaynaksız iddialar YASAK
-- Konudaki TÜM spesifik bilgileri (özellikler, rakamlar, desteklenen modeller vb.) kullan, atlama
+- YUKARIDAKI BAKIŞ AÇISINA SADIK KAL — her konunun birden fazla açısı var, sen sadece belirtilen açıdan yaz
 
 FORMAT:
 - Paragraflar arasında boş satır bırak

@@ -534,6 +534,13 @@ class TwitterScanner:
                 self.twikit_error = self.twikit_client.last_error
             else:
                 self.twikit_error = ""
+
+            # Log authentication result for debugging
+            if self.use_twikit:
+                src = getattr(self.twikit_client, '_cookie_source', 'unknown')
+                print(f"TwitterScanner: Twikit aktif (kaynak: {src})")
+            elif self.twikit_client:
+                print(f"TwitterScanner: Twikit başarısız: {self.twikit_error}")
         except ImportError:
             self.twikit_error = "twikit paketi kurulu değil"
         except Exception as e:
@@ -656,14 +663,19 @@ class TwitterScanner:
                     query, count=max_results, since_date=since_date
                 )
                 if not results and self.twikit_client.last_error:
-                    self.search_errors.append(self.twikit_client.last_error)
+                    err = self.twikit_client.last_error
+                    # Only add unique errors (avoid flooding with same message)
+                    if err not in self.search_errors:
+                        self.search_errors.append(err)
                 topics = []
                 for d in results:
                     if d.get('created_at') and d['created_at'] >= start_time:
                         topics.append(self._dict_to_topic(d))
                 return topics
             except Exception as e:
-                self.search_errors.append(f"Twikit arama hatası: {e}")
+                err_msg = f"Twikit arama hatası: {type(e).__name__}: {e}"
+                if err_msg not in self.search_errors:
+                    self.search_errors.append(err_msg)
 
         # Fallback: Twitter API v2
         if not self.client:

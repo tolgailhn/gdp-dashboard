@@ -73,7 +73,8 @@ def get_scanner():
         twikit_password = get_secret("twikit_password", "")
         twikit_email = get_secret("twikit_email", "")
 
-        if not bearer_token and not twikit_username:
+        _has_cookies = bool(get_secret("twikit_auth_token", "")) and bool(get_secret("twikit_ct0", ""))
+        if not bearer_token and not twikit_username and not _has_cookies:
             return None
 
         scanner = TwitterScanner(

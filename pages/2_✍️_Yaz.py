@@ -562,7 +562,8 @@ with mode_tab1:
                 twikit_email = get_secret("twikit_email", "")
 
                 _scanner = None
-                if bearer_token or twikit_username:
+                _has_tw_cookies = bool(get_secret("twikit_auth_token", "")) and bool(get_secret("twikit_ct0", ""))
+                if bearer_token or twikit_username or _has_tw_cookies:
                     from modules.twitter_scanner import TwitterScanner
                     _scanner = TwitterScanner(
                         bearer_token=bearer_token,

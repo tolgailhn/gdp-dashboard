@@ -6,27 +6,48 @@ import streamlit as st
 
 
 _secrets_cache = None
+_secrets_mtime = 0  # Track file modification time for auto-refresh
 
-def _load_secrets_toml():
-    """Load secrets from .streamlit/secrets.toml directly (bypass st.secrets)"""
-    global _secrets_cache
-    if _secrets_cache is not None:
+def _load_secrets_toml(force_reload: bool = False):
+    """Load secrets from .streamlit/secrets.toml directly (bypass st.secrets).
+    Auto-refreshes when file is modified on disk."""
+    global _secrets_cache, _secrets_mtime
+    from pathlib import Path
+    toml_path = Path(__file__).parent.parent / ".streamlit" / "secrets.toml"
+
+    # Check if file was modified since last load
+    current_mtime = 0
+    if toml_path.exists():
+        try:
+            current_mtime = toml_path.stat().st_mtime
+        except Exception:
+            pass
+
+    if _secrets_cache is not None and not force_reload and current_mtime == _secrets_mtime:
         return _secrets_cache
+
     try:
         import tomllib
     except ModuleNotFoundError:
         import tomli as tomllib  # Python < 3.11 fallback
-    from pathlib import Path
-    toml_path = Path(__file__).parent.parent / ".streamlit" / "secrets.toml"
+
     if toml_path.exists():
         try:
             with open(toml_path, "rb") as f:
                 _secrets_cache = tomllib.load(f)
+            _secrets_mtime = current_mtime
         except Exception:
             _secrets_cache = {}
     else:
         _secrets_cache = {}
     return _secrets_cache
+
+
+def invalidate_secrets_cache():
+    """Force reload of secrets on next get_secret() call."""
+    global _secrets_cache, _secrets_mtime
+    _secrets_cache = None
+    _secrets_mtime = 0
 
 
 def get_secret(key: str, default: str = "") -> str:

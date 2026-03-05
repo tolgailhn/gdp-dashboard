@@ -377,8 +377,9 @@ with tab1:
     twikit_pass = get_secret("twikit_password", "")
     twikit_email = get_secret("twikit_email", "")
 
-    if not twikit_user or not twikit_pass:
-        st.error("Twikit yapilandirilmamis! Ayarlar sayfasindan Twikit kullanici adi ve sifre ekleyin.")
+    _has_tw_cookies = bool(get_secret("twikit_auth_token", "")) and bool(get_secret("twikit_ct0", ""))
+    if not twikit_user and not _has_tw_cookies:
+        st.error("Twikit yapilandirilmamis! Ayarlar sayfasindan Twikit kullanici adi/sifre ekleyin veya cookie yapisturin.")
         st.stop()
 
     # Username input
@@ -557,8 +558,9 @@ with tab3:
     _tw_pass = get_secret("twikit_password", "")
     _tw_email = get_secret("twikit_email", "")
 
-    if not _tw_user or not _tw_pass:
-        st.error("Twikit yapilandirilmamis! Ayarlar sayfasindan Twikit kullanici adi ve sifre ekleyin.")
+    _has_tw_cookies2 = bool(get_secret("twikit_auth_token", "")) and bool(get_secret("twikit_ct0", ""))
+    if not _tw_user and not _has_tw_cookies2:
+        st.error("Twikit yapilandirilmamis! Ayarlar sayfasindan Twikit bilgileri ekleyin veya cookie yapisturin.")
     else:
         st.markdown("#### Hedef Hesap")
 
@@ -739,8 +741,9 @@ with tab4:
             _pw_email = get_secret("twikit_email", "")
             _pw_totp = get_secret("twikit_totp_secret", "")
 
-            if not _pw_user or not _pw_pass:
-                st.error("Twikit kullanıcı bilgileri eksik! Ayarlar sayfasından Twikit bilgilerini girin.")
+            _has_pw_cookies = bool(get_secret("twikit_auth_token", "")) and bool(get_secret("twikit_ct0", ""))
+            if not _pw_user and not _has_pw_cookies:
+                st.error("Twikit kullanıcı bilgileri eksik! Ayarlar sayfasından Twikit bilgilerini girin veya cookie yapıştırın.")
             else:
                 progress_bar = st.progress(0)
                 status_text = st.empty()

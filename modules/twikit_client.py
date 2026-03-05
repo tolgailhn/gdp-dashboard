@@ -84,6 +84,7 @@ class TwikitSearchClient:
         self.totp_secret = totp_secret
         self._client = None
         self._authenticated = False
+        self._cookie_source = ""  # Track how we authenticated: "secrets", "file", "login"
         self.last_error = ""  # Store last error for UI display
 
     def _run(self, coro, timeout=120):
@@ -98,9 +99,14 @@ class TwikitSearchClient:
             self._client = Client('tr')
         return self._client
 
-    def authenticate(self) -> bool:
+    def authenticate(self, skip_cookies: bool = False) -> bool:
         """Authenticate with Twitter. Cookie-based auth is fully sync.
-        Only falls back to async login() if no cookies available."""
+        Only falls back to async login() if no cookies available.
+
+        Args:
+            skip_cookies: If True, skip cookie loading and force login.
+                          Used by re-auth when cookies are known to be stale.
+        """
         self.last_error = ""
 
         # Create client (sync — no network call)
@@ -108,33 +114,36 @@ class TwikitSearchClient:
         if self._client is None:
             self._client = Client('tr')
 
-        # 1. Try cookies from secrets.toml
-        try:
-            from modules.ui_components import get_secret
-            secret_auth = get_secret("twikit_auth_token", "")
-            secret_ct0 = get_secret("twikit_ct0", "")
-            if secret_auth and secret_ct0:
-                self._client.set_cookies({
-                    "auth_token": secret_auth,
-                    "ct0": secret_ct0,
-                })
-                self._authenticated = True
-                print("Twikit: cookies loaded from secrets.toml")
-                return True
-        except Exception as e:
-            print(f"Twikit: secrets.toml cookie error: {e}")
-
-        # 2. Try loading saved cookies from file
-        if COOKIES_PATH.exists():
+        if not skip_cookies:
+            # 1. Try cookies from secrets.toml
             try:
-                self._client.load_cookies(str(COOKIES_PATH))
-                self._authenticated = True
-                print("Twikit: cookies loaded from file")
-                return True
+                from modules.ui_components import get_secret
+                secret_auth = get_secret("twikit_auth_token", "")
+                secret_ct0 = get_secret("twikit_ct0", "")
+                if secret_auth and secret_ct0:
+                    self._client.set_cookies({
+                        "auth_token": secret_auth,
+                        "ct0": secret_ct0,
+                    })
+                    self._authenticated = True
+                    self._cookie_source = "secrets"
+                    print("Twikit: cookies loaded from secrets.toml")
+                    return True
             except Exception as e:
-                self.last_error = f"Cookie yükleme hatası: {e}"
-                print(f"Twikit: cookie file error: {e}")
-                COOKIES_PATH.unlink(missing_ok=True)
+                print(f"Twikit: secrets.toml cookie error: {e}")
+
+            # 2. Try loading saved cookies from file
+            if COOKIES_PATH.exists():
+                try:
+                    self._client.load_cookies(str(COOKIES_PATH))
+                    self._authenticated = True
+                    self._cookie_source = "file"
+                    print("Twikit: cookies loaded from file")
+                    return True
+                except Exception as e:
+                    self.last_error = f"Cookie yükleme hatası: {e}"
+                    print(f"Twikit: cookie file error: {e}")
+                    COOKIES_PATH.unlink(missing_ok=True)
 
         # 3. Login with credentials (async — only if no cookies)
         if not (self.username and self.password):
@@ -147,6 +156,26 @@ class TwikitSearchClient:
             self.last_error = f"{type(e).__name__}: {e}"
             print(f"Twikit login error: {e}")
             return False
+
+    def validate_connection(self) -> bool:
+        """Validate that current cookies actually work by making a lightweight API call.
+        Returns True if the connection is valid, False otherwise."""
+        if not self._authenticated:
+            return False
+        try:
+            self._run(self._validate_async())
+            return True
+        except Exception as e:
+            self.last_error = f"Cookie doğrulama hatası: {type(e).__name__}: {e}"
+            print(f"Twikit validation failed: {e}")
+            self._authenticated = False
+            return False
+
+    async def _validate_async(self):
+        """Try a simple search to validate cookies work."""
+        client = self._get_client_sync()
+        # Use a minimal search to test the connection
+        await client.search_tweet("test", 'Latest', count=1)
 
     class _InputBlockedError(Exception):
         """Raised when twikit's login() calls input() for interactive verification."""
@@ -202,6 +231,7 @@ class TwikitSearchClient:
 
             client.save_cookies(str(COOKIES_PATH))
             self._authenticated = True
+            self._cookie_source = "login"
             return True
 
         except TwikitSearchClient._InputBlockedError as e:
@@ -258,8 +288,13 @@ class TwikitSearchClient:
 
         except Exception as e:
             error_type = type(e).__name__
-            if "ConnectError" in error_type:
+            error_str = str(e)
+            if "ConnectError" in error_type or "ConnectError" in error_str:
                 self.last_error = "Twitter'a bağlanılamıyor. İnternet bağlantısını kontrol edin."
+            elif "Tunnel connection failed" in error_str or "ProxyError" in error_type:
+                self.last_error = "Proxy hatası — Twitter'a bağlanılamıyor. Proxy ayarlarını kontrol edin."
+            elif "name resolution" in error_str.lower():
+                self.last_error = "DNS hatası — Twitter'a bağlanılamıyor. DNS ayarlarını kontrol edin."
             else:
                 self.last_error = f"{error_type}: {e}"
             return False
@@ -277,10 +312,12 @@ class TwikitSearchClient:
         return self._run(self._search_async(adapted, count))
 
     async def _retry_after_reauth(self, coro_factory):
-        """Reset client, re-authenticate, then run coro_factory(). Returns None on failure."""
+        """Reset client, force login (skip stale cookies), then run coro_factory().
+        Returns None on failure."""
         self._authenticated = False
         self._client = None
-        if self.authenticate():
+        # Force login — skip cookies since they just failed
+        if self.authenticate(skip_cookies=True):
             try:
                 return await coro_factory()
             except Exception as e2:
@@ -299,6 +336,7 @@ class TwikitSearchClient:
                 results.append(self._tweet_to_dict(tweet))
         except (NotFound, Unauthorized, Forbidden, TypeError, AttributeError) as e:
             print(f"Twikit search {type(e).__name__}, attempting re-auth...")
+            self.last_error = f"Arama hatası ({type(e).__name__}): {e}"
             if self.username and self.password:
                 async def _retry():
                     c = self._get_client_sync()
@@ -307,15 +345,34 @@ class TwikitSearchClient:
                 retry_result = await self._retry_after_reauth(_retry)
                 if retry_result is not None:
                     return retry_result
-            else:
-                self.last_error = f"Arama hatası: {type(e).__name__}: {e}"
         except TooManyRequests as e:
             reset_ts = getattr(e, 'rate_limit_reset', None)
             self.last_error = "Arama rate limit. Biraz bekleyip tekrar deneyin."
             print(f"Twikit search: TooManyRequests (reset={reset_ts})")
         except Exception as e:
-            self.last_error = f"Arama hatası: {type(e).__name__}: {e}"
-            print(f"Twikit search error: {e}")
+            error_str = str(e)
+            error_type = type(e).__name__
+            # Better error messages for common network issues
+            if "ConnectError" in error_type or "ConnectError" in error_str:
+                self.last_error = "Twitter'a bağlanılamıyor. İnternet bağlantısını kontrol edin."
+            elif "Tunnel connection failed" in error_str or "ProxyError" in error_type:
+                self.last_error = "Proxy hatası — Twitter'a bağlanılamıyor."
+            elif "name resolution" in error_str.lower():
+                self.last_error = "DNS hatası — Twitter adresi çözümlenemiyor."
+            elif "Couldn't get KEY_BYTE" in error_str or "client_transaction" in error_str.lower():
+                self.last_error = (
+                    "Twitter güvenlik token'ı alınamadı (ClientTransaction). "
+                    "VPS/sunucu IP'si Twitter tarafından engellenmiş olabilir. "
+                    "Cookie'leri tarayıcıdan yapıştırmayı deneyin."
+                )
+            elif "Couldn't get key" in error_str:
+                self.last_error = (
+                    "Twitter sayfa yapısı okunamadı. "
+                    "Twitter erişim engelliyor olabilir."
+                )
+            else:
+                self.last_error = f"Arama hatası: {error_type}: {e}"
+            print(f"Twikit search error: {error_type}: {e}")
         return results
 
     def get_user_tweets(self, username: str, count: int = 10,
@@ -405,8 +462,18 @@ class TwikitSearchClient:
             self.last_error = "Kullanıcı tweet rate limit. Biraz bekleyip tekrar deneyin."
             print(f"Twikit user tweets: TooManyRequests")
         except Exception as e:
-            self.last_error = f"Kullanıcı tweet hatası (@{username}): {type(e).__name__}: {e}"
-            print(f"Twikit user tweets error ({username}): {e}")
+            error_str = str(e)
+            error_type = type(e).__name__
+            if "ConnectError" in error_type or "ConnectError" in error_str:
+                self.last_error = f"@{username} tweet çekme: Twitter'a bağlanılamıyor."
+            elif "Couldn't get KEY_BYTE" in error_str or "client_transaction" in error_str.lower():
+                self.last_error = (
+                    f"@{username}: Twitter güvenlik token'ı alınamadı. "
+                    "VPS IP'si engellenmiş olabilir."
+                )
+            else:
+                self.last_error = f"Kullanıcı tweet hatası (@{username}): {error_type}: {e}"
+            print(f"Twikit user tweets error ({username}): {error_type}: {e}")
 
         return results
 
@@ -559,6 +626,7 @@ class TwikitSearchClient:
                     break
 
         except Exception as e:
+            self.last_error = f"Takipçi çekme hatası (@{username}): {type(e).__name__}: {e}"
             print(f"Twikit followers error ({username}): {e}")
         return results
 

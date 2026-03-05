@@ -104,7 +104,9 @@ with main_tab1:
         twikit_password = get_secret("twikit_password", "")
         twikit_email = get_secret("twikit_email", "")
 
-        if not bearer_token and not twikit_username:
+        # Also check for cookie-only auth (no username needed)
+        _has_twikit_cookies = bool(get_secret("twikit_auth_token", "")) and bool(get_secret("twikit_ct0", ""))
+        if not bearer_token and not twikit_username and not _has_twikit_cookies:
             st.error("Twitter API veya Twikit bilgileri yapılandırılmamış! Ayarlar sayfasından ekleyin.")
             st.stop()
 
@@ -122,7 +124,8 @@ with main_tab1:
                 )
 
                 if scanner.use_twikit:
-                    st.success("Twikit ile taranıyor (ücretsiz)")
+                    src = getattr(scanner.twikit_client, '_cookie_source', '')
+                    st.success(f"Twikit ile taranıyor (ücretsiz, kaynak: {src})")
                 elif scanner.client:
                     st.info("Twitter API ile taranıyor")
                 else:
@@ -475,7 +478,8 @@ with main_tab2:
         twikit_password = get_secret("twikit_password", "")
         twikit_email = get_secret("twikit_email", "")
 
-        if not bearer_token and not twikit_username:
+        _has_twikit_cookies2 = bool(get_secret("twikit_auth_token", "")) and bool(get_secret("twikit_ct0", ""))
+        if not bearer_token and not twikit_username and not _has_twikit_cookies2:
             st.error("Twitter API veya Twikit bilgileri yapılandırılmamış!")
             st.stop()
 

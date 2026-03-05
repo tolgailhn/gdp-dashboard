@@ -19,6 +19,34 @@ import traceback
 import nest_asyncio
 nest_asyncio.apply()
 
+# ---------- Python 3.14 + anyio/httpcore compatibility patch ----------
+# In Python 3.14, asyncio.current_task() can return None when running via
+# nest_asyncio. This causes anyio's AsyncShieldCancellation to fail with
+# "cannot create weak reference to 'NoneType' object" during httpcore's
+# connection pool cleanup.  The actual HTTP response is already received
+# at that point, so we can safely swallow the cleanup error.
+def _patch_httpcore_for_python314():
+    try:
+        import httpcore._async.connection_pool as _pool_mod
+        _orig_close = _pool_mod.AsyncConnectionPool._close_connections
+
+        async def _safe_close_connections(self, closing):
+            try:
+                await _orig_close(self, closing)
+            except TypeError as exc:
+                if "weak reference" in str(exc):
+                    # Silently ignore — connections will be GC'd
+                    pass
+                else:
+                    raise
+
+        _pool_mod.AsyncConnectionPool._close_connections = _safe_close_connections
+    except Exception:
+        pass
+
+_patch_httpcore_for_python314()
+# ----------------------------------------------------------------------
+
 from twikit.errors import (
     AccountLocked,
     AccountSuspended,

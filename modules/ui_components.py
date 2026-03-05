@@ -159,11 +159,36 @@ def inject_custom_css():
     footer {visibility: hidden;}
     [data-testid="stSidebarNav"] { display: none !important; }
     div[data-testid="stSidebarNav"] { display: none !important; }
+    /* Hide Streamlit's built-in page nav (shows broken material icons) */
+    [data-testid="stSidebarNavItems"],
+    div[data-testid="stSidebarNavSeparator"],
+    nav[data-testid="stSidebarNav"],
+    [data-testid="stPageLink"],
+    ul[data-testid="stSidebarNavItems"],
+    section[data-testid="stSidebar"] > div > div > div > ul,
+    section[data-testid="stSidebar"] nav {
+        display: none !important;
+    }
+
     header[data-testid="stHeader"] {
         background: rgba(5, 8, 16, 0.85) !important;
         backdrop-filter: blur(30px) saturate(180%);
         -webkit-backdrop-filter: blur(30px) saturate(180%);
         border-bottom: 1px solid rgba(99, 102, 241, 0.08);
+    }
+    /* Fix broken material icon text in header/toolbar */
+    header[data-testid="stHeader"] [data-testid="stToolbar"] {
+        font-size: 0 !important;
+    }
+    header[data-testid="stHeader"] [data-testid="stToolbar"] button {
+        font-size: 14px !important;
+    }
+    /* Hide raw :material/ icon text leaking in page chrome */
+    [data-testid="stHeaderActionElements"] span:not([data-testid]) {
+        font-size: 0;
+        overflow: hidden;
+        width: 0;
+        display: inline-block;
     }
 
     /* --- Typography --- */
@@ -881,6 +906,17 @@ def inject_custom_css():
         font-weight: 700;
         border-radius: var(--radius-md);
     }
+    /* Hide broken material icon text in expanders (Streamlit 1.37+) */
+    [data-testid="stExpander"] summary span[data-testid="stMarkdownContainer"] + span {
+        font-size: 0 !important;
+        width: 0 !important;
+        overflow: hidden !important;
+    }
+    /* Hide raw material icon text globally (arrow_downward, double_arrow_right, etc) */
+    .st-emotion-cache-material-icon,
+    span[class*="material"] {
+        font-size: 0 !important;
+    }
 
     /* ==========================================
        SIDEBAR — Premium Dark Glass
@@ -1244,9 +1280,7 @@ def inject_custom_css():
             background: rgba(99,102,241,0.15) !important;
         }
 
-        button[kind="header"] { display: none !important; }
-
-        .block-container { padding: 0.5rem 0.75rem 1.5rem 0.75rem !important; }
+        .block-container { padding: 0.5rem 1rem 1.5rem 1rem !important; }
 
         .stButton > button {
             width: 100%;

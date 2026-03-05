@@ -248,16 +248,19 @@ with mode_tab2:
                         """, unsafe_allow_html=True)
 
             # --- Show research results ---
+            is_agentic = use_agentic or use_grok_agentic
+
             # In agentic mode, show the AI's own research summary prominently
-            if use_agentic and research.synthesized_brief:
-                with st.expander("🤖 AI Otonom Araştırma Sonuçları", expanded=True):
+            if is_agentic and research.synthesized_brief:
+                agentic_label = "🧠 Grok Otonom Araştırma Sonuçları" if use_grok_agentic else "🤖 AI Otonom Araştırma Sonuçları"
+                with st.expander(agentic_label, expanded=True):
                     st.markdown(research.synthesized_brief)
                     if research.related_tweets:
                         st.markdown(f"\n**𝕏 İlgili Yorumlar ({len(research.related_tweets)}):**")
                         for rt in research.related_tweets[:3]:
                             st.markdown(f"- @{rt['author']} ({rt['likes']} ❤️): _{rt['text'][:300]}_")
 
-            with st.expander("📊 Araştırma Sonuçları" if not use_agentic else "📊 Ek Detaylar", expanded=not use_agentic):
+            with st.expander("📊 Araştırma Sonuçları" if not is_agentic else "📊 Ek Detaylar", expanded=not is_agentic):
                 if research.topic:
                     st.markdown(f"**Tespit edilen konu:** `{research.topic}`")
 
@@ -287,11 +290,11 @@ with mode_tab2:
                     for rt in research.related_tweets[:3]:
                         st.markdown(f"- @{rt['author']} ({rt['likes']} ❤️): _{rt['text'][:300]}_")
 
-                if not research.web_results and not research.deep_articles and not research.related_tweets:
+                if not is_agentic and not research.web_results and not research.deep_articles and not research.related_tweets:
                     st.warning("Bu konu için web'de yeterli bilgi bulunamadı.")
 
-            # Show AI-synthesized brief if available
-            if research.synthesized_brief:
+            # Show AI-synthesized brief if available (only for non-agentic, since agentic already shows it above)
+            if not is_agentic and research.synthesized_brief:
                 with st.expander("🧠 AI Araştırma Sentezi", expanded=False):
                     st.markdown(research.synthesized_brief)
 

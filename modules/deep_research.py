@@ -491,9 +491,6 @@ def _fetch_github_repo(owner: str, repo: str) -> dict | None:
                 f"# {data.get('full_name', f'{owner}/{repo}')}",
                 f"**Açıklama:** {data.get('description', 'N/A')}",
                 f"**Dil:** {data.get('language', 'N/A')}",
-                f"**Yıldız:** {data.get('stargazers_count', 0):,}",
-                f"**Fork:** {data.get('forks_count', 0):,}",
-                f"**Açık Issue:** {data.get('open_issues_count', 0):,}",
                 f"**Lisans:** {data.get('license', {}).get('name', 'N/A') if data.get('license') else 'N/A'}",
                 f"**Son güncelleme:** {data.get('pushed_at', 'N/A')[:10]}",
                 f"**Oluşturulma:** {data.get('created_at', 'N/A')[:10]}",
@@ -1062,13 +1059,26 @@ YAPMA:
 - Tweet'te olmayan rakip ürünleri araştırma (tweet'te karşılaştırma yoksa)
 - 3-4 aramadan fazla yapma (odaklan, dağılma)
 
+⛔ YÜZEYSEL METRİK YASAĞI:
+- Yıldız sayısı (star count), fork sayısı, contributor sayısı gibi popülerlik metriklerini RAPORLAMA
+- Bunlar yüzeysel vanity metrikler — tweet yazarken işe yaramaz
+- Bunun yerine şunları bul: teknik mimari, hangi dili/framework'ü kullanıyor, nasıl çalışıyor, benchmark sonuçları, pratik kullanım, rakiplerden farkı
+
+📦 GitHub REPO İSE:
+- Tweet bir GitHub reposu/açık kaynak projesi hakkındaysa → o projenin GitHub sayfasını ve README'sini oku
+- Teknik detaylara odaklan: mimari, desteklenen özellikler, API tasarımı, kurulum, entegrasyon
+- "Şu kadar star almış" DEĞİL → "şu teknolojiyi kullanıyor, şu problemi çözüyor" yaz
+
 TAMAMLADIĞINDA şu formatta özetle:
 
 ## TWEET'TEKİ İDDIALAR VE DOĞRULAMA
 (Tweet ne diyor → gerçekte durum ne)
 
+## TEKNİK DETAYLAR
+(Mimari, teknoloji, API, desteklenen özellikler, nasıl çalıştığı)
+
 ## GÜNCEL VERİLER
-(Tweet'teki konuya ait spesifik rakamlar, benchmarklar — kaynaklı)
+(Benchmark sonuçları, performans metrikleri, fiyatlandırma — kaynaklı. Yıldız/fork sayısı DEĞİL)
 
 ## EKSİK BAĞLAM
 (Tweet'te söylenmeyen ama aynı konuyla ilgili önemli 1-2 bilgi)"""
@@ -1942,7 +1952,12 @@ KURALLAR:
 - Sadece GERÇEK bilgi yaz, yorum ekleme
 - Tweet konusuyla ALAKASIZ bilgileri dahil etme
 - "Bulunamadı" yazmak yerine o bölümü boş bırak
-- Araştırmada bilgi yoksa bölümü atla"""
+- Araştırmada bilgi yoksa bölümü atla
+
+⛔ FİLTRELE:
+- Yıldız sayısı (star count), fork sayısı, contributor sayısı gibi popülerlik metrikleri DAHIL ETME
+- Bunlar yüzeysel vanity metrikler ve tweet'e değer katmaz
+- Bunun yerine teknik bilgi, mimari detay, benchmark sonuçları, pratik kullanım öne çıkar"""
 
     try:
         if provider == "anthropic":

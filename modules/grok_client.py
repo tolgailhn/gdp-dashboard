@@ -268,6 +268,13 @@ ARAŞTIRMA STRATEJİN:
 - X aramalarında gerçek insanların görüşlerini bul
 - Web aramalarında somut veriler ve kaynaklar bul
 - SADECE gerçek arama sonuçlarına dayalı bilgi ver, BİLGİ UYDURMA
+- GitHub repo ise: README içeriğini, teknik mimariyi, hangi problemi çözdüğünü, nasıl çalıştığını araştır
+
+⛔ YÜZEYSEL METRİK YASAĞI:
+- Yıldız sayısı (star count), fork sayısı, contributor sayısı gibi popülerlik metriklerini YAZMA
+- "X bin yıldız almış" tarzı ifadeler YASAK — bunlar yüzeysel ve hype odaklı
+- Bunun yerine: teknik detaylar, mimari kararlar, hangi problemi çözdüğü, rakiplerden farkı, pratik kullanım senaryoları
+- Bir proje hakkında yazıyorsan: NE yapıyor, NASIL çalışıyor, NİÇİN önemli — rakamsal popülerlik DEĞİL
 
 TAMAMLADIĞINDA şu formatta özetle:
 
@@ -275,16 +282,19 @@ TAMAMLADIĞINDA şu formatta özetle:
 (Bu konu hakkında X'te ne konuşuluyor? Öne çıkan görüşler, tepkiler)
 
 ## TEMEL BULGULAR
-(Web'den ve X'ten elde edilen en önemli 3-5 bilgi)
+(Web'den ve X'ten elde edilen en önemli 3-5 bilgi — teknik detaylar, mimari, kullanım)
+
+## TEKNİK DETAYLAR
+(Mimari, teknoloji stack'i, API tasarımı, performans, desteklenen özellikler)
 
 ## RAKAMLAR VE VERİLER
-(Spesifik rakamlar, yüzdeler — kaynaklı)
+(Benchmark sonuçları, performans metrikleri, fiyatlandırma — kaynaklı. Yıldız/fork sayısı DEĞİL)
 
 ## KARŞIT GÖRÜŞ / ÇELİŞKİ
 (Varsa farklı bakış açıları)
 
 ## BAĞLAM
-(Bu olay neden önemli?)"""
+(Bu olay neden önemli? Sektörel etki, strateji)"""
 
     result = _grok_responses_api(
         messages=[

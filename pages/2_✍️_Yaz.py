@@ -607,7 +607,9 @@ with mode_tab3:
                 _rp_samples = load_user_samples()
                 _rp_persona = load_custom_persona()
                 _rp_analyses = load_all_analyses(session_state=st.session_state)
-                _rp_training = build_training_context(_rp_analyses) if _rp_analyses else ""
+                # Use tweet text as topic so pool selects relevant style examples
+                _rp_topic = selected_reply_tweet.get("text", "")[:200] if selected_reply_tweet else ""
+                _rp_training = build_training_context(_rp_analyses, topic=_rp_topic) if _rp_analyses else ""
 
                 with st.spinner("Reply üretiliyor..."):
                     try:

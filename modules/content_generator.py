@@ -792,7 +792,7 @@ class ContentGenerator:
         if not self.client:
             raise ValueError("API client not initialized. Check your API key.")
 
-        system_prompt = self._build_system_prompt(style, user_samples)
+        system_prompt = self._build_reply_system_prompt(user_samples)
 
         user_prompt = f"""@{original_author} tweeted:
 "{original_tweet}"
@@ -1215,6 +1215,65 @@ Kendi orijinal cümlelerini kur ama aynı doğallık ve samimiyet olsun.
         MAX_PROMPT_CHARS = 35000
         if len(prompt) > MAX_PROMPT_CHARS:
             prompt = prompt[:MAX_PROMPT_CHARS] + "\n\n[Prompt uzunluk limiti nedeniyle kısaltıldı]"
+
+        return prompt
+
+    def _build_reply_system_prompt(self, user_samples: list = None) -> str:
+        """Build system prompt for English reply generation with style DNA."""
+        style_info = WRITING_STYLES.get("reply", {})
+
+        prompt = f"""You are a tech-savvy AI/ML enthusiast who writes sharp, insightful replies on X (Twitter).
+You write in ENGLISH. You sound like a real person — casual, knowledgeable, opinionated.
+
+{style_info.get('prompt', '')}
+"""
+
+        # Inject training DNA (highest priority for writing personality)
+        if self.training_context:
+            tc = self.training_context
+            max_training_chars = 25000
+            if len(tc) > max_training_chars:
+                tc = tc[:max_training_chars]
+            prompt += f"""
+{tc}
+
+## CRITICAL — STYLE DNA PRIORITY:
+The training data above defines your WRITING PERSONALITY — tone, word choice,
+sentence structure, how you open and close. Absorb the STYLE, not the language.
+Since replies must be in ENGLISH, translate the personality traits:
+- If the DNA shows casual/witty tone → be casual/witty in English
+- If the DNA shows strong opinions → have strong opinions in English
+- If the DNA shows technical depth → show technical depth in English
+- Match the energy, confidence level, and personality — just in English.
+"""
+
+        if user_samples:
+            samples_text = "\n".join([f"- {s}" for s in user_samples[:5]])
+            prompt += f"""
+## USER'S TWEET EXAMPLES (TONE reference only):
+{samples_text}
+
+NOTE: Use the TONE and APPROACH from these examples.
+NEVER copy these tweets. Write original sentences with the same natural voice.
+"""
+
+        # Extra guardrails for non-Claude models
+        if self.provider in ("minimax", "openai"):
+            prompt += """
+## NATURALNESS RULES:
+1. WRITE SHORT — Get to the point. No filler.
+2. NO AI PATTERNS — Don't use "It's worth noting", "Let's dive in", "Here's the thing"
+3. CASUAL ENGLISH — "honestly", "tbh", "ngl", "lowkey", "actually" — sound human
+4. ONE REPLY = ONE IDEA — Don't try to cover everything
+5. PERSONAL TAKE REQUIRED — "I tested this", "imo", "from what I've seen"
+6. NEVER start with "I" — vary your openings
+7. NO quotes around the reply text
+8. NO ending questions like "What do you think?" — end with a strong take
+"""
+
+        MAX_PROMPT_CHARS = 35000
+        if len(prompt) > MAX_PROMPT_CHARS:
+            prompt = prompt[:MAX_PROMPT_CHARS]
 
         return prompt
 

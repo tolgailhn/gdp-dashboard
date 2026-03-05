@@ -13,6 +13,7 @@ from backend.api.publish import router as publish_router
 from backend.api.settings import router as settings_router
 from backend.api.analytics import router as analytics_router
 from backend.api.calendar import router as calendar_router
+from backend.api.drafts import router as drafts_router
 
 app = FastAPI(
     title="X AI Otomasyon API",
@@ -40,6 +41,7 @@ app.include_router(publish_router, prefix="/api/publish", tags=["publish"])
 app.include_router(settings_router, prefix="/api/settings", tags=["settings"])
 app.include_router(analytics_router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(calendar_router, prefix="/api/calendar", tags=["calendar"])
+app.include_router(drafts_router, prefix="/api/drafts", tags=["drafts"])
 
 
 @app.get("/api/health")

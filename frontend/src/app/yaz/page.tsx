@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { generateTweet, researchTopic, publishTweet } from "@/lib/api";
+import { generateTweet, researchTopic, publishTweet, addDraft } from "@/lib/api";
 
 export default function YazPage() {
   return (
@@ -25,6 +25,7 @@ function YazContent() {
   const [researching, setResearching] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState<string | null>(null);
+  const [draftSaved, setDraftSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -256,6 +257,17 @@ function YazContent() {
           <div className="flex gap-3">
             <button onClick={handleGenerate} className="btn-secondary text-sm">
               Yeniden Uret
+            </button>
+            <button
+              onClick={async () => {
+                setDraftSaved(false);
+                await addDraft({ text: generatedText, topic, style });
+                setDraftSaved(true);
+                setTimeout(() => setDraftSaved(false), 3000);
+              }}
+              className="btn-secondary text-sm"
+            >
+              {draftSaved ? "Kaydedildi!" : "Taslak Kaydet"}
             </button>
             <button
               onClick={handlePublish}

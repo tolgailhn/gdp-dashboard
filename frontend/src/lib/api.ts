@@ -140,6 +140,29 @@ export async function logPost(entry: {
   });
 }
 
+// Drafts
+export async function listDrafts() {
+  return fetchAPI("/drafts/list");
+}
+
+export async function addDraft(params: {
+  text: string;
+  topic?: string;
+  style?: string;
+}) {
+  return fetchAPI("/drafts/add", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+
+export async function deleteDraft(index: number) {
+  return fetchAPI("/drafts/delete", {
+    method: "POST",
+    body: JSON.stringify({ index }),
+  });
+}
+
 // Health
 export async function healthCheck() {
   return fetchAPI("/health");

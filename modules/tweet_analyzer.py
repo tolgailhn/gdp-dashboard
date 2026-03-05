@@ -437,7 +437,53 @@ Raporların veriye dayalı, spesifik ve uygulanabilir olmalı."""
 
 def save_tweet_analysis(username: str, analysis: dict, ai_report: str = "",
                         session_state=None):
-    """Save tweet analysis to JSON file AND session_state (for Streamlit Cloud persistence)."""
+    """
+    Save tweet analysis to JSON file AND session_state.
+    If a previous analysis exists for the same username, merges
+    all_original_tweets (dedup by text[:100]) and recalculates style DNA.
+    """
+    # --- Eski analizi yükle ve birleştir ---
+    existing = load_tweet_analysis(username, session_state)
+    if existing:
+        old_analysis = existing.get("analysis", {})
+        old_originals = old_analysis.get("all_original_tweets", [])
+        new_originals = analysis.get("all_original_tweets", [])
+
+        if old_originals and new_originals:
+            # Fingerprint ile dedup
+            seen = {t.get("text", "")[:100] for t in new_originals}
+            merged = list(new_originals)  # yeni olanlar önce
+            merged_count = 0
+            for t in old_originals:
+                fp = t.get("text", "")[:100]
+                if fp not in seen:
+                    seen.add(fp)
+                    merged.append(t)
+                    merged_count += 1
+
+            if merged_count > 0:
+                analysis["all_original_tweets"] = merged
+                # DNA'yı birleşik veriden yeniden hesapla
+                analysis["style_dna"] = _extract_style_dna(merged)
+                analysis["original_count"] = len(merged)
+                analysis["merge_info"] = {
+                    "previous_count": len(old_originals),
+                    "new_count": len(new_originals),
+                    "merged_total": len(merged),
+                    "added_from_old": merged_count,
+                }
+
+        # Eski retweet'leri de birleştir
+        old_rts = old_analysis.get("all_retweets", [])
+        new_rts = analysis.get("all_retweets", [])
+        if old_rts and new_rts:
+            rt_seen = {t.get("text", "")[:100] for t in new_rts}
+            for t in old_rts:
+                if t.get("text", "")[:100] not in rt_seen:
+                    new_rts.append(t)
+            analysis["all_retweets"] = new_rts
+            analysis["retweet_count"] = len(new_rts)
+
     data = {
         "username": username,
         "analyzed_at": datetime.datetime.now().isoformat(),
@@ -681,9 +727,9 @@ def build_training_context(analyses: list[dict], max_examples: int = 50, topic: 
         except Exception:
             pass
 
+        all_originals = analysis.get("all_original_tweets", [])
+
         if not _pool_used:
-            # Fallback: havuz yoksa mevcut curated examples sistemi
-            all_originals = analysis.get("all_original_tweets", [])
 
             if all_originals:
                 sorted_by_score = sorted(all_originals, key=lambda x: x.get("engagement_score", 0), reverse=True)
@@ -783,11 +829,104 @@ def build_training_context(analyses: list[dict], max_examples: int = 50, topic: 
                 f"### @{username} - Tarz Analizi:\n{short_report}"
             )
 
-    # --- TWEET HAVUZU ÖRNEKLERİ (for döngüsünden sonra, tüm hesaplar için tek sefer) ---
+    # --- TWEET HAVUZU ÖRNEKLERİ + HAVUZ DNA'SI ---
     try:
-        from modules.tweet_pool import load_pool, select_examples, build_pool_training_context
+        from modules.tweet_pool import load_pool, select_examples, build_pool_training_context, get_pool_dna
         pool_data = load_pool()
         if pool_data.get("pool") and len(pool_data["pool"]) >= 10:
+            # --- ÖNCELİK 1: Claude AI tarafından oluşturulan derin DNA ---
+            ai_dna = pool_data.get("pool_dna_ai")
+            if ai_dna:
+                ai_dna_parts = []
+
+                # Yazım tarzı kuralları
+                rules = ai_dna.get("yazim_tarzi_kurallari", {})
+                if rules:
+                    rules_text = chr(10).join([f"- {k.upper()}: {v}" for k, v in rules.items()])
+                    ai_dna_parts.append(f"### YAZIM TARZI KURALLARI:\n{rules_text}")
+
+                # İmza kelimeleri
+                sig = ai_dna.get("imza_kelimeleri", {}).get("en_sik", {})
+                if sig:
+                    sig_text = chr(10).join([f'- "{k}": {v}' for k, v in list(sig.items())[:12]])
+                    ai_dna_parts.append(f"### İMZA KELİMELERİ (bunları doğal kullan):\n{sig_text}")
+
+                # Hook stratejileri
+                hooks = ai_dna.get("hook_stratejileri", {})
+                if hooks:
+                    hook_parts = []
+                    for strat_name, strat_data in hooks.items():
+                        if isinstance(strat_data, dict):
+                            desc = strat_data.get("aciklama", "")
+                            examples = strat_data.get("ornekler", [])
+                            ex_text = chr(10).join([f'  - "{e}"' for e in examples[:3]])
+                            hook_parts.append(f"**{strat_name}** ({desc}):\n{ex_text}")
+                    ai_dna_parts.append("### HOOK STRATEJİLERİ (açılış tarzları):\n" + chr(10).join(hook_parts))
+
+                # İmza kalıpları
+                patterns = ai_dna.get("imza_kaliplari", {})
+                giris = patterns.get("giris_kaliplari", [])
+                gecis = patterns.get("gecis_kaliplari", [])
+                kapanis = patterns.get("kapanis_kaliplari", [])
+                if giris:
+                    ai_dna_parts.append("### GİRİŞ KALIPLARl:\n" + chr(10).join([f'- "{g}"' for g in giris[:10]]))
+                if gecis:
+                    ai_dna_parts.append("### GEÇİŞ KALIPLARl:\n" + chr(10).join([f'- "{g}"' for g in gecis]))
+                if kapanis:
+                    ai_dna_parts.append("### KAPANIŞ KALIPLARl:\n" + chr(10).join([f'- "{g}"' for g in kapanis]))
+
+                # Ton ve kişilik
+                ton = ai_dna.get("ton_ve_kisilik", {})
+                if ton:
+                    ton_text = chr(10).join([f"- {k.upper()}: {v}" for k, v in ton.items()])
+                    ai_dna_parts.append(f"### TON VE KİŞİLİK:\n{ton_text}")
+
+                # Yapılmaması gerekenler
+                yapma = ai_dna.get("yapilmamasi_gerekenler", [])
+                if yapma:
+                    yapma_text = chr(10).join([f"- YAPMA: {y}" for y in yapma])
+                    ai_dna_parts.append(f"### YAPMAMASI GEREKENLER:\n{yapma_text}")
+
+                # İçerik formülleri
+                formuller = ai_dna.get("icerik_formulleri", {})
+                if formuller:
+                    form_text = chr(10).join([f"- {k}: {v}" for k, v in formuller.items()])
+                    ai_dna_parts.append(f"### İÇERİK FORMÜLLERİ:\n{form_text}")
+
+                if ai_dna_parts:
+                    tweet_count = ai_dna.get("tweet_sayisi", 0)
+                    context_parts.append(
+                        f"## DERİN YAZIM DNA'SI (Claude AI tarafından {tweet_count} tweet analiz edilerek oluşturuldu):\n\n"
+                        + chr(10) + chr(10).join(ai_dna_parts)
+                    )
+            else:
+                # Fallback: otomatik hesaplanmış havuz DNA'sı
+                pool_dna = get_pool_dna()
+                if pool_dna:
+                    dna_rules = []
+                    lc_pct = pool_dna.get("kucuk_harf_yuzde", 0)
+                    if lc_pct > 50:
+                        dna_rules.append(f"- KÜÇÜK HARF: Havuzdaki tweet'lerin %{lc_pct}'i küçük harfle başlıyor.")
+                    sig_words = pool_dna.get("imza_kelimeleri", {})
+                    if sig_words:
+                        top_words = list(sig_words.items())[:20]
+                        words_text = ", ".join([f'"{w}"({c}x)' for w, c in top_words])
+                        dna_rules.append(f"- HAVUZ İMZA KELİMELERİ: {words_text}")
+                    sig_phrases = pool_dna.get("imza_kaliplari", {})
+                    if sig_phrases:
+                        top_phrases = list(sig_phrases.items())[:12]
+                        phrases_text = ", ".join([f'"{p}"({c}x)' for p, c in top_phrases])
+                        dna_rules.append(f"- HAVUZ İMZA KALIPLARl: {phrases_text}")
+                    hooks_auto = pool_dna.get("hook_ornekleri", [])
+                    if hooks_auto:
+                        hook_text = chr(10).join([f'- "{h}"' for h in hooks_auto[:12]])
+                        dna_rules.append(f"- HAVUZ EN ETKİLİ HOOK'LAR:\n{hook_text}")
+                    if dna_rules:
+                        context_parts.append(
+                            f"### BİRLEŞİK HAVUZ DNA'SI ({pool_dna.get('tweet_sayisi', 0)} tweet'ten):\n"
+                            + chr(10).join(dna_rules)
+                        )
+
             selected = select_examples(pool_data, topic=topic, count=max_examples)
             if selected:
                 pool_context = build_pool_training_context(selected)

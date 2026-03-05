@@ -7,8 +7,16 @@ import streamlit as st
 
 def get_secret(key: str, default: str = "") -> str:
     """Safely get a secret value - works both locally and on Streamlit Cloud"""
+    import os
+    # First try environment variables
+    env_val = os.environ.get(key, "")
+    if env_val:
+        return env_val
+    # Then try Streamlit secrets (may fail if secrets.toml missing/empty)
     try:
-        return st.secrets.get(key, default)
+        return st.secrets[key]
+    except (KeyError, FileNotFoundError, TypeError, AttributeError):
+        return default
     except Exception:
         return default
 

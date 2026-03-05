@@ -23,7 +23,7 @@ from modules.tweet_analyzer import (
 )
 from modules.tweet_pool import (
     load_pool, load_pool_accounts, save_pool_accounts,
-    get_pool_stats, bulk_fetch_accounts,
+    get_pool_stats, bulk_fetch_accounts, import_from_analyses,
 )
 
 # Page config
@@ -792,8 +792,68 @@ with tab4:
 
     st.markdown("---")
 
+    # --- Analizlerden Havuza Aktar (tekrar çekmeden) ---
+    st.markdown("#### Mevcut Analizlerden Havuza Aktar")
+
+    all_analyses = load_all_analyses(st.session_state)
+    if all_analyses:
+        analysis_usernames = [a.get("username", "?") for a in all_analyses]
+        analysis_tweet_counts = []
+        for a in all_analyses:
+            ana = a.get("analysis", {})
+            orig_count = len(ana.get("all_original_tweets", []))
+            if not orig_count:
+                orig_count = len(ana.get("top_tweets", []))
+            analysis_tweet_counts.append(orig_count)
+
+        total_analysis_tweets = sum(analysis_tweet_counts)
+        st.markdown(
+            f"**{len(all_analyses)} analiz dosyasi mevcut** "
+            f"({', '.join(f'@{u}({c})' for u, c in zip(analysis_usernames, analysis_tweet_counts))}) "
+            f"— Toplam **{total_analysis_tweets:,}** tweet"
+        )
+
+        pool_import_min_eng = st.slider(
+            "Min Engagement (aktarma icin)",
+            min_value=0, max_value=1000, value=100, step=10,
+            key="pool_import_min_engagement",
+            help="Bu skorun altindaki tweet'ler havuza eklenmez"
+        )
+
+        if st.button("Analizlerden Havuza Aktar (tekrar cekmeden)", type="secondary",
+                      use_container_width=True, key="import_analyses_to_pool"):
+            with st.spinner("Analiz dosyalarindan havuza aktariliyor..."):
+                import_status = st.empty()
+
+                def import_progress(msg):
+                    import_status.markdown(f"... {msg}")
+
+                import_results = import_from_analyses(
+                    min_engagement=pool_import_min_eng,
+                    progress_callback=import_progress,
+                )
+
+                import_status.empty()
+                total_imported = 0
+                for r in import_results:
+                    if r.get("error"):
+                        st.warning(f"@{r['username']}: {r['error']}")
+                    else:
+                        total_imported += r["added"]
+                        st.success(
+                            f"@{r['username']}: {r['fetched']} tweet'ten "
+                            f"**{r['added']} eklendi**, {r['skipped']} atlandi"
+                        )
+
+                st.markdown(f"### Toplam **{total_imported}** tweet havuza eklendi!")
+                st.rerun()
+    else:
+        st.info("Henuz analiz dosyasi yok. Once 'Analiz' sekmesinden hesap analizi yapin.")
+
+    st.markdown("---")
+
     # --- Havuz İstatistikleri ---
-    st.markdown("#### Havuz İstatistikleri")
+    st.markdown("#### Havuz Istatistikleri")
     pool_data = load_pool()
     stats = get_pool_stats(pool_data)
 

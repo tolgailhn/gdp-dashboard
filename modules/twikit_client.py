@@ -579,8 +579,18 @@ class TwikitSearchClient:
                 if retry_result is not None:
                     return retry_result
         except TooManyRequests as e:
-            self.last_error = "Kullanıcı tweet rate limit. Biraz bekleyip tekrar deneyin."
-            print(f"Twikit user tweets: TooManyRequests")
+            reset_ts = getattr(e, 'rate_limit_reset', None)
+            if reset_ts:
+                wait_sec = max(10, int(reset_ts - time.time()) + 2)
+            else:
+                wait_sec = 60
+            # Kalan sonuçlar varsa döndür, yoksa bekle ve tekrar dene
+            if results:
+                self.last_error = f"Rate limit ({len(results)} tweet çekildi, geri kalanı atlandı)."
+                print(f"Twikit user tweets: TooManyRequests after {len(results)} tweets, returning partial")
+            else:
+                self.last_error = f"Kullanıcı tweet rate limit. ~{wait_sec}sn bekleyip tekrar deneyin."
+                print(f"Twikit user tweets: TooManyRequests, wait {wait_sec}s")
         except Exception as e:
             error_str = str(e)
             error_type = type(e).__name__

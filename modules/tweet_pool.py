@@ -277,9 +277,12 @@ def bulk_fetch_accounts(twikit_client, accounts: list[str],
                         progress_callback=None) -> list[dict]:
     """
     Birden fazla hesabın tweet'lerini sırayla çek ve havuza ekle.
+    Hesaplar arası 3sn delay + rate limit'te otomatik bekleme.
 
     Returns: list of results per account
     """
+    import time
+
     results = []
     for i, username in enumerate(accounts):
         username = username.strip().lstrip("@")
@@ -297,6 +300,85 @@ def bulk_fetch_accounts(twikit_client, accounts: list[str],
         )
         results.append(result)
 
+        # Rate limit hatası varsa 60sn bekle
+        if result.get("error") and "rate limit" in result["error"].lower():
+            if progress_callback:
+                progress_callback(f"Rate limit! 60 saniye bekleniyor...")
+            time.sleep(60)
+        elif i < len(accounts) - 1:
+            # Hesaplar arası 3sn delay (rate limit koruması)
+            if progress_callback:
+                progress_callback(f"Sonraki hesap için 3sn bekleniyor...")
+            time.sleep(3)
+
+    return results
+
+
+def import_from_analyses(min_engagement: float = 100,
+                         progress_callback=None) -> list[dict]:
+    """
+    Mevcut analiz dosyalarından (data/tweet_analyses/*.json) havuza aktarma.
+    Tekrar tweet çekmeye gerek kalmaz — zaten kaydedilmiş verileri kullanır.
+
+    Returns: list of {"username", "fetched", "added", "skipped"} per account
+    """
+    from modules.tweet_analyzer import load_all_analyses
+
+    analyses = load_all_analyses()
+    if not analyses:
+        return []
+
+    results = []
+    pool_data = load_pool()
+
+    for analysis_data in analyses:
+        username = analysis_data.get("username", "unknown")
+        analysis = analysis_data.get("analysis", {})
+
+        if progress_callback:
+            progress_callback(f"@{username} analiz dosyasından aktarılıyor...")
+
+        # all_original_tweets kullan (analiz sırasında kaydedilmiş tüm orijinal tweetler)
+        all_originals = analysis.get("all_original_tweets", [])
+
+        # Eski format desteği: all_original_tweets yoksa top_tweets kullan
+        if not all_originals:
+            all_originals = analysis.get("top_tweets", [])
+
+        if not all_originals:
+            results.append({
+                "username": username,
+                "fetched": 0,
+                "added": 0,
+                "skipped": 0,
+                "error": "Analiz dosyasında tweet verisi bulunamadı",
+            })
+            continue
+
+        # Analiz formatındaki tweet'leri havuz formatına uyumlu hale getir
+        tweets_for_pool = []
+        for t in all_originals:
+            tweets_for_pool.append({
+                "text": t.get("text", ""),
+                "like_count": t.get("like_count", 0),
+                "retweet_count": t.get("retweet_count", 0),
+                "reply_count": t.get("reply_count", 0),
+                "impression_count": t.get("impression_count", 0),
+                "bookmark_count": t.get("bookmark_count", 0),
+                "created_at": t.get("created_at", ""),
+                "engagement_score": t.get("engagement_score", 0),
+            })
+
+        added = add_tweets_to_pool(pool_data, tweets_for_pool, username, min_engagement)
+
+        results.append({
+            "username": username,
+            "fetched": len(tweets_for_pool),
+            "added": added,
+            "skipped": len(tweets_for_pool) - added,
+        })
+
+    save_pool(pool_data)
     return results
 
 

@@ -397,17 +397,34 @@ class TwikitSearchClient:
 
     async def _retry_after_reauth(self, coro_factory):
         """Reset client, force login (skip stale cookies), then run coro_factory().
-        Returns None on failure."""
+        Returns None on failure.
+        NOTE: This runs on the background event loop, so we must NOT call
+        sync methods that use _run() (would deadlock). Use async directly."""
         self._authenticated = False
-        self._client = None  # Will be recreated with CT bypass in authenticate()
-        if self.authenticate(skip_cookies=True):
+        self._client = None
+        # Re-create client and bypass CT
+        from twikit import Client
+        self._client = Client('tr')
+        self._bypass_client_transaction(silent=True)
+
+        # Try async login directly (avoid deadlock from sync authenticate → _run)
+        if self.username and self.password:
             try:
-                return await coro_factory()
-            except Exception as e2:
-                self.last_error = f"Yeniden deneme hatası: {type(e2).__name__}: {e2}"
-                print(f"Twikit retry failed: {e2}")
+                logged_in = await self._login_async()
+                if logged_in:
+                    self._authenticated = True
+                    try:
+                        return await coro_factory()
+                    except Exception as e2:
+                        self.last_error = f"Yeniden deneme hatası: {type(e2).__name__}: {e2}"
+                        print(f"Twikit retry failed: {e2}")
+                else:
+                    self.last_error = f"Yeniden giriş başarısız: {self.last_error}"
+            except Exception as e:
+                self.last_error = f"Yeniden giriş hatası: {type(e).__name__}: {e}"
+                print(f"Twikit re-auth error: {e}")
         else:
-            self.last_error = f"Yeniden giriş başarısız: {self.last_error}"
+            self.last_error = "Yeniden giriş için kullanıcı adı/şifre gerekli"
         return None
 
     async def _search_async(self, query: str, count: int) -> list[dict]:
@@ -469,6 +486,16 @@ class TwikitSearchClient:
     async def _user_tweets_async(self, username: str, count: int,
                                   progress_callback=None) -> list[dict]:
         results = []
+
+        def _safe_progress(msg):
+            """Call progress_callback, ignoring Streamlit thread errors."""
+            if not progress_callback:
+                return
+            try:
+                progress_callback(msg)
+            except Exception:
+                pass  # NoSessionContext etc. when called from background thread
+
         try:
             self._bypass_client_transaction(silent=True)
             client = self._get_client_sync()
@@ -485,10 +512,9 @@ class TwikitSearchClient:
                 if len(results) >= count:
                     break
 
-                if progress_callback:
-                    progress_callback(
-                        f"@{username}: {len(results)}/{count} tweet çekiliyor... (sayfa {page + 1})"
-                    )
+                _safe_progress(
+                    f"@{username}: {len(results)}/{count} tweet çekiliyor... (sayfa {page + 1})"
+                )
 
                 try:
                     if cursor:
@@ -674,7 +700,10 @@ class TwikitSearchClient:
                     break
 
                 if progress_callback:
-                    progress_callback(f"@{username} takipçileri çekiliyor... ({fetched}/{limit})")
+                    try:
+                        progress_callback(f"@{username} takipçileri çekiliyor... ({fetched}/{limit})")
+                    except Exception:
+                        pass
 
                 try:
                     if cursor:

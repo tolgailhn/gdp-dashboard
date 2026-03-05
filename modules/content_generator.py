@@ -350,38 +350,38 @@ tweet'teki verileri kullanarak kendi bakış açını ekle.
 """,
     },
     "reply": {
-        "name": "Reply / Hızlı Yanıt",
-        "description": "Tweet'e kısa, doğal ve samimi reply yaz",
+        "name": "Reply / Quick Response",
+        "description": "Write a short, natural and engaging reply to a tweet",
         "prompt": """
-yazım tarzı: REPLY / HIZLI YANIT
+writing style: REPLY / QUICK RESPONSE
 
-Bu bir reply — kısa, doğal ve nokta atışı olmalı.
-Reply = sohbete katılmak. Uzun analiz DEĞİL, kısa ve vurucu yorum.
+This is a reply — short, natural and to the point.
+Reply = joining the conversation. NOT a long analysis, just a sharp comment.
 
-TEMEL KURALLAR:
-- KISA yaz: 1-3 cümle ideal. Paragraf YOK. Max 280 karakter.
-- Doğrudan konuya gir — "şöyle düşünüyorum" yerine direkt görüşünü söyle
-- Tweet'e KATKI sun — sadece "harika!" veya "katılıyorum" YAZMA
-- Kendi bilgini veya bakış açını ekle — tweet'te söylenmemiş bir detay, karşıt görüş, pratik yorum
-- Tweet'teki bir noktayı genişlet, sorgula veya farklı açıdan değerlendir
-- Samimi ve doğal ol — "ya bence", "harbiden", "cidden", "aslında" gibi günlük dil
-- küçük harfle yaz, noktalama opsiyonel
-- Emoji 0-1 tane, genelde kullanma
+CORE RULES:
+- Write SHORT: 1-3 sentences ideal. NO paragraphs. Max 280 characters.
+- Get straight to the point — say your opinion directly
+- ADD VALUE to the tweet — don't just write "great!" or "I agree"
+- Add your own knowledge or perspective — a detail not mentioned, a counter-view, a practical take
+- Expand on a point in the tweet, question it, or evaluate from a different angle
+- Be casual and natural — conversational English like "honestly", "tbh", "ngl", "actually"
+- lowercase is fine, punctuation optional
+- 0-1 emoji, usually none
 
-REPLY TİPLERİ (birini seç):
-1. BİLGİ EKLEME: Tweet'te bahsedilmeyen ilgili bir bilgi/detay ekle
-2. KARŞIT GÖRÜŞ: Nazik ama net bir şekilde farklı bakış açısı sun
-3. DENEYİM PAYLAŞIMI: "ben test ettim, şunu gördüm" tarzı kişisel deneyim
-4. BAĞLAM EKLEME: Tweet'i daha büyük bir resme oturt
-5. SORU SOR: Merak ettiğin bir noktayı sor (reply'da soru OK)
-6. ESPRİ/GÖZLEM: Kısa, zekice bir gözlem veya espri
+REPLY TYPES (pick one):
+1. ADD INFO: Share a relevant detail/fact not mentioned in the tweet
+2. COUNTER-VIEW: Politely but clearly offer a different perspective
+3. EXPERIENCE: "I tested this, here's what I found" style personal take
+4. ADD CONTEXT: Place the tweet in a bigger picture
+5. ASK A QUESTION: Ask something you're genuinely curious about
+6. WIT/OBSERVATION: Short, clever observation or quip
 
-YAPMA:
-- Uzun analiz yazma — bu reply, tweet değil
-- Tweet'i tekrarlama veya özetleme
-- Boş övgü ("harika paylaşım!") yazma
-- Hashtag koyma
-- Resmi/akademik dil kullanma
+DON'T:
+- Write a long analysis — this is a reply, not a tweet
+- Repeat or summarize the tweet
+- Empty praise ("great post!")
+- Use hashtags
+- Use formal/academic language
 """,
     },
 }
@@ -794,17 +794,17 @@ class ContentGenerator:
 
         system_prompt = self._build_system_prompt(style, user_samples)
 
-        user_prompt = f"""@{original_author} şunu yazmış:
+        user_prompt = f"""@{original_author} tweeted:
 "{original_tweet}"
 
-Bu tweet'e REPLY yaz. Kurallar:
-- KISA: 1-3 cümle, max 280 karakter
-- Tweet'e KATKI sun — boş övgü değil, bilgi/görüş/deneyim ekle
-- Doğal Türkçe, samimi ton
-- Hashtag KOYMA
-{f"Not: {additional_context}" if additional_context else ""}
+Write a REPLY to this tweet. Rules:
+- SHORT: 1-3 sentences, max 280 characters
+- ADD VALUE — not empty praise, add insight/opinion/experience
+- Natural casual English, conversational tone
+- NO hashtags
+{f"Note: {additional_context}" if additional_context else ""}
 
-Sadece reply metnini yaz, başka bir şey yazma."""
+Write ONLY the reply text, nothing else."""
 
         if self.provider == "anthropic":
             return self._generate_anthropic(system_prompt, user_prompt)

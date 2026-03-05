@@ -429,76 +429,92 @@ with mode_tab3:
     if reply_scan_clicked:
         reply_accounts = load_reply_accounts()
         if not reply_accounts:
-            st.error("Hesap listesi boş! Yukarıdan hesap ekleyin.")
+            st.error("Hesap listesi bos! Yukaridan hesap ekleyin.")
         else:
-            bearer_token = get_secret("twitter_bearer_token", "")
+            # Twikit credentials check
             twikit_username = get_secret("twikit_username", "")
             twikit_password = get_secret("twikit_password", "")
             twikit_email = get_secret("twikit_email", "")
             _has_tw_cookies = bool(get_secret("twikit_auth_token", "")) and bool(get_secret("twikit_ct0", ""))
 
-            if not bearer_token and not twikit_username and not _has_tw_cookies:
-                st.error("Twitter API veya Twikit bilgileri eksik! Ayarlar sayfasından ekleyin.")
+            if not twikit_username and not _has_tw_cookies:
+                st.error("Twikit bilgileri eksik! Ayarlar sayfasindan Twikit kullanici adi/sifre veya cookie ekleyin.")
             else:
-                from modules.twitter_scanner import TwitterScanner
-                _reply_scanner = TwitterScanner(
-                    bearer_token=bearer_token,
-                    api_key=get_secret("twitter_api_key", ""),
-                    api_secret=get_secret("twitter_api_secret", ""),
-                    access_token=get_secret("twitter_access_token", ""),
-                    access_secret=get_secret("twitter_access_secret", ""),
-                    twikit_username=twikit_username,
-                    twikit_password=twikit_password,
-                    twikit_email=twikit_email,
+                from modules.twikit_client import TwikitSearchClient
+
+                _tw_client = TwikitSearchClient(
+                    username=twikit_username or "",
+                    password=twikit_password or "",
+                    email=twikit_email or "",
                 )
+                if not _tw_client.authenticate():
+                    st.error(f"Twikit auth basarisiz: {_tw_client.last_error or 'Bilinmeyen hata'}")
+                else:
+                    start_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=reply_time_hours)
+                    all_tweets = []
+                    errors = []
+                    progress_bar = st.progress(0)
+                    progress_text = st.empty()
 
-                start_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=reply_time_hours)
-                all_tweets = []
-                progress_bar = st.progress(0)
-                progress_text = st.empty()
+                    for idx, account in enumerate(reply_accounts):
+                        progress_bar.progress((idx + 1) / len(reply_accounts))
+                        progress_text.caption(f"Taraniyor: @{account} ({idx + 1}/{len(reply_accounts)})")
+                        try:
+                            tweets = _tw_client.get_user_tweets(account, count=reply_max_tweets)
+                            if _tw_client.last_error:
+                                errors.append(f"@{account}: {_tw_client.last_error}")
+                            for tw in tweets:
+                                # Filter by time
+                                tw_time = tw.get("created_at")
+                                if tw_time and tw_time >= start_time:
+                                    # Calculate engagement score
+                                    likes = tw.get("like_count", 0)
+                                    rts = tw.get("retweet_count", 0)
+                                    replies = tw.get("reply_count", 0)
+                                    eng_score = rts * 20 + replies * 13.5 + likes * 1
+                                    tw["engagement_score"] = eng_score
+                                    all_tweets.append(tw)
+                        except Exception as e:
+                            errors.append(f"@{account}: {e}")
 
-                for idx, account in enumerate(reply_accounts):
-                    progress_bar.progress((idx + 1) / len(reply_accounts))
-                    progress_text.caption(f"Taranıyor: @{account} ({idx + 1}/{len(reply_accounts)})")
-                    try:
-                        tweets = _reply_scanner._get_user_tweets(
-                            username=account,
-                            start_time=start_time,
-                            max_results=reply_max_tweets,
-                        )
-                        for tw in tweets:
-                            all_tweets.append(tw)
-                    except Exception as e:
-                        pass  # Skip failed accounts silently
+                    progress_bar.empty()
+                    progress_text.empty()
 
-                progress_bar.empty()
-                progress_text.empty()
+                    # Show errors if any
+                    if errors:
+                        with st.expander(f"⚠️ {len(errors)} hesapta hata", expanded=False):
+                            for err in errors[:20]:
+                                st.caption(err)
 
-                # Filter by minimum engagement
-                min_eng = st.session_state.get("reply_min_engagement", 50)
-                if min_eng > 0:
-                    all_tweets = [tw for tw in all_tweets if tw.engagement_score >= min_eng]
+                    # Filter by minimum engagement
+                    min_eng = st.session_state.get("reply_min_engagement", 50)
+                    if min_eng > 0:
+                        all_tweets = [tw for tw in all_tweets if tw.get("engagement_score", 0) >= min_eng]
 
-                # Sort by engagement score descending
-                all_tweets.sort(key=lambda tw: tw.engagement_score, reverse=True)
+                    # Sort by engagement score descending
+                    all_tweets.sort(key=lambda tw: tw.get("engagement_score", 0), reverse=True)
 
-                # Store in session
-                st.session_state._reply_scan_results = [
-                    {
-                        "id": tw.id,
-                        "text": tw.text,
-                        "author": tw.author_username,
-                        "author_name": tw.author_name,
-                        "likes": tw.like_count,
-                        "retweets": tw.retweet_count,
-                        "replies": tw.reply_count,
-                        "engagement": tw.engagement_score,
-                        "url": tw.url,
-                        "created_at": tw.created_at.isoformat() if tw.created_at else "",
-                    }
-                    for tw in all_tweets[:100]  # Keep top 100
-                ]
-                st.rerun()
+                    # Store in session
+                    st.session_state._reply_scan_results = [
+                        {
+                            "id": tw.get("id", ""),
+                            "text": tw.get("text", ""),
+                            "author": tw.get("author_username", ""),
+                            "author_name": tw.get("author_name", ""),
+                            "likes": tw.get("like_count", 0),
+                            "retweets": tw.get("retweet_count", 0),
+                            "replies": tw.get("reply_count", 0),
+                            "engagement": tw.get("engagement_score", 0),
+                            "url": f"https://x.com/{tw.get('author_username', '')}/status/{tw.get('id', '')}",
+                            "created_at": tw["created_at"].isoformat() if tw.get("created_at") else "",
+                        }
+                        for tw in all_tweets[:100]  # Keep top 100
+                    ]
+
+                    if not all_tweets:
+                        st.warning(f"Son {reply_time_hours} saatte tweet bulunamadi. Zaman araligini artirmayi deneyin.")
+                    else:
+                        st.rerun()
 
     # --- Display Scan Results ---
     scan_results = st.session_state.get("_reply_scan_results", [])

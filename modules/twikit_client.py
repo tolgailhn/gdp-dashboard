@@ -77,6 +77,27 @@ def _get_bg_loop() -> asyncio.AbstractEventLoop:
     return _bg_loop
 
 
+async def _ensure_sniffio_asyncio(coro):
+    """Wrap a coroutine so sniffio (if installed) detects asyncio.
+
+    httpcore calls sniffio.current_async_library() to pick its async backend.
+    When coroutines run on a background event loop via run_coroutine_threadsafe,
+    the task inherits the *calling* thread's context where sniffio's cvar is
+    unset → AsyncLibraryNotFoundError.  Setting the cvar inside the task
+    fixes detection for all awaited code within it.
+    """
+    try:
+        import sniffio
+        token = sniffio.current_async_library_cvar.set("asyncio")
+    except (ImportError, AttributeError):
+        token = None
+    try:
+        return await coro
+    finally:
+        if token is not None:
+            sniffio.current_async_library_cvar.reset(token)
+
+
 def adapt_query_for_web(query: str, since_date: str = None) -> str:
     """Adapt Twitter API v2 search operators to web search format."""
     q = query.replace("-is:retweet", "-filter:retweets")
@@ -104,7 +125,9 @@ class TwikitSearchClient:
     def _run(self, coro, timeout=120):
         """Run an async coroutine on the background event loop."""
         loop = _get_bg_loop()
-        future = asyncio.run_coroutine_threadsafe(coro, loop)
+        future = asyncio.run_coroutine_threadsafe(
+            _ensure_sniffio_asyncio(coro), loop
+        )
         return future.result(timeout=timeout)
 
     def _get_client_sync(self):

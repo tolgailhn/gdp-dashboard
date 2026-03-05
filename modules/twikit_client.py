@@ -227,12 +227,24 @@ class TwikitSearchClient:
             if self.totp_secret:
                 login_kwargs["totp_secret"] = self.totp_secret
 
-            # Block input() AND enforce timeout to prevent infinite hangs
+            # Block input() AND enforce timeout to prevent infinite hangs.
+            # NOTE: asyncio.wait_for uses asyncio.timeout internally in
+            # Python 3.11+ which requires running inside a Task. We use
+            # asyncio.wait + ensure_future instead to avoid that constraint.
             with self._block_input():
-                await asyncio.wait_for(
-                    client.login(**login_kwargs),
-                    timeout=LOGIN_TIMEOUT,
+                login_task = asyncio.ensure_future(client.login(**login_kwargs))
+                done, pending = await asyncio.wait(
+                    {login_task}, timeout=LOGIN_TIMEOUT
                 )
+                if pending:
+                    login_task.cancel()
+                    try:
+                        await login_task
+                    except asyncio.CancelledError:
+                        pass
+                    raise asyncio.TimeoutError()
+                # Re-raise any exception from the login task
+                login_task.result()
 
             # Save cookies for next time
             client.save_cookies(str(COOKIES_PATH))

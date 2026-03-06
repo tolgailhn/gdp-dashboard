@@ -216,17 +216,17 @@ Backend: `xcom-aktif/backend/api/generator.py`
 - [x] 5.9 Backend: POST /discover-topics endpoint
 - [x] 5.10 Backend: CONTENT_STYLES sabiti + styles endpoint guncelleme
 
-### FAZ 6: TAKVIM SAYFASI (%17 tamamlanmis)
+### FAZ 6: TAKVIM SAYFASI (TAMAMLANDI - 2026-03-06)
 Streamlit: `pages/7_Takvim.py` -> Next.js: `xcom-aktif/frontend/src/app/takvim/page.tsx`
 Backend: `xcom-aktif/backend/api/calendar.py`
 
-- [ ] 6.1 Frontend: Slot detaylari (post turu, aciklama, best practices)
-- [ ] 6.2 Frontend: Paylasim kaydetme formu (type, media, self-reply, URL)
-- [ ] 6.3 Frontend: Gunluk algoritma checklist (6 madde)
-- [ ] 6.4 Frontend: Haftalik ozet (istatistikler)
-- [ ] 6.5 Frontend: Paylasim gecmisi gorunumu
-- [ ] 6.6 Frontend: Strateji rehberi
-- [ ] 6.7 Backend: Checklist GET/POST endpoint'leri
+- [x] 6.1 Frontend: Slot detaylari (post turu, aciklama, best practices)
+- [x] 6.2 Frontend: Paylasim kaydetme formu (type, media, self-reply, URL)
+- [x] 6.3 Frontend: Gunluk algoritma checklist (6 madde)
+- [x] 6.4 Frontend: Haftalik ozet (istatistikler)
+- [x] 6.5 Frontend: Paylasim gecmisi gorunumu
+- [x] 6.6 Frontend: Strateji rehberi
+- [x] 6.7 Backend: Checklist GET/POST + weekly-summary + history endpoint'leri
 
 ### FAZ 7: DASHBOARD (%60 tamamlanmis)
 Streamlit: `streamlit_app.py` -> Next.js: `xcom-aktif/frontend/src/app/page.tsx`
@@ -243,7 +243,7 @@ Streamlit: `streamlit_app.py` -> Next.js: `xcom-aktif/frontend/src/app/page.tsx`
 | 3 | Yaz | TAMAMLANDI | %100 |
 | 4 | Analiz | TAMAMLANDI | %100 |
 | 5 | Icerik | TAMAMLANDI | %100 |
-| 6 | Takvim | BEKLIYOR | %17 |
+| 6 | Takvim | TAMAMLANDI | %100 |
 | 7 | Dashboard | BEKLIYOR | %60 |
 
 ---

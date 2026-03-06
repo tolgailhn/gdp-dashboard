@@ -228,12 +228,12 @@ Backend: `xcom-aktif/backend/api/calendar.py`
 - [x] 6.6 Frontend: Strateji rehberi
 - [x] 6.7 Backend: Checklist GET/POST + weekly-summary + history endpoint'leri
 
-### FAZ 7: DASHBOARD (%60 tamamlanmis)
+### FAZ 7: DASHBOARD (TAMAMLANDI - 2026-03-06)
 Streamlit: `streamlit_app.py` -> Next.js: `xcom-aktif/frontend/src/app/page.tsx`
 
-- [ ] 7.1 Frontend: Gunluk takvim karti (slot gorunumu + geri sayim)
-- [ ] 7.2 Frontend: Nasil kullanilir rehberi
-- [ ] 7.3 Frontend: API anahtari uyarisi
+- [x] 7.1 Frontend: Gunluk takvim karti (slot gorunumu + geri sayim + takvime link)
+- [x] 7.2 Frontend: Nasil kullanilir rehberi (5 adim, sayfa linkleri)
+- [x] 7.3 Frontend: API anahtari uyarisi (detayli: hangi anahtarlar eksik)
 
 ### ILERLEME DURUMU
 | Faz | Sayfa | Durum | Tamamlanma |
@@ -244,7 +244,7 @@ Streamlit: `streamlit_app.py` -> Next.js: `xcom-aktif/frontend/src/app/page.tsx`
 | 4 | Analiz | TAMAMLANDI | %100 |
 | 5 | Icerik | TAMAMLANDI | %100 |
 | 6 | Takvim | TAMAMLANDI | %100 |
-| 7 | Dashboard | BEKLIYOR | %60 |
+| 7 | Dashboard | TAMAMLANDI | %100 |
 
 ---
 

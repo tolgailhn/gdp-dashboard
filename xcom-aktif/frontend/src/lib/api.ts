@@ -154,11 +154,99 @@ export function deleteDraft(index: number) {
 }
 
 // Analytics
-export function analyzeAccount(username: string, tweetCount: number) {
+export function analyzeAccount(username: string, tweetCount: number, aiReport: boolean = true) {
   return apiFetch("/api/analytics/analyze", {
     method: "POST",
-    body: JSON.stringify({ username, tweet_count: tweetCount }),
+    body: JSON.stringify({ username, tweet_count: tweetCount, ai_report: aiReport }),
   });
+}
+
+export function analyzeMulti(usernames: string[], tweetCount: number = 200, aiReport: boolean = true) {
+  return apiFetch("/api/analytics/analyze-multi", {
+    method: "POST",
+    body: JSON.stringify({ usernames, tweet_count: tweetCount, ai_report: aiReport }),
+  });
+}
+
+export function getSavedAnalyses() {
+  return apiFetch("/api/analytics/saved");
+}
+
+export function deleteAnalysis(username: string) {
+  return apiFetch(`/api/analytics/delete/${encodeURIComponent(username)}`, { method: "DELETE" });
+}
+
+export function getTrainingContext(topic: string = "") {
+  return apiFetch(`/api/analytics/training-context?topic=${encodeURIComponent(topic)}`);
+}
+
+export function exportAnalyses() {
+  return apiFetch("/api/analytics/export");
+}
+
+export function importAnalyses(data: string) {
+  return apiFetch("/api/analytics/import", {
+    method: "POST",
+    body: JSON.stringify({ data }),
+  });
+}
+
+// Followers
+export function fetchFollowers(username: string, limit: number = 200, verifiedOnly: boolean = true) {
+  return apiFetch("/api/analytics/followers/fetch", {
+    method: "POST",
+    body: JSON.stringify({ username, limit, verified_only: verifiedOnly }),
+  });
+}
+
+export function listFollowers() {
+  return apiFetch("/api/analytics/followers/list");
+}
+
+export function deleteFollowers(username: string) {
+  return apiFetch(`/api/analytics/followers/${encodeURIComponent(username)}`, { method: "DELETE" });
+}
+
+// Tweet Pool
+export function getPoolAccounts() {
+  return apiFetch("/api/analytics/pool/accounts");
+}
+
+export function savePoolAccounts(accounts: string[]) {
+  return apiFetch("/api/analytics/pool/accounts", {
+    method: "POST",
+    body: JSON.stringify({ accounts }),
+  });
+}
+
+export function getPoolStats() {
+  return apiFetch("/api/analytics/pool/stats");
+}
+
+export function fetchPoolTweets(minEngagement: number = 100, tweetCount: number = 500) {
+  return apiFetch("/api/analytics/pool/fetch", {
+    method: "POST",
+    body: JSON.stringify({ min_engagement: minEngagement, tweet_count: tweetCount }),
+  });
+}
+
+export function importAnalysesToPool(minEngagement: number = 100) {
+  return apiFetch("/api/analytics/pool/import-analyses", {
+    method: "POST",
+    body: JSON.stringify({ min_engagement: minEngagement }),
+  });
+}
+
+export function getPoolDna() {
+  return apiFetch("/api/analytics/pool/dna");
+}
+
+export function regeneratePoolDna() {
+  return apiFetch("/api/analytics/pool/regenerate-dna", { method: "POST" });
+}
+
+export function getPoolPreview(limit: number = 10) {
+  return apiFetch(`/api/analytics/pool/preview?limit=${limit}`);
 }
 
 // Calendar

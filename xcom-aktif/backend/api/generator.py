@@ -54,6 +54,11 @@ class FactCheckRequest(BaseModel):
     topic: str = ""
 
 
+class DiscoverRequest(BaseModel):
+    focus_area: str = ""
+    engine: str = "default"
+
+
 # ── Style & Format Constants ───────────────────────────
 
 STYLES = [
@@ -74,6 +79,14 @@ FORMATS = [
     {"id": "storm", "name": "Storm", "desc": "Uzun tweet/note (280-500 kar)"},
     {"id": "thunder", "name": "Thunder", "desc": "Cok uzun post (500-1000 kar)"},
     {"id": "mega", "name": "Mega", "desc": "Maksimum uzunluk (1000+ kar)"},
+]
+
+CONTENT_STYLES = [
+    {"id": "deneyim", "name": "Kisisel Deneyim", "desc": "Kisisel tecrube paylasimi"},
+    {"id": "egitici", "name": "Egitici / Tutorial", "desc": "Ogretici, adim adim anlatim"},
+    {"id": "karsilastirma", "name": "Karsilastirma", "desc": "Iki veya daha fazla seyi karsilastirma"},
+    {"id": "analiz", "name": "Analiz", "desc": "Derinlemesine teknik analiz"},
+    {"id": "hikaye", "name": "Hikaye Anlatimi", "desc": "Hikaye formunda anlatim"},
 ]
 
 
@@ -264,4 +277,61 @@ async def fact_check(request: FactCheckRequest):
 @router.get("/styles")
 async def get_styles():
     """Mevcut yazim tarzlari ve format seceneklerini don"""
-    return {"styles": STYLES, "formats": FORMATS}
+    return {"styles": STYLES, "formats": FORMATS, "content_styles": CONTENT_STYLES}
+
+
+# ── Topic Discovery ───────────────────────────────────
+
+@router.post("/discover-topics")
+async def discover_topics_endpoint(request: DiscoverRequest):
+    """AI ile konu kesfet (trend konular ve icerik onerileri)"""
+    try:
+        from backend.modules.deep_research import discover_topics
+        from backend.api.helpers import get_ai_provider
+
+        provider, api_key, model = get_ai_provider()
+
+        # Build AI client
+        ai_client = None
+        if provider == "anthropic":
+            import anthropic
+            ai_client = anthropic.Anthropic(api_key=api_key)
+        elif provider in ("openai", "minimax"):
+            from openai import OpenAI
+            base_url = "https://api.minimaxi.chat/v1" if provider == "minimax" else None
+            ai_client = OpenAI(api_key=api_key, base_url=base_url)
+
+        if not ai_client:
+            raise HTTPException(status_code=400, detail="AI API anahtari bulunamadi")
+
+        # Try to get scanner for X search
+        scanner = None
+        try:
+            from backend.modules.twitter_scanner import TwitterScanner
+            from backend.config import get_settings
+            s = get_settings()
+            if s.twitter_bearer_token or s.twikit_username or s.twikit_ct0:
+                scanner = TwitterScanner(
+                    bearer_token=s.twitter_bearer_token,
+                    twikit_username=s.twikit_username,
+                    twikit_password=s.twikit_password,
+                    twikit_email=s.twikit_email,
+                )
+        except Exception:
+            pass
+
+        topics = discover_topics(
+            ai_client=ai_client,
+            ai_model=model,
+            ai_provider=provider,
+            scanner=scanner,
+            focus_area=request.focus_area,
+            engine=request.engine,
+        )
+
+        return {"topics": topics or []}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

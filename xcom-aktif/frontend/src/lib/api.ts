@@ -119,6 +119,28 @@ export function getStyles() {
   return apiFetch("/api/generator/styles");
 }
 
+// Long Content
+export function generateLongContent(params: {
+  topic: string;
+  style?: string;
+  length?: string;
+  research_context?: string;
+  content_format?: string;
+}) {
+  return apiFetch("/api/generator/long-content", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+
+// Topic Discovery
+export function discoverContentTopics(focusArea: string = "", engine: string = "default") {
+  return apiFetch("/api/generator/discover-topics", {
+    method: "POST",
+    body: JSON.stringify({ focus_area: focusArea, engine }),
+  });
+}
+
 // Publish
 export function publishTweet(params: {
   text: string;

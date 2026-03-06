@@ -7,7 +7,7 @@ import {
   getChecklist,
   updateChecklist,
   getWeeklySummary,
-  getPostHistory,
+  getCalendarHistory,
 } from "@/lib/api";
 
 /* ── Types ─────────────────────────────────────── */
@@ -241,7 +241,7 @@ export default function TakvimPage() {
       const [sched, sum, hist] = await Promise.all([
         getTodaySchedule(),
         getWeeklySummary(),
-        getPostHistory(30),
+        getCalendarHistory(30),
       ]);
       setSchedule(sched as ScheduleData);
       setSummary(sum as WeeklySummary);

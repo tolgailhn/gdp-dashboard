@@ -305,7 +305,7 @@ export function getWeeklySummary() {
   return apiFetch("/api/calendar/weekly-summary");
 }
 
-export function getPostHistory(limit: number = 30) {
+export function getCalendarHistory(limit: number = 30) {
   return apiFetch(`/api/calendar/history?limit=${limit}`);
 }
 

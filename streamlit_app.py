@@ -1,6 +1,6 @@
 """
 X AI Otomasyon Dashboard - Ana Sayfa
-Twitter/X üzerinde AI gelişmelerini tarayıp doğal tweet üreten otomasyon sistemi
+Twitter/X uzerinde AI gelismelerini tarayip dogal tweet ureten otomasyon sistemi
 """
 import streamlit as st
 import datetime
@@ -13,7 +13,6 @@ from modules.ui_components import inject_custom_css, check_password, render_stat
 from modules.style_manager import load_post_history, load_draft_tweets, load_posting_log
 
 # --- Auto-update: Her baslatmada GitHub'dan son halini cek ---
-# Bu ozellik sadece ENABLE_AUTO_UPDATE=true ise calisir (Streamlit Cloud icin)
 if "auto_updated" not in st.session_state:
     st.session_state.auto_updated = True
     import os
@@ -32,7 +31,7 @@ if "auto_updated" not in st.session_state:
                     capture_output=True, timeout=60,
                 )
         except Exception:
-            pass  # Offline veya git yoksa sessizce gec
+            pass
 
 # Page config
 st.set_page_config(
@@ -75,14 +74,14 @@ st.markdown(f"""
 <div class="hero-section">
     <span class="hero-logo">🤖</span>
     <div class="hero-title">X AI Otomasyon</div>
-    <div class="hero-subtitle">Tara &middot; Yaz &middot; Paylaş</div>
+    <div class="hero-subtitle">Tara &middot; Yaz &middot; Paylas</div>
 </div>
 """, unsafe_allow_html=True)
 
 # --- Quick Stats ---
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    render_stat_box(f"{len(today_logs)}/4", "Bugün")
+    render_stat_box(f"{len(today_logs)}/4", "Bugun")
 with col2:
     render_stat_box(str(len(drafts)), "Taslak")
 with col3:
@@ -90,7 +89,7 @@ with col3:
 with col4:
     render_stat_box(f"{api_dot}", api_label)
 
-# --- Today's Schedule Mini ---
+# --- Today's Schedule ---
 posted_slots = {e["slot_time"] for e in today_logs}
 
 is_weekend = datetime.datetime.now(TZ_TR).weekday() >= 5
@@ -117,33 +116,33 @@ for slot_time, _ in slots_today:
 slot_indicators = ""
 for slot_time, icon in slots_today:
     if slot_time in posted_slots:
-        slot_indicators += f'<span style="margin-right:8px;">{icon} <span style="color:#22c55e;">✅</span></span>'
+        slot_indicators += f'<span style="margin-right:10px; font-size:16px;">{icon} <span style="color:#22c55e;">✓</span></span>'
     else:
-        slot_indicators += f'<span style="margin-right:8px;">{icon} <span style="color:#64748b;">⏳</span></span>'
+        slot_indicators += f'<span style="margin-right:10px; font-size:16px;">{icon} <span style="color:#475569;">-</span></span>'
 
 st.markdown(f"""
-<div class="glass-card" style="border-left: 4px solid #6366f1; cursor: pointer;">
+<div class="glass-card" style="border-left: 3px solid transparent; border-image: linear-gradient(180deg, #6366f1, #22d3ee) 1; cursor: pointer;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
         <div>
             <span style="font-size: 20px;">📅</span>
-            <strong style="margin-left: 8px;">Bugünkü Plan</strong>
-            <span style="color: var(--text-secondary); margin-left: 12px;">{len(today_logs)}/4 post</span>
+            <strong style="margin-left: 8px; color: #f1f5f9;">Gunluk Plan</strong>
+            <span style="color: #94a3b8; margin-left: 12px; font-size: 13px;">{len(today_logs)}/4 post</span>
         </div>
-        <div style="font-size: 13px; color: #a5b4fc;">{next_slot_info}</div>
+        <div style="font-size: 13px; color: #a5b4fc; font-weight: 600;">{next_slot_info}</div>
     </div>
-    <div style="margin-top: 10px; font-size: 16px;">
+    <div style="margin-top: 12px; font-size: 16px;">
         {slot_indicators}
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-if st.button("📅 Takvime Git", key="schedule_btn", use_container_width=True):
+if st.button("Takvime Git", key="schedule_btn", use_container_width=True):
     st.switch_page("pages/7_📅_Takvim.py")
 
 # --- Section: Quick Actions ---
 st.markdown("""
 <div class="section-header">
-    <h3>Hızlı İşlemler</h3>
+    <h3>Hizli Islemler</h3>
 </div>
 """, unsafe_allow_html=True)
 
@@ -154,8 +153,8 @@ with col1:
     st.markdown("""
     <div class="action-card">
         <div class="action-icon">🔍</div>
-        <div class="action-title">AI Gündem Tara</div>
-        <div class="action-desc">X'te AI gelişmelerini keşfet</div>
+        <div class="action-title">AI Gundem Tara</div>
+        <div class="action-desc">X'te AI gelismelerini kesfet</div>
     </div>
     """, unsafe_allow_html=True)
     if st.button("Tara", key="scan_btn", use_container_width=True, type="primary"):
@@ -166,7 +165,7 @@ with col2:
     <div class="action-card">
         <div class="action-icon">✍️</div>
         <div class="action-title">Tweet Yaz</div>
-        <div class="action-desc">AI ile doğal tweet üret</div>
+        <div class="action-desc">AI ile dogal tweet uret</div>
     </div>
     """, unsafe_allow_html=True)
     if st.button("Yaz", key="write_btn", use_container_width=True, type="primary"):
@@ -176,11 +175,11 @@ with col3:
     st.markdown("""
     <div class="action-card">
         <div class="action-icon">💡</div>
-        <div class="action-title">İçerik Üret</div>
-        <div class="action-desc">Konu keşfet, uzun içerik yaz</div>
+        <div class="action-title">Icerik Uret</div>
+        <div class="action-desc">Konu kesfet, uzun icerik yaz</div>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("İçerik", key="content_btn", use_container_width=True, type="primary"):
+    if st.button("Icerik", key="content_btn", use_container_width=True, type="primary"):
         st.switch_page("pages/6_💡_İçerik.py")
 
 # Row 2: Secondary actions
@@ -191,7 +190,7 @@ with col4:
     <div class="action-card">
         <div class="action-icon">📊</div>
         <div class="action-title">Tweet Analizi</div>
-        <div class="action-desc">Analiz et, AI'ı eğit</div>
+        <div class="action-desc">Analiz et, AI'yi egit</div>
     </div>
     """, unsafe_allow_html=True)
     if st.button("Analiz", key="analysis_btn", use_container_width=True):
@@ -201,11 +200,11 @@ with col5:
     st.markdown("""
     <div class="action-card">
         <div class="action-icon">👥</div>
-        <div class="action-title">Takipçi Keşfet</div>
-        <div class="action-desc">Nişindeki hesapları bul</div>
+        <div class="action-title">Takipci Kesfet</div>
+        <div class="action-desc">Nisindeki hesaplari bul</div>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("Takipçi", key="followers_btn", use_container_width=True):
+    if st.button("Takipci", key="followers_btn", use_container_width=True):
         st.switch_page("pages/4_📊_Analiz.py")
 
 with col6:
@@ -213,7 +212,7 @@ with col6:
     <div class="action-card">
         <div class="action-icon">⚙️</div>
         <div class="action-title">Ayarlar</div>
-        <div class="action-desc">API ve yazım tarzı</div>
+        <div class="action-desc">API ve yazim tarzi</div>
     </div>
     """, unsafe_allow_html=True)
     if st.button("Ayarlar", key="settings_btn", use_container_width=True):
@@ -233,7 +232,7 @@ if post_history:
         if len(entry.get("text", "")) > 140:
             text_preview += "..."
         url = entry.get("url", "")
-        url_html = f'<a href="{url}" target="_blank" class="activity-link">Görüntüle →</a>' if url else ""
+        url_html = f'<a href="{url}" target="_blank" class="activity-link">Goruntule &rarr;</a>' if url else ""
 
         posted_at = entry.get('posted_at', '')
         style = entry.get('style', '')
@@ -249,7 +248,7 @@ if post_history:
             <div class="activity-content">
                 <div class="activity-text">{text_preview}</div>
                 <div class="activity-meta">
-                    <span class="activity-time">{' · '.join(meta_parts)}</span>
+                    <span class="activity-time">{' | '.join(meta_parts)}</span>
                     {url_html}
                 </div>
             </div>
@@ -259,33 +258,33 @@ else:
     st.markdown("""
     <div class="empty-state">
         <div class="empty-icon">📝</div>
-        <p>Henüz paylaşım yapılmamış.<br>
-        <strong>Tara</strong> sayfasından başlayarak ilk tweet'ini oluştur!</p>
+        <p>Henuz paylasim yapilmamis.<br>
+        <strong>Tara</strong> sayfasindan baslayarak ilk tweet'ini olustur!</p>
     </div>
     """, unsafe_allow_html=True)
 
 # How to use guide
-with st.expander("📖 Nasıl Kullanılır?"):
+with st.expander("Nasil Kullanilir?"):
     st.markdown("""
-    **1. API Anahtarlarını Ayarla** (⚙️ Ayarlar)
-    - AI API anahtarını girin (MiniMax, Anthropic veya OpenAI)
-    - X çerezlerini girin (tweet okuma/yazma için)
+    **1. API Anahtarlarini Ayarla** (Ayarlar)
+    - AI API anahtarini girin (MiniMax, Anthropic veya OpenAI)
+    - X cerezlerini girin (tweet okuma/yazma icin)
 
-    **2. AI Gündem Tara** (🔍 Tara)
-    - Zaman aralığını seçin, "Tara" butonuna tıklayın
-    - AI gelişmelerini inceleyin, konuyu seçin
+    **2. AI Gundem Tara** (Tara)
+    - Zaman araligini secin, "Tara" butonuna tiklayin
+    - AI gelismelerini inceleyin, konuyu secin
 
-    **3. Tweet / İçerik Yaz** (✍️ Yaz / 💡 İçerik)
-    - Konu girin veya keşfedilen konuyu seçin
-    - Yazım tarzı ve uzunluk seçin, AI üretsin
-    - Beğendiyseniz direkt paylaşın
+    **3. Tweet / Icerik Yaz** (Yaz / Icerik)
+    - Konu girin veya kesfedilen konuyu secin
+    - Yazim tarzi ve uzunluk secin, AI uretsin
+    - Begendiyseniz direkt paylasin
 
-    **4. Tweet Analizi** (📊 Analiz)
-    - Hesap tweet'lerini çekip analiz edin
+    **4. Tweet Analizi** (Analiz)
+    - Hesap tweet'lerini cekip analiz edin
     - AI bu verilerle daha iyi tweet yazar
 
-    **5. Takipçi Keşfi** (📊 Analiz → Takipci Kesfi)
-    - Nişinizdeki hesapların takipçilerini keşfedin
+    **5. Takipci Kesfi** (Analiz > Takipci Kesfi)
+    - Nisinizdeki hesaplarin takipcilerini kesfedin
     """)
 
 # Setup check
@@ -293,6 +292,6 @@ if not has_twitter or not has_ai:
     st.markdown(f"""
     <div class="setup-warning">
         <span class="setup-warning-icon">⚠️</span>
-        <span class="setup-warning-text">API anahtarlarınızı ⚙️ Ayarlar sayfasından yapılandırın.</span>
+        <span class="setup-warning-text">API anahtarlarinizi Ayarlar sayfasindan yapilandirin.</span>
     </div>
     """, unsafe_allow_html=True)

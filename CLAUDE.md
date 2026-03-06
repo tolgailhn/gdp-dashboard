@@ -1,174 +1,238 @@
-# CLAUDE.md — Proje Kuralları ve Sistem Belleği
+# CLAUDE.md -- Proje Kurallari ve Sistem Bellegi
 
-## Geliştirme Süreci
+## Gelistirme Sureci
 
-1. **Herhangi bir kod yazmadan önce yaklaşımını açıkla ve onay bekle.** Doğrudan implementasyona geçme, önce planı sun.
-2. **Önce açıklayıcı sorular sor.** Belirsiz veya eksik noktaları netleştirmeden kodlamaya başlama.
-3. **Kod yazmayı bitirdikten sonra, olası edge case'leri listele ve bunları kapsayacak test senaryoları öner.**
-4. **Bir görev 3'ten fazla dosyada değişiklik gerektiriyorsa, dur ve önce daha küçük görevlere böl.** Her alt görevi ayrı ayrı onayla.
-5. **Bir hata olduğunda, öncelikle hatayı yeniden oluşturacak bir test yaz, ardından test başarılı olana kadar hatayı düzelt.**
-6. **Her düzeltme yaptığında, neyi yanlış yaptığını düşün ve aynı hatayı bir daha asla yapmamak için bir plan geliştir.**
-7. **Bu dosyayı her önemli değişiklikten sonra güncelle.** Yeni kararlar, mimari değişiklikler, bilinen sorunlar buraya yazılmalı.
+1. **Herhangi bir kod yazmadan once yaklasimini acikla ve onay bekle.** Dogrudan implementasyona gecme, once plani sun.
+2. **Once aciklayici sorular sor.** Belirsiz veya eksik noktalari netlestirmeden kodlamaya baslama.
+3. **Kod yazmayi bitirdikten sonra, olasi edge case'leri listele ve bunlari kapsayacak test senaryolari oner.**
+4. **Bir gorev 3'ten fazla dosyada degisiklik gerektiriyorsa, dur ve once daha kucuk gorevlere bol.** Her alt gorevi ayri ayri onayla.
+5. **Bir hata oldugunda, oncelikle hatayi yeniden olusturacak bir test yaz, ardindan test basarili olana kadar hatayi duzelt.**
+6. **Her duzeltme yaptiginda, neyi yanlis yaptigini dusun ve ayni hatayi bir daha asla yapmamak icin bir plan gelistir.**
+7. **Bu dosyayi her onemli degisiklikten sonra guncelle.** Yeni kararlar, mimari degisiklikler, bilinen sorunlar buraya yazilmali.
 
 ---
 
 ## Sistem Mimarisi
 
 ### Proje Nedir?
-X (Twitter) AI Otomasyon Dashboard — AI gelişmelerini tarayıp, araştırıp, doğal tweet üreten Streamlit uygulaması.
+X (Twitter) AI Otomasyon Dashboard -- AI gelismelerini tarayip, arastirip, dogal tweet ureten uygulama.
 
-### Dosya Yapısı
+**Mimari: Next.js (frontend) + FastAPI (backend) + Streamlit (eski, hala mevcut)**
+
+Proje Streamlit'ten Next.js + FastAPI mimarisine tasinmistir. Eski Streamlit dosyalari hala repoda mevcut.
+
+### Dosya Yapisi
 ```
-streamlit_app.py              → Ana sayfa (dashboard, istatistikler)
-scheduled_scanner.py          → Arka plan zamanlı tarayıcı
+# === YENI MIMARI (Next.js + FastAPI) ===
+
+backend/
+  main.py                     -> FastAPI app, CORS, middleware, router'lar
+  config.py                   -> Backend konfigurasyonu
+  api/
+    auth.py                   -> JWT auth, login/register, auth middleware
+    dashboard.py              -> Ana sayfa API'leri
+    scanner.py                -> Konu tarama API'leri
+    generator.py              -> Tweet uretme API'leri
+    publish.py                -> Tweet paylasma API'leri
+    settings.py               -> Ayarlar API'leri
+    analytics.py              -> Hesap analiz API'leri
+    calendar.py               -> Takvim API'leri
+    drafts.py                 -> Taslak (draft) yonetim API'leri
+    helpers.py                -> Ortak yardimci fonksiyonlar
+  modules/
+    _compat.py                -> Uyumluluk katmani (Streamlit -> FastAPI gecisi)
+    content_generator.py      -> ContentGenerator (Claude/OpenAI/MiniMax)
+    twitter_scanner.py        -> TwitterScanner sinifi
+    tweet_analyzer.py         -> Hesap tweet analizi, stil DNA
+    tweet_publisher.py        -> Tweet/thread/quote tweet paylasma
+    twikit_client.py          -> Ucretsiz Twitter arama (cookie)
+    grok_client.py            -> Grok xAI API
+    deep_research.py          -> DDG arama + makale cekme
+    style_manager.py          -> JSON dosya yoneticisi
+    media_finder.py           -> Gorsel/video arama
+    tweet_pool.py             -> Tweet havuzu
+    telegram_notifier.py      -> Telegram bildirim
+
+frontend/
+  src/
+    app/
+      page.tsx                -> Ana sayfa (dashboard)
+      layout.tsx              -> Root layout
+      globals.css             -> Global stiller
+      login/                  -> Giris sayfasi
+      tara/                   -> Konu tarama sayfasi
+      yaz/                    -> Tweet yazma sayfasi
+      analiz/                 -> Hesap analiz sayfasi
+      ayarlar/                -> Ayarlar sayfasi
+      icerik/                 -> Uzun icerik uretimi
+      takvim/                 -> Posting takvimi
+      taslaklarim/            -> Taslak yonetimi
+    components/
+      AppShell.tsx            -> Ana layout wrapper (sidebar + content)
+      Sidebar.tsx             -> Sol menu
+      ActionCard.tsx          -> Aksiyon karti bileşeni
+      ScheduleCard.tsx        -> Takvim karti bilesen
+      StatBox.tsx             -> Istatistik kutusu
+    lib/
+      api.ts                  -> Backend API client (fetch wrapper)
+      auth.tsx                -> Auth context, JWT yonetimi
+
+# === ESKI MIMARI (Streamlit - hala mevcut) ===
+
+streamlit_app.py              -> Ana sayfa (dashboard, istatistikler)
+scheduled_scanner.py          -> Arka plan zamanli tarayici
 pages/
-  1_🔍_Tara.py               → AI konu tarama (X'te arama)
-  2_✍️_Yaz.py                → Tweet üretme ve paylaşma
-  3_⚙️_Ayarlar.py            → API anahtarları ve ayarlar
-  4_📊_Analiz.py             → Hesap analizi (stil öğrenme)
-  5_👥_Takipçiler.py         → Takipçi keşfi
-  6_💡_İçerik.py             → Uzun içerik üretimi + konu keşfi
-  7_📅_Takvim.py             → Günlük posting takvimi, log, algoritma checklist
+  1_Tara.py                   -> AI konu tarama
+  2_Yaz.py                    -> Tweet uretme ve paylasma
+  3_Ayarlar.py                -> API anahtarlari ve ayarlar
+  4_Analiz.py                 -> Hesap analizi
+  6_Icerik.py                 -> Uzun icerik uretimi
+  7_Takvim.py                 -> Gunluk posting takvimi
 modules/
-  twitter_scanner.py          → TwitterScanner sınıfı, AI konu keşfi
-  content_generator.py        → ContentGenerator, tweet/thread üretimi (Claude/OpenAI/MiniMax)
-  deep_research.py            → Derin araştırma: DDG arama + makale çekme + agentic research
-  tweet_analyzer.py           → Hesap tweet analizi, stil DNA çıkarma
-  tweet_publisher.py          → TweetPublisher: tweet/thread/quote tweet paylaşma
-  twikit_client.py            → TwikitSearchClient: ücretsiz Twitter arama (cookie)
-  grok_client.py              → Grok xAI API: X arama, web arama, otonom araştırma
-  telegram_notifier.py        → Telegram bildirim gönderici
-  style_manager.py            → JSON dosya yöneticisi (taslaklar, geçmiş, kişiler)
-  ui_components.py            → Streamlit UI bileşenleri, CSS, sidebar, auth
-  media_finder.py             → Görsel/video arama: X + DuckDuckGo image search
-  tweet_pool.py               → Tweet havuzu: çoklu hesaptan tweet biriktirme, akıllı seçim
+  (ayni backend/modules ile, Streamlit uyumluluk)
+
+# === DIGER ===
+ai_news_twitter_bot/          -> Bagimsiz haber botu (config, fetcher, writer, poster)
+generate_cookies.py           -> Twitter cookie uretici
 ```
 
-### Modüller Arası Bağımlılıklar
+### API Endpointleri
 ```
-Pages → ui_components (CSS, auth, sidebar)
-Pages → content_generator (tweet üretimi)
-Pages → twitter_scanner (konu tarama)
-Pages → deep_research (araştırma)
-Pages → tweet_analyzer (stil analizi)
-Pages → style_manager (dosya I/O)
-twitter_scanner → twikit_client (ücretsiz arama)
-deep_research → DDG + BeautifulSoup (web arama/makale çekme)
-grok_client → OpenAI SDK (xAI base_url ile)
-content_generator → anthropic / openai SDK (+ vision desteği)
-media_finder → twikit_client (X arama) + duckduckgo_search (web görsel)
-tweet_pool → tweet_analyzer (tweet çekme + engagement hesaplama)
-Pages → tweet_pool (havuz yönetimi, akıllı seçim)
+POST /api/auth/login          -> JWT token al
+GET  /api/health              -> Saglik kontrolu
+GET  /api/dashboard/...       -> Dashboard verileri
+POST /api/scanner/scan        -> Konu tarama baslat
+POST /api/generator/generate  -> Tweet uret
+POST /api/publish/tweet       -> Tweet paylas
+GET  /api/settings/...        -> Ayarlar oku/yaz
+GET  /api/analytics/...       -> Analiz verileri
+GET  /api/calendar/...        -> Takvim verileri
+GET  /api/drafts/...          -> Taslak CRUD
 ```
 
-### AI Provider Sıralaması
-MiniMax (öncelikli) → Anthropic Claude → OpenAI GPT. `get_ai_client()` bu sırayla kontrol eder.
+### Moduller Arasi Bagimliliklar
+```
+Frontend (Next.js) -> Backend (FastAPI) via REST API (/api/*)
+Backend API routes -> backend/modules/* (is mantigi)
+backend/modules/_compat.py -> Streamlit session_state yerine gecen adaptorler
 
-### Engagement Score Ağırlıkları (X Algorithm)
-**Tek kaynak: `tweet_analyzer.py` ve `twitter_scanner.py` aynı ağırlıkları kullanır.**
-- RT = 20x, Reply = 13.5x, Like = 1x, Bookmark ≈ 10x
-- `twitter_scanner.py:AITopic.engagement_score` → tarama sıralaması için
-- `tweet_analyzer.py:calculate_engagement_score()` → detaylı analiz için (impressions bonus dahil)
-- `calculate_relevance()` divisor = 1000 (bu ağırlıklarla uyumlu)
+Eski bagimliliklar (Streamlit):
+Pages -> ui_components (CSS, auth, sidebar)
+Pages -> content_generator, twitter_scanner, deep_research, vb.
+```
+
+### AI Provider Siralamasi
+MiniMax (oncelikli) -> Anthropic Claude -> OpenAI GPT. `get_ai_client()` bu sirayla kontrol eder.
+
+### Engagement Score Agirliklari (X Algorithm)
+- RT = 20x, Reply = 13.5x, Like = 1x, Bookmark = 10x
+- `twitter_scanner.py:AITopic.engagement_score` -> tarama siralamasi
+- `tweet_analyzer.py:calculate_engagement_score()` -> detayli analiz
+- `calculate_relevance()` divisor = 1000
 
 ### Arama Motoru: DuckDuckGo
-- `deep_research.py` paralel arama kullanır (ThreadPoolExecutor, 4 worker)
-- Rate limit koruması: 0.3s delay, 0.15s stagger
-- Fallback zinciri: `day → week → month → all-time`
-- Makale çekme: paralel, max 5 makale, 15sn timeout, retry mekanizması
+- `deep_research.py` paralel arama (ThreadPoolExecutor, 4 worker)
+- Rate limit korumasi: 0.3s delay, 0.15s stagger
+- Fallback zinciri: `day -> week -> month -> all-time`
 
 ### Arama Motoru: Grok (xAI)
-- `grok_client.py` xAI Responses API kullanır
-- Server-side tools: `x_search`, `web_search` (ücretsiz)
+- `grok_client.py` xAI Responses API
+- Server-side tools: `x_search`, `web_search` (ucretsiz)
 - Model: `grok-4-1-fast`
-- Cost tracking: session state'te birikir, sidebar'dan sıfırlanabilir
 
 ---
 
-## Önemli Kararlar ve Nedenler
+## Onemli Kararlar ve Nedenler
 
 | Tarih | Karar | Neden |
 |-------|-------|-------|
-| 2026-03-04 | Auto-update varsayılan KAPALI (`ENABLE_AUTO_UPDATE` env) | Her oturumda `git pull` + `pip install` çalışması app lock riski |
-| 2026-03-04 | DuckDuckGo paralel arama (ThreadPoolExecutor) | 9 sıralı arama ~15sn → paralel ~4sn |
-| 2026-03-04 | Engagement weights X algorithm ile uyumlu | Scanner ve Analyzer farklı ağırlık kullanıyordu, tutarsız sıralama |
-| 2026-03-04 | Grok regex non-greedy (`.*?`) | Greedy `.*` birden fazla JSON array'i varsa yanlış parse ediyordu |
-| 2026-03-04 | `_DEFAULT_AI_ACCOUNTS_LOWER` frozenset | Her `calculate_relevance()` çağrısında list comprehension yerine O(1) lookup |
-| 2026-03-04 | Page 6 `x_scanner` → `twitter_scanner` | `x_scanner` modülü hiç yoktu, yarım kalmış refactoring |
-| 2026-03-04 | Görsel arama: varsayılan X, opsiyonel Web | X görselleri daha alakalı, DuckDuckGo ek seçenek |
-| 2026-03-04 | Vision: MiniMax → Claude/OpenAI fallback | MiniMax vision desteklemiyor, görsel analizi için otomatik fallback |
-| 2026-03-04 | media_urls araştırma akışında korunuyor | Daha önce AITopic→ResearchResult dönüşümünde kayboluyordu |
-| 2026-03-05 | sniffio cvar wrapper (`_ensure_sniffio_asyncio`) | httpcore→sniffio `run_coroutine_threadsafe` task'larında async library algılayamıyor → wrapper cvar set eder |
-| 2026-03-05 | Transport hataları re-auth tetiklemiyor | `weak reference`/`async library` hataları auth değil transport sorunu, re-auth aynı hatayı tekrarlıyordu |
+| 2026-03-05 | Next.js + FastAPI mimarisine gecis | Streamlit production icin yetersiz, modern SPA + API mimarisi |
+| 2026-03-05 | JWT auth sistemi | Backend/frontend ayrimi icin token bazli auth |
+| 2026-03-05 | Taslak (draft) sistemi | Tweet'leri kaydetme, duzenleme, sonra paylasma |
+| 2026-03-05 | sniffio cvar wrapper | httpcore background loop'ta async library algilayamiyor |
+| 2026-03-05 | Transport hatalari re-auth tetiklemiyor | weak reference/async library hatalari auth degil transport sorunu |
+| 2026-03-04 | Auto-update varsayilan KAPALI | Her oturumda git pull + pip install app lock riski |
+| 2026-03-04 | DuckDuckGo paralel arama | 9 sirali arama ~15sn -> paralel ~4sn |
+| 2026-03-04 | Engagement weights X algorithm ile uyumlu | Scanner ve Analyzer farkli agirlik kullaniyordu |
+| 2026-03-04 | Gorsel arama: varsayilan X, opsiyonel Web | X gorselleri daha alakali |
+| 2026-03-04 | Vision: MiniMax -> Claude/OpenAI fallback | MiniMax vision desteklemiyor |
 
 ---
 
-## Bilinen Sorunlar / Teknik Borç
+## Bilinen Sorunlar / Teknik Borc
 
 ### Aktif Sorunlar
-- [ ] **Engagement weights 3 yerde tanımlı**: `twitter_scanner.py`, `tweet_analyzer.py`, `content_generator.py` (system prompt). Tek bir `ENGAGEMENT_WEIGHTS` sabiti yapılabilir.
-- [ ] **Kategori tanımları 2 yerde**: `twitter_scanner.py:CATEGORY_KEYWORDS` ve `telegram_notifier.py`. Tek kaynağa taşınabilir.
-- [ ] **Hardcoded config**: Account listesi, API limitleri, timeout'lar ayrı bir `config.py`'ye taşınabilir.
-- [ ] **Test eksikliği**: Hiçbir modülde unit test yok.
-- [ ] **Session state bellek**: Grok cost ve scan sonuçları sınırsız birikebilir (cost reset eklendi ama scan cache'i hâlâ sınırsız).
-- [ ] **content_generator.py** çok büyük (~1700+ satır): bölünebilir.
+- [ ] **Streamlit kodlari hala mevcut**: Eski pages/ ve streamlit_app.py temizlenmedi, bakim gerektiriyor
+- [ ] **Frontend sayfalari eksik olabilir**: Tum Streamlit sayfalari henuz Next.js'e tasinmamis olabilir
+- [ ] **Engagement weights 3 yerde tanimi**: twitter_scanner.py, tweet_analyzer.py, content_generator.py
+- [ ] **Test eksikligi**: Hicbir modulde unit test yok
+- [ ] **content_generator.py** cok buyuk (~1700+ satir): bolunebilir
+- [ ] **Hardcoded config**: Account listesi, API limitleri, timeout'lar ayri config'e tasinabilir
 
-### Çözülmüş Sorunlar (Referans)
-- [x] Page 6 `x_scanner` import hatası (2026-03-04)
-- [x] Auto-update her oturumda çalışması (2026-03-04)
-- [x] Engagement weights tutarsızlığı (2026-03-04)
-- [x] `deep_research.py` article KeyError (2026-03-04)
-- [x] `grok_client.py` greedy regex (2026-03-04)
-- [x] Telegram eksik kategoriler (2026-03-04)
-- [x] `twikit_client.py` datetime parse (2026-03-04)
-- [x] DuckDuckGo paralel arama + sağlamlık (2026-03-04)
-- [x] sniffio AsyncLibraryNotFoundError — background loop'ta httpcore sniffio cvar göremiyordu (2026-03-05)
-- [x] "weak reference to NoneType" — transport hataları gereksiz re-auth tetikliyordu (2026-03-05)
+### Cozulmus Sorunlar
+- [x] Next.js + FastAPI migration (2026-03-05)
+- [x] Auth sistemi (JWT) (2026-03-05)
+- [x] Taslak sistemi (2026-03-05)
+- [x] Scanner ve Analytics API wiring (2026-03-05)
+- [x] sniffio AsyncLibraryNotFoundError (2026-03-05)
+- [x] Transport hata re-auth dongusu (2026-03-05)
+- [x] Page 6 x_scanner import hatasi (2026-03-04)
+- [x] Engagement weights tutarsizligi (2026-03-04)
+- [x] DuckDuckGo paralel arama (2026-03-04)
 
 ---
 
-## Değişiklik Günlüğü
+## Degisiklik Gunlugu
+
+### 2026-03-05 (Next.js + FastAPI Migration)
+- **feat**: `backend/` -- FastAPI backend: main.py, tum API route'lari (auth, dashboard, scanner, generator, publish, settings, analytics, calendar, drafts)
+- **feat**: `backend/modules/` -- Backend modulleri (Streamlit bagimliligini kaldirarak)
+- **feat**: `backend/modules/_compat.py` -- Streamlit session_state uyumluluk katmani
+- **feat**: `frontend/` -- Next.js app: tum sayfalar (tara, yaz, analiz, ayarlar, icerik, takvim, taslaklarim)
+- **feat**: `frontend/src/components/` -- AppShell, Sidebar, ActionCard, ScheduleCard, StatBox
+- **feat**: `frontend/src/lib/api.ts` -- Backend API client
+- **feat**: `frontend/src/lib/auth.tsx` -- JWT auth context
+- **feat**: `backend/api/auth.py` -- JWT login/register + auth middleware
+- **feat**: `backend/api/drafts.py` -- Taslak CRUD API'leri
+- **fix**: Scanner ve Analytics API'leri gercek modul metodlarina baglandi
+- **fix**: Tara ve Analiz sayfalari yeni backend response formatlarina guncellendi
 
 ### 2026-03-05 (Async Transport Fix)
-- **fix**: `twikit_client.py` — sniffio `AsyncLibraryNotFoundError` düzeltildi: `_ensure_sniffio_asyncio()` wrapper ile background loop task'larında sniffio cvar set ediliyor
-- **fix**: `twikit_client.py` — Transport hataları (weak reference, async library) artık re-auth tetiklemiyor; gereksiz login döngüsü önlendi
-- **docs**: `CLAUDE.md` — Yeni kararlar ve çözülmüş sorunlar eklendi
+- **fix**: `twikit_client.py` -- sniffio AsyncLibraryNotFoundError duzeltildi
+- **fix**: `twikit_client.py` -- Transport hatalari artik re-auth tetiklemiyor
 
-### 2026-03-04 (Tweet Havuzu Sistemi)
-- **feat**: `tweet_pool.py` — Yeni modül: çoklu hesaptan tweet biriktirme, engagement filtresi, akıllı seçim
-- **feat**: Akıllı seçim: konuya uygun 50 örnek + rastgele karışım (her seferinde farklı kombinasyon)
-- **feat**: `pages/3_⚙️_Ayarlar.py` — Tweet Havuzu tab'ı: hesap listesi, engagement eşiği, toplu çekme, istatistikler
-- **feat**: `build_training_context()` — topic parametresi, havuz entegrasyonu (havuz varsa havuzdan, yoksa fallback)
-- **feat**: `content_generator.py` — max_training_chars 10K → 25K (50 tweet desteği)
+### 2026-03-04 (Tweet Havuzu + Gorsel + Takvim)
+- **feat**: Tweet havuzu sistemi, gorsel arama, vision destegi, posting takvimi
+- **feat**: DuckDuckGo paralel arama, Grok cost reset
+- **fix**: Cesitli bug fix'ler (engagement weights, import hatalari, regex, vb.)
 
-### 2026-03-04
-- **feat**: DuckDuckGo paralel arama (ThreadPoolExecutor) — web, haber, makale çekme paralel
-- **feat**: Arama fallback zinciri (day→week→month), retry mekanizması, rate limit koruması
-- **feat**: Grok cost reset butonu (sidebar)
-- **fix**: Page 6 kırık import (`x_scanner` → `twitter_scanner`)
-- **fix**: Auto-update opt-in yapıldı (`ENABLE_AUTO_UPDATE` env)
-- **fix**: Engagement weights X algorithm ile uyumlandı (tüm modüller)
-- **fix**: `deep_research.py` article KeyError
-- **fix**: `grok_client.py` greedy regex
-- **fix**: Telegram kategori map eksikleri
-- **fix**: `twikit_client.py` datetime ISO format fallback
-- **fix**: `style_manager.py` import düzeni
-- **chore**: `requirements.txt` — `lxml` eklendi
+---
 
-### 2026-03-04 (Görsel Arama + Görsel Anlama)
-- **feat**: `media_finder.py` — Yeni modül: X ve DuckDuckGo'dan konu ile ilgili görsel/video arama
-- **feat**: `content_generator.py` — Vision (görsel anlama) desteği: Claude ve OpenAI ile görsel analizi
-- **feat**: `deep_research.py` — Araştırma sonuçlarında media_urls korunuyor (ResearchResult, TopicResearchResult)
-- **feat**: `ui_components.py` — Medya öneri grid'i, görsel analiz gösterimi, kaynak seçici
-- **feat**: `pages/2_✍️_Yaz.py` — Tweet üretildikten sonra "Görsel/Video Bul" bölümü
-- **feat**: `pages/6_💡_İçerik.py` — İçerik üretildikten sonra "Görsel/Video Bul" bölümü (her iki tab)
-- **feat**: `ui_components.py:render_tweet_card` — Tweet kartında medya göstergesi (🖼️ badge)
+## Calistirma
 
-### 2026-03-04 (Posting Takvimi)
-- **feat**: `pages/7_📅_Takvim.py` — Günlük 4 post takvimi (hafta içi/sonu ayrı saatler)
-- **feat**: Geri sayım sayacı, slot durumu (paylaşıldı/bekliyor/ŞİMDİ)
-- **feat**: Post kayıt sistemi (tür, medya, self-reply, URL, içerik)
-- **feat**: Günlük algoritma checklist (6 madde, kalıcı kayıt)
-- **feat**: Haftalık özet (post sayısı, medya oranı, self-reply oranı, tür dağılımı)
-- **feat**: `style_manager.py` — `load_posting_log()`, `save_posting_log()`, `log_scheduled_post()`, `load_daily_checklist()`, `save_daily_checklist()`
-- **feat**: `streamlit_app.py` — Ana sayfada "Bugünkü Plan" özet kartı + geri sayım
+### Backend (FastAPI)
+```bash
+cd backend
+uvicorn backend.main:app --reload --port 8000
+```
+
+### Frontend (Next.js)
+```bash
+cd frontend
+npm install
+npm run dev
+# http://localhost:3000
+```
+
+### Eski Streamlit (deprecating)
+```bash
+streamlit run streamlit_app.py
+```
+
+### Windows PowerShell Notu
+PowerShell'de `&&` calismaz. Komutlari ayri satirlarda calistirin:
+```powershell
+cd frontend
+npm install
+npm run dev
+```

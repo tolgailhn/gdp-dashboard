@@ -30,11 +30,35 @@ export function getDashboardStats() {
 }
 
 // Scanner
-export function scanTopics(timeRange: string, category: string) {
+export function scanTopics(params: {
+  time_range: string;
+  category?: string;
+  max_results?: number;
+  custom_query?: string;
+  min_likes?: number;
+  min_retweets?: number;
+  min_followers?: number;
+  engine?: string;
+}) {
   return apiFetch("/api/scanner/scan", {
     method: "POST",
-    body: JSON.stringify({ time_range: timeRange, category }),
+    body: JSON.stringify(params),
   });
+}
+
+export function discoverTopics(params: {
+  time_range: string;
+  max_results?: number;
+  engine?: string;
+}) {
+  return apiFetch("/api/scanner/discover", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+
+export function getCategories() {
+  return apiFetch("/api/scanner/categories");
 }
 
 // Generator

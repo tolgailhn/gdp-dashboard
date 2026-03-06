@@ -68,6 +68,8 @@ export function generateTweet(params: {
   length?: string;
   thread?: boolean;
   research_context?: string;
+  content_format?: string;
+  quote_url?: string;
 }) {
   return apiFetch("/api/generator/tweet", {
     method: "POST",
@@ -76,11 +78,45 @@ export function generateTweet(params: {
 }
 
 // Research
-export function researchTopic(topic: string, depth: string = "normal") {
+export function researchTopic(params: {
+  topic: string;
+  depth?: string;
+  engine?: string;
+  agentic?: boolean;
+}) {
   return apiFetch("/api/generator/research", {
     method: "POST",
-    body: JSON.stringify({ topic, depth }),
+    body: JSON.stringify(params),
   });
+}
+
+// Score
+export function scoreTweet(text: string) {
+  return apiFetch("/api/generator/score", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}
+
+// Media Finder
+export function findMedia(topic: string, source: string = "x") {
+  return apiFetch("/api/generator/find-media", {
+    method: "POST",
+    body: JSON.stringify({ topic, source }),
+  });
+}
+
+// Fact Check
+export function factCheck(text: string, topic: string = "") {
+  return apiFetch("/api/generator/fact-check", {
+    method: "POST",
+    body: JSON.stringify({ text, topic }),
+  });
+}
+
+// Styles & Formats
+export function getStyles() {
+  return apiFetch("/api/generator/styles");
 }
 
 // Publish

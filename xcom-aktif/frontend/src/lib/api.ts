@@ -106,7 +106,8 @@ export function getTodaySchedule() {
   return apiFetch("/api/calendar/today");
 }
 
-// Settings
+// ── Settings ───────────────────────────────────────────
+
 export function getAPIStatus() {
   return apiFetch("/api/settings/status");
 }
@@ -116,4 +117,112 @@ export function updateAPIKey(key: string, value: string) {
     method: "POST",
     body: JSON.stringify({ key, value }),
   });
+}
+
+// Connection Tests
+export function testTwitter() {
+  return apiFetch("/api/settings/test-twitter", { method: "POST" });
+}
+
+export function testAI() {
+  return apiFetch("/api/settings/test-ai", { method: "POST" });
+}
+
+export function testGrok() {
+  return apiFetch("/api/settings/test-grok", { method: "POST" });
+}
+
+export function testTelegram() {
+  return apiFetch("/api/settings/test-telegram", { method: "POST" });
+}
+
+export function testTwikit() {
+  return apiFetch("/api/settings/test-twikit", { method: "POST" });
+}
+
+// Twikit / Cookies
+export function getTwikitStatus() {
+  return apiFetch("/api/settings/twikit-status");
+}
+
+export function saveTwikitCookies(auth_token: string, ct0: string) {
+  return apiFetch("/api/settings/twikit-cookies", {
+    method: "POST",
+    body: JSON.stringify({ auth_token, ct0 }),
+  });
+}
+
+export function deleteTwikitCookies() {
+  return apiFetch("/api/settings/twikit-cookies", { method: "DELETE" });
+}
+
+// X Account Info
+export function getAccountInfo() {
+  return apiFetch("/api/settings/account-info");
+}
+
+// Monitored Accounts
+export function getMonitoredAccounts() {
+  return apiFetch("/api/settings/monitored-accounts");
+}
+
+export function addMonitoredAccount(username: string) {
+  return apiFetch("/api/settings/monitored-accounts", {
+    method: "POST",
+    body: JSON.stringify({ username }),
+  });
+}
+
+export function removeMonitoredAccount(username: string) {
+  return apiFetch(`/api/settings/monitored-accounts/${encodeURIComponent(username)}`, {
+    method: "DELETE",
+  });
+}
+
+// User Samples (Writing Style)
+export function getUserSamples() {
+  return apiFetch("/api/settings/user-samples");
+}
+
+export function addUserSample(text: string) {
+  return apiFetch("/api/settings/user-samples", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}
+
+export function addBulkSamples(texts: string[]) {
+  return apiFetch("/api/settings/user-samples/bulk", {
+    method: "POST",
+    body: JSON.stringify({ texts }),
+  });
+}
+
+export function deleteUserSample(index: number) {
+  return apiFetch(`/api/settings/user-samples/${index}`, { method: "DELETE" });
+}
+
+// Persona
+export function getPersona() {
+  return apiFetch("/api/settings/persona");
+}
+
+export function savePersona(persona: string) {
+  return apiFetch("/api/settings/persona", {
+    method: "POST",
+    body: JSON.stringify({ persona }),
+  });
+}
+
+export function analyzeStyle() {
+  return apiFetch("/api/settings/analyze-style", { method: "POST" });
+}
+
+// Post History
+export function getPostHistory() {
+  return apiFetch("/api/settings/post-history");
+}
+
+export function clearPostHistory() {
+  return apiFetch("/api/settings/post-history", { method: "DELETE" });
 }

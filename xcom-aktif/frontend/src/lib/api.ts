@@ -276,6 +276,39 @@ export function getTodaySchedule() {
   return apiFetch("/api/calendar/today");
 }
 
+export function logPost(params: {
+  slot_time: string;
+  post_type?: string;
+  has_media?: boolean;
+  has_self_reply?: boolean;
+  url?: string;
+  content?: string;
+}) {
+  return apiFetch("/api/calendar/log", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+
+export function getChecklist(date: string) {
+  return apiFetch(`/api/calendar/checklist/${encodeURIComponent(date)}`);
+}
+
+export function updateChecklist(date: string, items: Record<string, boolean>) {
+  return apiFetch("/api/calendar/checklist", {
+    method: "POST",
+    body: JSON.stringify({ date, items }),
+  });
+}
+
+export function getWeeklySummary() {
+  return apiFetch("/api/calendar/weekly-summary");
+}
+
+export function getPostHistory(limit: number = 30) {
+  return apiFetch(`/api/calendar/history?limit=${limit}`);
+}
+
 // ── Settings ───────────────────────────────────────────
 
 export function getAPIStatus() {
